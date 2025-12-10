@@ -226,7 +226,7 @@ export class CoachService {
       equipment_focus: string[];
       injury_specializations: string[];
       max_clients: number;
-      calendly_event_uri: string;
+      calendly_event_uri: string | null;
     }>
   ): Promise<CoachProfile | null> {
     const { data, error } = await supabase

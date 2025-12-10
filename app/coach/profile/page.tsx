@@ -175,7 +175,7 @@ export default function CoachProfilePage() {
         specializations: formData.specializations,
         is_available: formData.is_available,
         max_clients: formData.max_clients,
-        calendly_event_uri: formData.calendly_event_uri || null,
+        calendly_event_uri: formData.calendly_event_uri || undefined,
       })
 
       if (updated) {
