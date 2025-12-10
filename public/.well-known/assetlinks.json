@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.jaydholakia.movewithmoai",
+      "sha256_cert_fingerprints": [
+        "C9:DE:78:20:D7:2D:6F:67:2C:DD:7F:88:A0:23:9F:6A:DB:73:68:CB:3A:BD:81:AB:8B:C0:F5:56:EB:C8:AD:55"
+      ]
+    }
+  }
+]
