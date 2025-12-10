@@ -127,14 +127,18 @@ export class ChatService {
 
   /**
    * Mark messages as read
+   * Uses RPC function to bypass RLS policies that prevent coaches from updating user messages
    */
   static async markMessagesAsRead(sessionId: string, coachId: string): Promise<void> {
-    await supabase
-      .from('coach_chat_messages')
-      .update({ is_read: true })
-      .eq('session_id', sessionId)
-      .eq('sender_type', 'user')
-      .eq('is_read', false)
+    const { error } = await supabase.rpc('mark_coach_chat_messages_read', {
+      p_session_id: sessionId,
+      p_coach_id: coachId,
+    })
+
+    if (error) {
+      console.error('Error marking messages as read:', error)
+      // Don't throw - allow the UI to continue even if marking as read fails
+    }
   }
 
   /**

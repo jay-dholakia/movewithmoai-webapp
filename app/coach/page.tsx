@@ -100,8 +100,12 @@ export default function CoachDashboard() {
 
       switch (sortField) {
         case 'name':
-          aValue = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email
-          bValue = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.email
+          aValue = a.first_name && a.last_name
+            ? `${a.first_name} ${a.last_name[0]}.`
+            : a.first_name || a.username || ''
+          bValue = b.first_name && b.last_name
+            ? `${b.first_name} ${b.last_name[0]}.`
+            : b.first_name || b.username || ''
           break
         case 'current_week':
           aValue = a.current_week_completion_rate
@@ -406,17 +410,19 @@ export default function CoachDashboard() {
                               />
                             ) : (
                               <span className="text-gray-600 font-medium">
-                                {(client.first_name?.[0] || client.email[0]).toUpperCase()}
+                                {(client.first_name?.[0] || client.username?.[0] || 'C').toUpperCase()}
                               </span>
                             )}
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
                               {client.first_name && client.last_name
-                                ? `${client.first_name} ${client.last_name}`
-                                : client.username || client.email}
+                                ? `${client.first_name} ${client.last_name[0]}.`
+                                : client.first_name || client.username || 'Client'}
                             </div>
-                            <div className="text-sm text-gray-500">{client.email}</div>
+                            {client.username && (
+                              <div className="text-sm text-gray-500">@{client.username}</div>
+                            )}
                           </div>
                         </div>
                       </td>

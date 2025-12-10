@@ -18,10 +18,12 @@ export class CoachService {
   static async getClients(coachId: string): Promise<ClientMetrics[]> {
     try {
       // Query the view directly (RLS should allow coaches to see their clients)
+      // Only show clients with active subscriptions who are assigned to this coach
       const { data, error } = await supabase
         .from("coach_client_metrics")
         .select("*")
         .eq("coach_id", coachId)
+        .eq("subscription_status", "active")
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .order("user_created_at", { ascending: false });
 
@@ -299,6 +301,7 @@ export class CoachService {
       .select("*")
       .eq("user_id", userId)
       .eq("coach_id", coachId)
+      .eq("subscription_status", "active")
       .single();
 
     if (error) {

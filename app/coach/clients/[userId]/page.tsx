@@ -31,6 +31,18 @@ export default function ClientDetailPage() {
     loadClientData()
   }, [userId])
 
+  // Refresh metrics when chat tab is opened
+  useEffect(() => {
+    if (activeTab === 'chat' && coachId && clientMetrics) {
+      // Refresh metrics to update unread count
+      CoachService.getClientMetrics(userId, coachId).then((metrics) => {
+        if (metrics) {
+          setClientMetrics(metrics)
+        }
+      })
+    }
+  }, [activeTab, coachId, userId])
+
   const loadClientData = async () => {
     try {
       const {
@@ -109,8 +121,8 @@ export default function ClientDetailPage() {
   }
 
   const clientName = userProfile.first_name && userProfile.last_name
-    ? `${userProfile.first_name} ${userProfile.last_name}`
-    : userProfile.username || userProfile.email
+    ? `${userProfile.first_name} ${userProfile.last_name[0]}.`
+    : userProfile.first_name || userProfile.username || 'Client'
 
   const calculateAge = (birthdate: string | null) => {
     if (!birthdate) return null
@@ -139,7 +151,9 @@ export default function ClientDetailPage() {
               </Link>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{clientName}</h1>
-                <p className="text-sm text-gray-600 mt-1">{userProfile.email}</p>
+                {userProfile.username && (
+                  <p className="text-sm text-gray-600 mt-1">@{userProfile.username}</p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -174,7 +188,7 @@ export default function ClientDetailPage() {
                     />
                   ) : (
                     <span className="text-4xl text-gray-600 font-medium">
-                      {(userProfile.first_name?.[0] || userProfile.email[0]).toUpperCase()}
+                      {(userProfile.first_name?.[0] || userProfile.username?.[0] || 'C').toUpperCase()}
                     </span>
                   )}
                 </div>
@@ -183,9 +197,8 @@ export default function ClientDetailPage() {
               {/* Name and Basic Info */}
               <div className="text-center mb-6">
                 <h2 className="text-xl font-bold text-gray-900">{clientName}</h2>
-                <p className="text-sm text-gray-500 mt-1">{userProfile.email}</p>
                 {userProfile.username && (
-                  <p className="text-sm text-gray-500">@{userProfile.username}</p>
+                  <p className="text-sm text-gray-500 mt-1">@{userProfile.username}</p>
                 )}
               </div>
 
@@ -622,7 +635,16 @@ export default function ClientDetailPage() {
             )}
 
             {activeTab === 'chat' && coachId && (
-              <ChatInterface userId={userId} coachId={coachId} />
+              <ChatInterface 
+                userId={userId} 
+                coachId={coachId}
+                onMessagesRead={() => {
+                  // Refresh client metrics after marking messages as read
+                  if (coachId) {
+                    CoachService.getClientMetrics(userId, coachId).then(setClientMetrics)
+                  }
+                }}
+              />
             )}
           </div>
         </div>
@@ -632,7 +654,15 @@ export default function ClientDetailPage() {
 }
 
 // Chat Interface Component
-function ChatInterface({ userId, coachId }: { userId: string; coachId: string }) {
+function ChatInterface({ 
+  userId, 
+  coachId,
+  onMessagesRead 
+}: { 
+  userId: string
+  coachId: string
+  onMessagesRead?: () => void
+}) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [session, setSession] = useState<ChatSession | null>(null)
   const [inputText, setInputText] = useState('')
@@ -654,13 +684,22 @@ function ChatInterface({ userId, coachId }: { userId: string; coachId: string })
 
       // Mark messages as read
       await ChatService.markMessagesAsRead(chatSession.id, coachId)
+      
+      // Refresh metrics after marking as read
+      if (onMessagesRead) {
+        onMessagesRead()
+      }
 
       // Subscribe to new messages
       const unsubscribe = ChatService.subscribeToMessages(chatSession.id, (newMessage) => {
         setMessages((prev) => [...prev, newMessage])
         // Auto-mark as read if it's from user
         if (newMessage.sender_type === 'user') {
-          ChatService.markMessagesAsRead(chatSession.id, coachId)
+          ChatService.markMessagesAsRead(chatSession.id, coachId).then(() => {
+            if (onMessagesRead) {
+              onMessagesRead()
+            }
+          })
         }
       })
 
