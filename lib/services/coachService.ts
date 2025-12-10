@@ -206,6 +206,88 @@ export class CoachService {
   }
 
   /**
+   * Update coach profile
+   */
+  static async updateCoachProfile(
+    coachId: string,
+    updates: Partial<{
+      name: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+      bio: string;
+      specializations: string[];
+      profile_image_url: string;
+      is_available: boolean;
+      target_demographic: string;
+      age_range_min: number;
+      age_range_max: number;
+      fitness_goals: string[];
+      equipment_focus: string[];
+      injury_specializations: string[];
+      max_clients: number;
+      calendly_event_uri: string;
+    }>
+  ): Promise<CoachProfile | null> {
+    const { data, error } = await supabase
+      .from("coaches")
+      .update(updates)
+      .eq("id", coachId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating coach profile:", error);
+      return null;
+    }
+
+    return data;
+  }
+
+  /**
+   * Upload profile image to Supabase Storage
+   * Note: The 'coach-profiles' bucket must exist in Supabase Storage
+   * and be configured as public for this to work.
+   */
+  static async uploadProfileImage(
+    coachId: string,
+    file: File
+  ): Promise<string | null> {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${coachId}/${Date.now()}.${fileExt}`;
+      const filePath = fileName;
+
+      // Upload file to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('coach-profiles')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true, // Allow overwriting existing files
+        });
+
+      if (error) {
+        console.error("Error uploading image:", error);
+        // If bucket doesn't exist, provide helpful error
+        if (error.message?.includes('Bucket not found')) {
+          throw new Error('Storage bucket "coach-profiles" not found. Please create it in Supabase Storage settings.');
+        }
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('coach-profiles')
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
+    } catch (err) {
+      console.error("Exception uploading image:", err);
+      throw err; // Re-throw to allow UI to show error message
+    }
+  }
+
+  /**
    * Get a single client's metrics
    */
   static async getClientMetrics(

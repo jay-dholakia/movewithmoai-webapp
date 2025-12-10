@@ -43,6 +43,7 @@ export class ChatService {
     }
 
     // Create session if it doesn't exist using security definer function
+    // This bypasses RLS policies to allow coaches to create sessions for their clients
     if (!data) {
       const { data: newSessionArray, error: createError } = await supabase
         .rpc('create_coach_chat_session', {
@@ -55,7 +56,7 @@ export class ChatService {
         return null
       }
 
-      // RPC returns an array, get the first element
+      // RPC returns a set, get the first element
       const newSession = Array.isArray(newSessionArray) ? newSessionArray[0] : newSessionArray
       if (!newSession) {
         console.error('No session returned from create_coach_chat_session')
