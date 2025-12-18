@@ -670,48 +670,66 @@ function ChatInterface({
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
-    loadChat()
-  }, [userId, coachId])
+    let unsubscribe: (() => void) | null = null
 
-  const loadChat = async () => {
-    try {
-      const chatSession = await ChatService.getChatSession(userId, coachId)
-      if (!chatSession) return
-
-      setSession(chatSession)
-      const chatMessages = await ChatService.getMessages(chatSession.id)
-      setMessages(chatMessages)
-
-      // Mark messages as read
-      await ChatService.markMessagesAsRead(chatSession.id, coachId)
-      
-      // Refresh metrics after marking as read
-      if (onMessagesRead) {
-        onMessagesRead()
-      }
-
-      // Subscribe to new messages
-      const unsubscribe = ChatService.subscribeToMessages(chatSession.id, (newMessage) => {
-        setMessages((prev) => [...prev, newMessage])
-        // Auto-mark as read if it's from user
-        if (newMessage.sender_type === 'user') {
-          ChatService.markMessagesAsRead(chatSession.id, coachId).then(() => {
-            if (onMessagesRead) {
-              onMessagesRead()
-            }
-          })
+    const loadChat = async () => {
+      try {
+        setLoading(true)
+        const chatSession = await ChatService.getChatSession(userId, coachId)
+        if (!chatSession) {
+          setLoading(false)
+          return
         }
-      })
 
-      return () => {
+        setSession(chatSession)
+        const chatMessages = await ChatService.getMessages(chatSession.id)
+        setMessages(chatMessages)
+
+        // Mark messages as read
+        await ChatService.markMessagesAsRead(chatSession.id, coachId)
+        
+        // Refresh metrics after marking as read
+        if (onMessagesRead) {
+          onMessagesRead()
+        }
+
+        // Subscribe to new messages in real-time
+        console.log('Setting up real-time subscription for coach chat:', chatSession.id)
+        unsubscribe = ChatService.subscribeToMessages(chatSession.id, (newMessage) => {
+          console.log('New message received in coach chat:', newMessage)
+          setMessages((prev) => {
+            // Check if message already exists (avoid duplicates)
+            if (prev.some(m => m.id === newMessage.id)) {
+              return prev
+            }
+            return [...prev, newMessage]
+          })
+          // Auto-mark as read if it's from user
+          if (newMessage.sender_type === 'user') {
+            ChatService.markMessagesAsRead(chatSession.id, coachId).then(() => {
+              if (onMessagesRead) {
+                onMessagesRead()
+              }
+            })
+          }
+        })
+      } catch (error) {
+        console.error('Error loading chat:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadChat()
+
+    // Cleanup: unsubscribe when component unmounts or dependencies change
+    return () => {
+      if (unsubscribe) {
+        console.log('Unsubscribing from coach chat messages')
         unsubscribe()
       }
-    } catch (error) {
-      console.error('Error loading chat:', error)
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [userId, coachId])
 
   const handleSend = async () => {
     if (!inputText.trim() || !session || sending) return

@@ -143,3 +143,60 @@ export interface PersonalBest {
   workout_session_id: string
 }
 
+export interface MoaiMetrics {
+  moai_id: string
+  moai_name: string
+  status: 'forming' | 'active' | 'inactive'
+  member_count: number
+  coach_subscription_started_at: string
+  last_message_at: string | null
+  unread_messages_count: number
+  current_week_commitment: number
+  current_week_completed: number
+  current_week_completion_rate: number
+  overall_completion_rate: number
+  total_workouts: number
+  created_at: string
+  activated_at: string | null
+}
+
+export interface MoaiMemberMetrics {
+  user_id: string
+  email: string
+  username: string | null
+  first_name: string | null
+  last_name: string | null
+  profile_picture_url: string | null
+  joined_at: string
+  current_week_commitment: number
+  current_week_completed: number
+  current_week_completion_rate: number
+  overall_completion_rate: number
+  total_workouts: number
+  total_commitment_weeks: number
+}
+
+export interface MoaiDetail {
+  id: string
+  name: string
+  status: 'forming' | 'active' | 'inactive'
+  created_at: string
+  activated_at: string | null
+  member_count: number
+  coach_subscription_started_at: string
+  members: MoaiMemberMetrics[]
+  moai_commitment_history: Array<{
+    week_start: string
+    total_commitment: number
+    total_completed: number
+    completion_rate: number
+    member_count: number
+  }>
+  moai_workout_stats: {
+    total_workouts: number
+    completed_workouts: number
+    average_completion_rate: number
+  }
+  weeks_active: number
+}
+

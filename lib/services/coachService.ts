@@ -9,6 +9,9 @@ import type {
   WorkoutPlan,
   PersonalBest,
   WorkoutInPlan,
+  MoaiMetrics,
+  MoaiDetail,
+  MoaiMemberMetrics,
 } from "../types/coach";
 
 export class CoachService {
@@ -653,6 +656,482 @@ export class CoachService {
     } catch (err) {
       console.error("Exception in getUserPersonalBests:", err);
       return [];
+    }
+  }
+
+  /**
+   * Get all Moais that a coach is subscribed to
+   */
+  static async getMoais(coachId: string): Promise<MoaiMetrics[]> {
+    try {
+      // Get all active Moai coach subscriptions for this coach using RPC function (bypasses RLS)
+      const { data: subscriptions, error: subsError } = await supabase.rpc(
+        "get_coach_moai_subscriptions",
+        { p_coach_id: coachId }
+      );
+
+      if (subsError) {
+        console.error("Error fetching Moai subscriptions:", subsError);
+        return [];
+      }
+
+      if (!subscriptions || subscriptions.length === 0) {
+        return [];
+      }
+
+      const moaiIds = subscriptions.map((s: any) => s.moai_id);
+      const subscriptionMap = new Map(
+        subscriptions.map((s: any) => [s.moai_id, s.started_at])
+      );
+
+      // Get circle details
+      const { data: circles, error: circlesError } = await supabase
+        .from("circles")
+        .select("id, name, status, created_at, activated_at")
+        .in("id", moaiIds);
+
+      if (circlesError) {
+        console.error("Error fetching circles:", circlesError);
+        return [];
+      }
+
+      // Get member counts
+      const { data: members, error: membersError } = await supabase
+        .from("circle_members")
+        .select("circle_id, status")
+        .in("circle_id", moaiIds)
+        .eq("status", "active");
+
+      if (membersError) {
+        console.error("Error fetching members:", membersError);
+      }
+
+      const memberCounts = new Map<string, number>();
+      members?.forEach((m) => {
+        memberCounts.set(m.circle_id, (memberCounts.get(m.circle_id) || 0) + 1);
+      });
+
+      // Get chat info (last message, unread count)
+      const { data: chats, error: chatsError } = await supabase
+        .from("moai_chats")
+        .select("id, circle_id, last_message_at")
+        .in("circle_id", moaiIds);
+
+      if (chatsError) {
+        console.error("Error fetching chats:", chatsError);
+      }
+
+      const chatMap = new Map<string, { id: string; last_message_at: string | null }>();
+      chats?.forEach((c) => {
+        chatMap.set(c.circle_id, { id: c.id, last_message_at: c.last_message_at });
+      });
+
+      // Get unread message counts for coach (messages from when coach was added)
+      const moaiMetrics: MoaiMetrics[] = [];
+
+      for (const circle of circles || []) {
+        const subscriptionStart = subscriptionMap.get(circle.id);
+        const chat = chatMap.get(circle.id);
+        const memberCount = memberCounts.get(circle.id) || 0;
+
+        // Get unread messages count (messages after subscription start, not from coach)
+        let unreadCount = 0;
+        if (chat && subscriptionStart) {
+          const { count } = await supabase
+            .from("moai_chat_messages")
+            .select("id", { count: "exact", head: true })
+            .eq("moai_chat_id", chat.id)
+            .eq("is_deleted", false)
+            .eq("is_coach", false) // Only count member messages
+            .gte("timestamp", subscriptionStart);
+
+          unreadCount = count || 0;
+        }
+
+        // Get current week commitment stats for the Moai
+        // Note: week_start in database is stored as Monday (not Sunday)
+        const currentWeekStart = new Date();
+        const dayOfWeek = currentWeekStart.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        // Calculate Monday of current week: if Sunday (0), go back 6 days; otherwise go back (dayOfWeek - 1) days
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday);
+        const currentWeekStartStr = currentWeekStart.toISOString().split("T")[0];
+
+        // Get all active members
+        const { data: activeMembers } = await supabase
+          .from("circle_members")
+          .select("user_id, joined_at")
+          .eq("circle_id", circle.id)
+          .eq("status", "active");
+
+        const memberUserIds = activeMembers?.map((m) => m.user_id) || [];
+        const memberJoinDates = new Map(
+          activeMembers?.map((m) => [m.user_id, m.joined_at]) || []
+        );
+
+        // Get current week commitments for all members using RPC function (bypasses RLS)
+        let currentWeekCommitment = 0;
+        let currentWeekCompleted = 0;
+        if (memberUserIds.length > 0) {
+          const { data: commitments } = await supabase.rpc(
+            "get_moai_members_weekly_commitments",
+            {
+              p_user_ids: memberUserIds,
+              p_week_start: currentWeekStartStr,
+            }
+          );
+
+          commitments?.forEach((c: any) => {
+            const memberJoinedAt = memberJoinDates.get(c.user_id);
+            if (memberJoinedAt && new Date(currentWeekStartStr) >= new Date(memberJoinedAt)) {
+              currentWeekCommitment += c.commitment_count || 0;
+              currentWeekCompleted += c.completed_sessions || 0;
+            }
+          });
+        }
+
+        // Get overall stats using RPC function (bypasses RLS) - show ALL historical data
+        let overallCommitment = 0;
+        let overallCompleted = 0;
+        if (memberUserIds.length > 0) {
+          const { data: allCommitments } = await supabase.rpc(
+            "get_moai_members_weekly_commitments",
+            {
+              p_user_ids: memberUserIds,
+              p_week_start: null, // Get all weeks
+            }
+          );
+
+          allCommitments?.forEach((c: any) => {
+            const memberJoinedAt = memberJoinDates.get(c.user_id);
+            // Only filter by member join date, not coach subscription
+            if (
+              memberJoinedAt &&
+              new Date(c.week_start) >= new Date(memberJoinedAt)
+            ) {
+              overallCommitment += c.commitment_count || 0;
+              overallCompleted += c.completed_sessions || 0;
+            }
+          });
+        }
+
+        // Get total workouts - show ALL historical data
+        let totalWorkouts = 0;
+        if (memberUserIds.length > 0) {
+          const { count } = await supabase
+            .from("workout_sessions")
+            .select("id", { count: "exact", head: true })
+            .in("user_id", memberUserIds)
+            .eq("status", "completed");
+
+          totalWorkouts = count || 0;
+        }
+
+        const currentWeekRate =
+          currentWeekCommitment > 0
+            ? (currentWeekCompleted / currentWeekCommitment) * 100
+            : 0;
+        const overallRate =
+          overallCommitment > 0 ? (overallCompleted / overallCommitment) * 100 : 0;
+
+        moaiMetrics.push({
+          moai_id: circle.id,
+          moai_name: circle.name,
+          status: circle.status as "forming" | "active" | "inactive",
+          member_count: memberCount,
+          coach_subscription_started_at: subscriptionStart || circle.created_at,
+          last_message_at: chat?.last_message_at || null,
+          unread_messages_count: unreadCount,
+          current_week_commitment: currentWeekCommitment,
+          current_week_completed: currentWeekCompleted,
+          current_week_completion_rate: currentWeekRate,
+          overall_completion_rate: overallRate,
+          total_workouts: totalWorkouts,
+          created_at: circle.created_at,
+          activated_at: circle.activated_at,
+        });
+      }
+
+      // Sort by last message or created date
+      return moaiMetrics.sort((a, b) => {
+        if (a.last_message_at && b.last_message_at) {
+          return (
+            new Date(b.last_message_at).getTime() -
+            new Date(a.last_message_at).getTime()
+          );
+        }
+        if (a.last_message_at) return -1;
+        if (b.last_message_at) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+    } catch (err) {
+      console.error("Exception in getMoais:", err);
+      return [];
+    }
+  }
+
+  /**
+   * Get detailed Moai information for a coach
+   */
+  static async getMoaiDetail(
+    moaiId: string,
+    coachId: string
+  ): Promise<MoaiDetail | null> {
+    try {
+      // Verify coach has access to this Moai using RPC function (bypasses RLS)
+      const { data: subscriptions, error: subError } = await supabase.rpc(
+        "get_coach_moai_subscriptions",
+        { p_coach_id: coachId }
+      );
+
+      const subscription = subscriptions?.find((s: any) => s.moai_id === moaiId);
+
+      if (subError || !subscription) {
+        console.error("Coach does not have access to this Moai:", subError);
+        return null;
+      }
+
+      const subscriptionStart = subscription.started_at;
+
+      // Get circle details
+      const { data: circle, error: circleError } = await supabase
+        .from("circles")
+        .select("*")
+        .eq("id", moaiId)
+        .single();
+
+      if (circleError || !circle) {
+        console.error("Error fetching circle:", circleError);
+        return null;
+      }
+
+      // Get active members
+      const { data: members, error: membersError } = await supabase
+        .from("circle_members")
+        .select("user_id, joined_at, status")
+        .eq("circle_id", moaiId)
+        .eq("status", "active");
+
+      if (membersError) {
+        console.error("Error fetching members:", membersError);
+        return null;
+      }
+
+      const memberUserIds = members?.map((m) => m.user_id) || [];
+      const memberJoinDates = new Map(
+        members?.map((m) => [m.user_id, m.joined_at]) || []
+      );
+
+      // Get member details with metrics
+      const memberDetails: MoaiMemberMetrics[] = await Promise.all(
+        (members || []).map(async (member) => {
+          const { data: user } = await supabase
+            .from("users")
+            .select("email, username, first_name, last_name, profile_picture_url")
+            .eq("id", member.user_id)
+            .single();
+
+          // Get current week stats using RPC function (bypasses RLS)
+          // Note: week_start in database is stored as Monday (not Sunday)
+          const currentWeekStart = new Date();
+          const dayOfWeek = currentWeekStart.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          // Calculate Monday of current week: if Sunday (0), go back 6 days; otherwise go back (dayOfWeek - 1) days
+          const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+          currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday);
+          const currentWeekStartStr = currentWeekStart.toISOString().split("T")[0];
+
+          const { data: currentWeekData, error: currentWeekError } = await supabase.rpc(
+            "get_moai_member_weekly_commitments",
+            {
+              p_user_id: member.user_id,
+              p_week_start: currentWeekStartStr,
+            }
+          );
+          
+          if (currentWeekError) {
+            console.error(`Error fetching current week for user ${member.user_id}:`, currentWeekError);
+          }
+          
+          console.log(`Current week data for ${member.user_id}:`, {
+            currentWeekStartStr,
+            currentWeekData,
+            isArray: Array.isArray(currentWeekData),
+            length: Array.isArray(currentWeekData) ? currentWeekData.length : 0,
+          });
+          
+          const currentWeek = Array.isArray(currentWeekData) && currentWeekData.length > 0 
+            ? currentWeekData[0] 
+            : null;
+
+          // Get overall stats (show ALL historical data, not filtered by coach subscription) using RPC function
+          const { data: allCommitmentsData } = await supabase.rpc(
+            "get_moai_member_weekly_commitments",
+            {
+              p_user_id: member.user_id,
+              p_week_start: null, // Get all weeks
+            }
+          );
+          
+          // Filter only by member join date (not coach subscription start)
+          const memberJoinedDate = new Date(member.joined_at).toISOString().split('T')[0];
+          
+          const allCommitments = (allCommitmentsData || []).filter(
+            (c: any) => {
+              // week_start is already in 'YYYY-MM-DD' format from the RPC function
+              const weekStartDate = c.week_start?.split('T')[0] || c.week_start;
+              return weekStartDate >= memberJoinedDate;
+            }
+          );
+
+          const totalCommitment = allCommitments?.reduce(
+            (sum, c) => sum + (c.commitment_count || 0),
+            0
+          ) || 0;
+          const totalCompleted = allCommitments?.reduce(
+            (sum, c) => sum + (c.completed_sessions || 0),
+            0
+          ) || 0;
+          const overallRate =
+            totalCommitment > 0 ? (totalCompleted / totalCommitment) * 100 : 0;
+
+          // Get workout count (show ALL historical data, not filtered by coach subscription)
+          const { count: workoutCount } = await supabase
+            .from("workout_sessions")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", member.user_id)
+            .eq("status", "completed")
+            .gte("created_at", member.joined_at);
+
+          return {
+            user_id: member.user_id,
+            email: user?.email || "",
+            username: user?.username,
+            first_name: user?.first_name,
+            last_name: user?.last_name,
+            profile_picture_url: user?.profile_picture_url,
+            joined_at: member.joined_at,
+            current_week_commitment: currentWeek?.commitment_count || 0,
+            current_week_completed: currentWeek?.completed_sessions || 0,
+            current_week_completion_rate:
+              currentWeek?.commitment_count && currentWeek.commitment_count > 0
+                ? (currentWeek.completed_sessions / currentWeek.commitment_count) * 100
+                : 0,
+            overall_completion_rate: overallRate,
+            total_workouts: workoutCount || 0,
+            total_commitment_weeks: allCommitments?.length || 0,
+          };
+        })
+      );
+
+      // Get Moai-level commitment history (aggregate by week) using RPC function (bypasses RLS)
+      // Show ALL historical data, not filtered by coach subscription start
+      const { data: allCommitmentsData, error: commitmentsError } = await supabase.rpc(
+        "get_moai_members_weekly_commitments",
+        {
+          p_user_ids: memberUserIds,
+          p_week_start: null, // Get all weeks
+        }
+      );
+
+      if (commitmentsError) {
+        console.error("Error fetching Moai commitment history:", commitmentsError);
+      }
+      
+      // Sort all commitments by date (descending) - no filtering by coach subscription
+      // Note: week_start is a DATE, returned as 'YYYY-MM-DD' string from RPC
+      const allCommitments = (allCommitmentsData || [])
+        .sort((a: any, b: any) => {
+          // Sort descending by date
+          const dateA = a.week_start?.split('T')[0] || a.week_start;
+          const dateB = b.week_start?.split('T')[0] || b.week_start;
+          return dateB.localeCompare(dateA);
+        })
+        .slice(0, 52);
+
+      // Aggregate by week, only counting weeks where member was in the Moai (no coach subscription filter)
+      const moaiCommitmentHistory: Record<
+        string,
+        { commitment: number; completed: number; members: Set<string> }
+      > = {};
+
+      allCommitments?.forEach((c: any) => {
+        // week_start is already in 'YYYY-MM-DD' format from the RPC function
+        const weekStartDate = c.week_start?.split('T')[0] || c.week_start;
+        const memberJoinedAt = memberJoinDates.get(c.user_id);
+        const memberJoinedDate = memberJoinedAt 
+          ? new Date(memberJoinedAt).toISOString().split('T')[0] 
+          : null;
+
+        // Only count if the week started after the member joined (no coach subscription filter)
+        if (memberJoinedDate && weekStartDate >= memberJoinedDate) {
+          const week = weekStartDate; // Use normalized date string as key
+          if (!moaiCommitmentHistory[week]) {
+            moaiCommitmentHistory[week] = {
+              commitment: 0,
+              completed: 0,
+              members: new Set(),
+            };
+          }
+          moaiCommitmentHistory[week].commitment += c.commitment_count || 0;
+          moaiCommitmentHistory[week].completed += c.completed_sessions || 0;
+          moaiCommitmentHistory[week].members.add(c.user_id);
+        }
+      });
+
+      const moaiHistory = Object.entries(moaiCommitmentHistory)
+        .map(([week_start, data]) => ({
+          week_start,
+          total_commitment: data.commitment,
+          total_completed: data.completed,
+          completion_rate:
+            data.commitment > 0 ? (data.completed / data.commitment) * 100 : 0,
+          member_count: data.members.size,
+        }))
+        .sort((a, b) => new Date(b.week_start).getTime() - new Date(a.week_start).getTime())
+        .slice(0, 12); // Last 12 weeks
+
+      // Get Moai workout stats (show ALL historical data, not filtered by coach subscription)
+      const { data: allWorkouts } = await supabase
+        .from("workout_sessions")
+        .select("id, status, created_at, user_id")
+        .in("user_id", memberUserIds);
+
+      // Filter workouts only by member join date (not coach subscription start)
+      const filteredWorkouts =
+        allWorkouts?.filter((w) => {
+          const workoutDate = new Date(w.created_at);
+          const memberJoinedAt = memberJoinDates.get(w.user_id);
+          // Only filter by member join date, not coach subscription
+          return memberJoinedAt && workoutDate >= new Date(memberJoinedAt);
+        }) || [];
+
+      const totalWorkouts = filteredWorkouts.length;
+      const completedWorkouts = filteredWorkouts.filter(
+        (w) => w.status === "completed"
+      ).length;
+      const workoutCompletionRate =
+        totalWorkouts > 0 ? (completedWorkouts / totalWorkouts) * 100 : 0;
+
+      return {
+        id: circle.id,
+        name: circle.name,
+        status: circle.status as "forming" | "active" | "inactive",
+        created_at: circle.created_at,
+        activated_at: circle.activated_at,
+        member_count: memberDetails.length,
+        coach_subscription_started_at: subscriptionStart,
+        members: memberDetails,
+        moai_commitment_history: moaiHistory,
+        moai_workout_stats: {
+          total_workouts: totalWorkouts,
+          completed_workouts: completedWorkouts,
+          average_completion_rate: workoutCompletionRate,
+        },
+        weeks_active: moaiHistory.length,
+      };
+    } catch (err) {
+      console.error("Exception in getMoaiDetail:", err);
+      return null;
     }
   }
 }

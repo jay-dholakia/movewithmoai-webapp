@@ -218,6 +218,13 @@ export default function CoachDashboard() {
                 </div>
               )}
               <Link
+                href="/coach/moais"
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                <Users className="h-4 w-4" />
+                <span>Moais</span>
+              </Link>
+              <Link
                 href="/coach/profile"
                 className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
               >
