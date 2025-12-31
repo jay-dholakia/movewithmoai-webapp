@@ -173,6 +173,177 @@ export class CoachService {
   }
 
   /**
+   * Get detailed workout session with exercise sets
+   */
+  static async getWorkoutSessionDetails(sessionId: string): Promise<{
+    session: WorkoutHistory | null
+      exercises: Array<{
+        exercise_name: string
+        sets: Array<{
+          id: string
+          set_number: number
+          weight_lbs: number | null
+          reps: number | null
+          is_completed: boolean
+        }>
+      }>
+  } | null> {
+    try {
+      // Get workout session
+      const { data: session, error: sessionError } = await supabase
+        .from("workout_sessions")
+        .select(
+          "id, user_id, workout_template_id, status, started_at, completed_at, total_duration_seconds, notes, rpe"
+        )
+        .eq("id", sessionId)
+        .single();
+
+      if (sessionError || !session) {
+        console.error("Error fetching workout session:", sessionError);
+        return null;
+      }
+
+      // Get workout template info (optional - table might not exist)
+      let template: { title: string | null; workout_type: string | null } | null = null
+      if (session.workout_template_id) {
+        const { data: templateData, error: templateError } = await supabase
+          .from("workout_templates")
+          .select("title, workout_type")
+          .eq("id", session.workout_template_id)
+          .single()
+        
+        if (!templateError && templateData) {
+          template = templateData
+        }
+      }
+
+      // Get exercise sets for this session
+      const { data: exerciseSets, error: setsError } = await supabase
+        .from("exercise_sets")
+        .select("id, exercise_name, weight_lbs, reps, is_completed, created_at")
+        .eq("workout_session_id", sessionId);
+
+      if (setsError) {
+        console.error("Error fetching exercise sets:", setsError);
+        const sessionDate = session.started_at
+          ? new Date(session.started_at).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0]
+        return {
+          session: {
+            session_id: session.id,
+            user_id: session.user_id,
+            workout_template_id: session.workout_template_id,
+            status: session.status,
+            started_at: session.started_at,
+            completed_at: session.completed_at,
+            total_duration_seconds: session.total_duration_seconds,
+            date: sessionDate,
+            notes: session.notes,
+            rpe: session.rpe,
+            workout_title: template?.title || null,
+            workout_type: template?.workout_type || null,
+            total_sets: exerciseSets?.length || 0,
+            completed_sets: exerciseSets?.filter((s) => s.is_completed).length || 0,
+            exercise_count: 0,
+            user_name: null,
+            username: null,
+          },
+          exercises: [],
+        };
+      }
+
+      if (!exerciseSets || exerciseSets.length === 0) {
+        const sessionDate = session.started_at
+          ? new Date(session.started_at).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0]
+        return {
+          session: {
+            session_id: session.id,
+            user_id: session.user_id,
+            workout_template_id: session.workout_template_id,
+            status: session.status,
+            started_at: session.started_at,
+            completed_at: session.completed_at,
+            total_duration_seconds: session.total_duration_seconds,
+            date: sessionDate,
+            notes: session.notes,
+            rpe: session.rpe,
+            workout_title: template?.title || null,
+            workout_type: template?.workout_type || null,
+            total_sets: 0,
+            completed_sets: 0,
+            exercise_count: 0,
+            user_name: null,
+            username: null,
+          },
+          exercises: [],
+        };
+      }
+
+      // Group sets by exercise and sort
+      const exerciseMap = new Map<string, typeof exerciseSets>();
+      exerciseSets.forEach((set) => {
+        if (!exerciseMap.has(set.exercise_name)) {
+          exerciseMap.set(set.exercise_name, []);
+        }
+        exerciseMap.get(set.exercise_name)!.push(set);
+      });
+
+      // Sort exercises by name, then sort sets within each exercise by created_at
+      const exercises = Array.from(exerciseMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0])) // Sort by exercise name
+        .map(([exercise_name, sets]) => {
+          // Sort sets by created_at to maintain order
+          const sortedSets = [...sets].sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+            return dateA - dateB
+          })
+          
+          return {
+            exercise_name,
+            sets: sortedSets.map((s, index) => ({
+              id: s.id,
+              set_number: index + 1, // Use index + 1 as set number
+              weight_lbs: s.weight_lbs,
+              reps: s.reps,
+              is_completed: s.is_completed,
+            })),
+          }
+        });
+
+      const sessionDate = session.started_at
+        ? new Date(session.started_at).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0]
+      return {
+        session: {
+          session_id: session.id,
+          user_id: session.user_id,
+          workout_template_id: session.workout_template_id,
+          status: session.status,
+          started_at: session.started_at,
+          completed_at: session.completed_at,
+          total_duration_seconds: session.total_duration_seconds,
+          date: sessionDate,
+          notes: session.notes,
+          rpe: session.rpe,
+          workout_title: template?.title || null,
+          workout_type: template?.workout_type || null,
+          total_sets: exerciseSets.length,
+          completed_sets: exerciseSets.filter((s) => s.is_completed).length,
+          exercise_count: exercises.length,
+          user_name: null,
+          username: null,
+        },
+        exercises,
+      };
+    } catch (error) {
+      console.error("Error getting workout session details:", error);
+      return null;
+    }
+  }
+
+  /**
    * Get coach profile
    */
   static async getCoachProfile(coachId: string): Promise<CoachProfile | null> {

@@ -6,18 +6,25 @@ import { AdminService } from '@/lib/services/adminService'
 import { ArrowLeft, Activity } from 'lucide-react'
 import Link from 'next/link'
 
-// Dynamically import chart components with SSR disabled
-const StatusChart = dynamic(() => import('./StatusChart'), { 
+// Dynamically import charts wrapper with SSR disabled - this ensures charts are never rendered on server
+const ChartsWrapper = dynamic(() => import('./ChartsWrapper'), { 
   ssr: false,
-  loading: () => <div className="h-[300px] flex items-center justify-center">Loading chart...</div>
-})
-const TrendsChart = dynamic(() => import('./TrendsChart'), { 
-  ssr: false,
-  loading: () => <div className="h-[400px] flex items-center justify-center">Loading chart...</div>
-})
-const SubscriptionsChart = dynamic(() => import('./SubscriptionsChart'), { 
-  ssr: false,
-  loading: () => <div className="h-[400px] flex items-center justify-center">Loading chart...</div>
+  loading: () => (
+    <>
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Subscription Status Distribution</h2>
+        <div className="h-[300px] flex items-center justify-center">Loading charts...</div>
+      </div>
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Subscription Trends Over Time</h2>
+        <div className="h-[400px] flex items-center justify-center">Loading charts...</div>
+      </div>
+      <div className="bg-white shadow rounded-lg p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">New Subscriptions Created</h2>
+        <div className="h-[400px] flex items-center justify-center">Loading charts...</div>
+      </div>
+    </>
+  )
 })
 
 export default function SubscriptionAnalyticsPage() {
@@ -126,29 +133,8 @@ export default function SubscriptionAnalyticsPage() {
         </div>
       </div>
 
-      {/* Status Distribution */}
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Subscription Status Distribution
-        </h2>
-        <StatusChart data={statusChartData} />
-      </div>
-
-      {/* Subscription Trends */}
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Subscription Trends Over Time
-        </h2>
-        <TrendsChart data={chartData} />
-      </div>
-
-      {/* New Subscriptions */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          New Subscriptions Created
-        </h2>
-        <SubscriptionsChart data={chartData} />
-      </div>
+      {/* Charts - rendered client-side only */}
+      <ChartsWrapper statusChartData={statusChartData} chartData={chartData} />
     </div>
   )
 }
