@@ -1,21 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
-
-// Only import charts after component mounts (client-side only)
-const StatusChart = dynamic(() => import('./StatusChart'), { 
-  ssr: false,
-  loading: () => <div className="h-[300px] flex items-center justify-center">Loading chart...</div>
-})
-const TrendsChart = dynamic(() => import('./TrendsChart'), { 
-  ssr: false,
-  loading: () => <div className="h-[400px] flex items-center justify-center">Loading chart...</div>
-})
-const SubscriptionsChart = dynamic(() => import('./SubscriptionsChart'), { 
-  ssr: false,
-  loading: () => <div className="h-[400px] flex items-center justify-center">Loading chart...</div>
-})
+import StatusChart from './StatusChart'
+import TrendsChart from './TrendsChart'
+import SubscriptionsChart from './SubscriptionsChart'
 
 interface ChartsWrapperProps {
   statusChartData: Array<{ name: string; value: number }>
@@ -23,22 +10,6 @@ interface ChartsWrapperProps {
 }
 
 export default function ChartsWrapper({ statusChartData, chartData }: ChartsWrapperProps) {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return (
-      <>
-        <div className="h-[300px] flex items-center justify-center">Loading charts...</div>
-        <div className="h-[400px] flex items-center justify-center">Loading charts...</div>
-        <div className="h-[400px] flex items-center justify-center">Loading charts...</div>
-      </>
-    )
-  }
-
   return (
     <>
       {/* Status Distribution */}
