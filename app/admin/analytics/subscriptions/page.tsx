@@ -7,15 +7,15 @@ import { ArrowLeft, Activity } from 'lucide-react'
 import Link from 'next/link'
 
 // Dynamically import chart components with SSR disabled
-const StatusChart = dynamic(() => import('./charts').then(mod => ({ default: mod.StatusChart })), { 
+const StatusChart = dynamic(() => import('./StatusChart'), { 
   ssr: false,
   loading: () => <div className="h-[300px] flex items-center justify-center">Loading chart...</div>
 })
-const TrendsChart = dynamic(() => import('./charts').then(mod => ({ default: mod.TrendsChart })), { 
+const TrendsChart = dynamic(() => import('./TrendsChart'), { 
   ssr: false,
   loading: () => <div className="h-[400px] flex items-center justify-center">Loading chart...</div>
 })
-const SubscriptionsChart = dynamic(() => import('./charts').then(mod => ({ default: mod.SubscriptionsChart })), { 
+const SubscriptionsChart = dynamic(() => import('./SubscriptionsChart'), { 
   ssr: false,
   loading: () => <div className="h-[400px] flex items-center justify-center">Loading chart...</div>
 })
