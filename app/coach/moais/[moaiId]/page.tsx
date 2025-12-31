@@ -101,7 +101,6 @@ export default function MoaiDetailPage() {
         weight_lbs: number | null
         reps: number | null
         is_completed: boolean
-        rest_seconds: number | null
       }>
     }>
   } | null>(null)
@@ -1097,7 +1096,7 @@ export default function MoaiDetailPage() {
                               )}
 
                               {/* Workout Detail View */}
-                              {selectedWorkout && workoutDetails ? (
+                              {selectedWorkout && workoutDetails && workoutDetails.session ? (
                                 <div className="space-y-4">
                                   <button
                                     onClick={() => setSelectedWorkout(null)}

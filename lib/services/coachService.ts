@@ -242,8 +242,8 @@ export class CoachService {
             rpe: session.rpe,
             workout_title: template?.title || null,
             workout_type: template?.workout_type || null,
-            total_sets: exerciseSets?.length || 0,
-            completed_sets: exerciseSets?.filter((s) => s.is_completed).length || 0,
+            total_sets: 0,
+            completed_sets: 0,
             exercise_count: 0,
             user_name: null,
             username: null,
@@ -1155,11 +1155,11 @@ export class CoachService {
           );
 
           const totalCommitment = allCommitments?.reduce(
-            (sum, c) => sum + (c.commitment_count || 0),
+            (sum: number, c: any) => sum + (c.commitment_count || 0),
             0
           ) || 0;
           const totalCompleted = allCommitments?.reduce(
-            (sum, c) => sum + (c.completed_sessions || 0),
+            (sum: number, c: any) => sum + (c.completed_sessions || 0),
             0
           ) || 0;
           const overallRate =

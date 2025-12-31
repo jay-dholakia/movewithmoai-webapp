@@ -272,7 +272,7 @@ export class ChatService {
     }
 
     // Get sender details for all unique senders
-    const senderIds = Array.from(new Set(messages.map((m) => m.sender_id)))
+    const senderIds = Array.from(new Set(messages.map((m: any) => m.sender_id)))
     const { data: senders } = await supabase
       .from('users')
       .select('id, username, first_name, last_name, profile_picture_url')
@@ -292,7 +292,7 @@ export class ChatService {
     )
 
     // Get coach names for coach messages (sender_id is user_id, so query by user_id)
-    const coachUserIds = messages.filter((m) => m.is_coach).map((m) => m.sender_id)
+    const coachUserIds = messages.filter((m: any) => m.is_coach).map((m: any) => m.sender_id)
     const { data: coaches } = await supabase
       .from('coaches')
       .select('user_id, name, first_name, last_name')
@@ -310,7 +310,7 @@ export class ChatService {
     )
 
     // Enrich messages with sender info
-    return messages.map((msg) => {
+    return messages.map((msg: any) => {
       if (msg.is_coach) {
         const coachInfo = coachMap.get(msg.sender_id)
         return {
