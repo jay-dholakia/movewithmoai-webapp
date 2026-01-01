@@ -118,3 +118,35 @@ dist
 .pnp.*
 
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node
+
+# Add these to your .gitignore if not already present:
+
+# Local env files (you already have some, but these are common patterns)
+.env*.local
+
+# Vercel
+.vercel
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug
+.debug/
+
+# Testing
+coverage/
+.jest/
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
+# Turbopack
+.turbo
