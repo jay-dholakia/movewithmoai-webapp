@@ -30,7 +30,6 @@ import {
   Activity,
   ArrowUpRight,
   ArrowDownRight,
-  Sparkles,
   X,
   Calendar,
   Dumbbell,
@@ -49,17 +48,6 @@ interface TrendAnalysis {
   }>
 }
 
-interface CoachingOpportunity {
-  type: 'declining_performance' | 'low_engagement' | 'inconsistent' | 'high_performer' | 'new_member'
-  priority: 'high' | 'medium' | 'low'
-  memberId: string
-  memberName: string
-  description: string
-  suggestion: string
-  metric: string
-  value: number
-  trend?: 'up' | 'down' | 'stable'
-}
 
 export default function MoaiDetailPage() {
   const params = useParams()
@@ -70,7 +58,6 @@ export default function MoaiDetailPage() {
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [showChat, setShowChat] = useState(false)
-  const [showAllOpportunities, setShowAllOpportunities] = useState(false)
   const [selectedMember, setSelectedMember] = useState<{
     userId: string
     member: MoaiMemberMetrics
@@ -655,161 +642,6 @@ export default function MoaiDetailPage() {
               </div>
             </div>
 
-            {/* Coaching Opportunities */}
-            {coachingOpportunities.length > 0 && (
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-yellow-600" />
-                    <h2 className="text-lg font-semibold text-gray-900">Coaching Opportunities</h2>
-                    <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
-                      {coachingOpportunities.length}
-                    </span>
-                  </div>
-                </div>
-                <div className="p-6 space-y-4">
-                  {(showAllOpportunities
-                    ? coachingOpportunities
-                    : coachingOpportunities.slice(0, 5)
-                  ).map((opp, idx) => (
-                    <div
-                      key={`${opp.memberId}-${opp.type}-${idx}`}
-                      className={`p-4 rounded-lg border-l-4 ${
-                        opp.priority === 'high'
-                          ? 'bg-red-50 border-red-500'
-                          : opp.priority === 'medium'
-                          ? 'bg-yellow-50 border-yellow-500'
-                          : 'bg-green-50 border-green-500'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Link
-                              href={`/coach/clients/${opp.memberId}`}
-                              className="font-semibold text-gray-900 hover:text-blue-600"
-                            >
-                              {opp.memberName}
-                            </Link>
-                            <span
-                              className={`px-2 py-0.5 text-xs font-medium rounded ${
-                                opp.priority === 'high'
-                                  ? 'bg-red-100 text-red-800'
-                                  : opp.priority === 'medium'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-green-100 text-green-800'
-                              }`}
-                            >
-                              {opp.priority.toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-700 mb-2">{opp.description}</p>
-                          <p className="text-sm font-medium text-gray-900">
-                            💡 {opp.suggestion}
-                          </p>
-                        </div>
-                        <div className="ml-4 text-right">
-                          <p className="text-xs text-gray-500">{opp.metric}</p>
-                          <p className="text-lg font-bold text-gray-900">
-                            {opp.value.toFixed(1)}
-                            {opp.metric.includes('Rate') || opp.metric.includes('Week') ? '%' : ''}
-                          </p>
-                          {opp.trend && (
-                            <div className="mt-1">
-                              {opp.trend === 'up' ? (
-                                <ArrowUpRight className="h-4 w-4 text-green-600" />
-                              ) : opp.trend === 'down' ? (
-                                <ArrowDownRight className="h-4 w-4 text-red-600" />
-                              ) : (
-                                <Activity className="h-4 w-4 text-gray-400" />
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {coachingOpportunities.length > 5 && (
-                    <button
-                      onClick={() => setShowAllOpportunities(!showAllOpportunities)}
-                      className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium text-center pt-2 border-t border-gray-200"
-                    >
-                      {showAllOpportunities
-                        ? 'Show Less'
-                        : `+${coachingOpportunities.length - 5} more opportunities`}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Week-over-Week Performance Trend */}
-            {trendAnalysis && trendAnalysis.recentWeeks.length > 0 && (
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">Recent Performance Trend</h2>
-                  <p className="text-sm text-gray-500 mt-1">Last 4 weeks</p>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {trendAnalysis.recentWeeks.map((week, idx) => {
-                      const prevWeek = trendAnalysis.recentWeeks[idx - 1]
-                      const change = prevWeek
-                        ? week.completion_rate - prevWeek.completion_rate
-                        : 0
-                      return (
-                        <div key={week.week_start} className="flex items-center gap-4">
-                          <div className="w-24 text-sm text-gray-600">
-                            {formatDate(week.week_start)}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium text-gray-900">
-                                {week.completion_rate.toFixed(1)}% completion
-                              </span>
-                              {prevWeek && (
-                                <span
-                                  className={`text-xs flex items-center gap-1 ${
-                                    change > 0
-                                      ? 'text-green-600'
-                                      : change < 0
-                                      ? 'text-red-600'
-                                      : 'text-gray-500'
-                                  }`}
-                                >
-                                  {change > 0 ? (
-                                    <ArrowUpRight className="h-3 w-3" />
-                                  ) : change < 0 ? (
-                                    <ArrowDownRight className="h-3 w-3" />
-                                  ) : null}
-                                  {change !== 0 ? Math.abs(change).toFixed(1) + '%' : 'No change'}
-                                </span>
-                              )}
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${
-                                  week.completion_rate >= 80
-                                    ? 'bg-green-600'
-                                    : week.completion_rate >= 60
-                                    ? 'bg-yellow-500'
-                                    : 'bg-red-500'
-                                }`}
-                                style={{ width: `${Math.min(week.completion_rate, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-500 w-16 text-right">
-                            {week.member_count} members
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Member Performance Overview */}
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">
@@ -903,6 +735,238 @@ export default function MoaiDetailPage() {
                     )
                   })}
                 </div>
+              </div>
+            </div>
+
+            {/* Week-over-Week Performance Trend */}
+            {trendAnalysis && trendAnalysis.recentWeeks.length > 0 && (
+              <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">Recent Performance Trend</h2>
+                  <p className="text-sm text-gray-500 mt-1">Last 4 weeks</p>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {trendAnalysis.recentWeeks.map((week, idx) => {
+                      const prevWeek = trendAnalysis.recentWeeks[idx - 1]
+                      const change = prevWeek
+                        ? week.completion_rate - prevWeek.completion_rate
+                        : 0
+                      return (
+                        <div key={week.week_start} className="flex items-center gap-4">
+                          <div className="w-24 text-sm text-gray-600">
+                            {formatDate(week.week_start)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-900">
+                                {week.completion_rate.toFixed(1)}% completion
+                              </span>
+                              {prevWeek && (
+                                <span
+                                  className={`text-xs flex items-center gap-1 ${
+                                    change > 0
+                                      ? 'text-green-600'
+                                      : change < 0
+                                      ? 'text-red-600'
+                                      : 'text-gray-500'
+                                  }`}
+                                >
+                                  {change > 0 ? (
+                                    <ArrowUpRight className="h-3 w-3" />
+                                  ) : change < 0 ? (
+                                    <ArrowDownRight className="h-3 w-3" />
+                                  ) : null}
+                                  {change !== 0 ? Math.abs(change).toFixed(1) + '%' : 'No change'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  week.completion_rate >= 80
+                                    ? 'bg-green-600'
+                                    : week.completion_rate >= 60
+                                    ? 'bg-yellow-500'
+                                    : 'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(week.completion_rate, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-500 w-16 text-right">
+                            {week.member_count} members
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Member Engagement Dashboard */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-blue-600" />
+                  <h2 className="text-lg font-semibold text-gray-900">Member Engagement Dashboard</h2>
+                </div>
+              </div>
+              <div className="p-6 space-y-6">
+                {/* Engagement Scores */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">Engagement Scores</h3>
+                  <div className="space-y-2">
+                    {moaiDetail.members?.map((member) => {
+                      const memberName =
+                        member.first_name && member.last_name
+                          ? `${member.first_name} ${member.last_name}`
+                          : member.first_name || member.username || 'Member'
+                      
+                      // Calculate engagement score (0-100)
+                      // Factors: current week completion, overall completion, consistency, commitment set
+                      const hasCommitment = member.current_week_commitment > 0
+                      const currentWeekScore = member.current_week_completion_rate
+                      const overallScore = member.overall_completion_rate
+                      const consistencyScore = member.total_commitment_weeks > 0 
+                        ? Math.min(100, (member.total_workouts / (member.total_commitment_weeks * 3)) * 100)
+                        : 0
+                      
+                      const engagementScore = Math.round(
+                        (currentWeekScore * 0.4) + 
+                        (overallScore * 0.4) + 
+                        (consistencyScore * 0.2)
+                      )
+                      
+                      const engagementLevel = engagementScore >= 80 ? 'high' : engagementScore >= 60 ? 'medium' : 'low'
+                      
+                      return (
+                        <div key={member.user_id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {member.profile_picture_url ? (
+                                <img
+                                  src={member.profile_picture_url}
+                                  alt={memberName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-gray-600 font-medium text-sm">
+                                  {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{memberName}</p>
+                              {member.username && (
+                                <p className="text-xs text-gray-500">@{member.username}</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="w-32">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-gray-600">Score</span>
+                                <span className={`text-sm font-semibold ${
+                                  engagementLevel === 'high' ? 'text-green-600' :
+                                  engagementLevel === 'medium' ? 'text-yellow-600' : 'text-red-600'
+                                }`}>
+                                  {engagementScore}
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full ${
+                                    engagementLevel === 'high' ? 'bg-green-600' :
+                                    engagementLevel === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${engagementScore}%` }}
+                                />
+                              </div>
+                            </div>
+                            {!hasCommitment && (
+                              <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
+                                No Commitment
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* At-Risk Members */}
+                {(() => {
+                  const atRiskMembers = moaiDetail.members?.filter((member) => {
+                    const noCommitment = member.current_week_commitment === 0
+                    const lowCompletion = member.current_week_completion_rate < 50 && member.current_week_commitment > 0
+                    const declining = member.overall_completion_rate < 60 && member.total_commitment_weeks >= 3
+                    return noCommitment || lowCompletion || declining
+                  }) || []
+
+                  if (atRiskMembers.length === 0) return null
+
+                  return (
+                    <div className="border-t border-gray-200 pt-4">
+                      <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        At-Risk Members ({atRiskMembers.length})
+                      </h3>
+                      <div className="space-y-2">
+                        {atRiskMembers.map((member) => {
+                          const memberName =
+                            member.first_name && member.last_name
+                              ? `${member.first_name} ${member.last_name}`
+                              : member.first_name || member.username || 'Member'
+                          
+                          const reasons = []
+                          if (member.current_week_commitment === 0) reasons.push('No commitment set')
+                          if (member.current_week_completion_rate < 50 && member.current_week_commitment > 0) {
+                            reasons.push('Low completion this week')
+                          }
+                          if (member.overall_completion_rate < 60 && member.total_commitment_weeks >= 3) {
+                            reasons.push('Declining performance')
+                          }
+
+                          return (
+                            <div
+                              key={member.user_id}
+                              className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                  {member.profile_picture_url ? (
+                                    <img
+                                      src={member.profile_picture_url}
+                                      alt={memberName}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <span className="text-gray-600 font-medium text-xs">
+                                      {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{memberName}</p>
+                                  <p className="text-xs text-gray-600">{reasons.join(', ')}</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleMemberClick(member)}
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                View Details
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
