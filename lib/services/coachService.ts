@@ -1008,7 +1008,7 @@ export class CoachService {
       const { data: workoutExercisesData, error: dataError } = await supabase
         .from("workout_exercises")
         .select("*")
-        .eq("workout_id", workoutId)
+        .eq("workout_template_id", workoutId)
         .limit(10)
 
       if (dataError) {
