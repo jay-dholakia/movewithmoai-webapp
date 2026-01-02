@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CoachService } from '@/lib/services/coachService'
-import { ChatService } from '@/lib/services/chatService'
 import type {
   MoaiDetail,
   CoachProfile,
@@ -16,7 +15,6 @@ import type {
   WorkoutInPlan,
   PersonalBest,
 } from '@/lib/types/coach'
-import type { MoaiChatMessage, MoaiChat } from '@/lib/services/chatService'
 import Link from 'next/link'
 import {
   ArrowLeft,
