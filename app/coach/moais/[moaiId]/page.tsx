@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CoachService } from '@/lib/services/coachService'
+import { ChatService } from '@/lib/services/chatService'
 import type {
   MoaiDetail,
   CoachProfile,
@@ -15,6 +16,7 @@ import type {
   WorkoutInPlan,
   PersonalBest,
 } from '@/lib/types/coach'
+import type { MoaiChatMessage, MoaiChat } from '@/lib/services/chatService'
 import Link from 'next/link'
 import {
   ArrowLeft,
@@ -55,6 +57,11 @@ export default function MoaiDetailPage() {
   const [moaiDetail, setMoaiDetail] = useState<MoaiDetail | null>(null)
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showChat, setShowChat] = useState(false)
+  const [chatMessages, setChatMessages] = useState<MoaiChatMessage[]>([])
+  const [moaiChat, setMoaiChat] = useState<MoaiChat | null>(null)
+  const [chatInputText, setChatInputText] = useState('')
+  const [sendingMessage, setSendingMessage] = useState(false)
   const [selectedMember, setSelectedMember] = useState<{
     userId: string
     member: MoaiMemberMetrics
@@ -407,7 +414,7 @@ export default function MoaiDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -423,19 +430,21 @@ export default function MoaiDetailPage() {
                 </p>
               </div>
             </div>
-            <Link
-              href={`/coach/moais/${moaiId}/chat`}
+            <button
+              onClick={() => setShowChat(!showChat)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <MessageSquare className="h-5 w-5" />
               Chat
-            </Link>
+            </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300 ${
+        showChat ? 'md:mr-96' : ''
+      }`}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -1649,6 +1658,112 @@ export default function MoaiDetailPage() {
         </div>
       </div>
 
+      {/* Chat Slide-in Panel */}
+      <div
+        className={`fixed inset-y-0 left-0 w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+          showChat ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="h-full flex flex-col">
+          {/* Chat Header */}
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0 z-10">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Moai Chat</h2>
+              <p className="text-xs text-gray-500 mt-1">{moaiDetail?.name}</p>
+            </div>
+            <button
+              onClick={() => setShowChat(false)}
+              className="text-gray-500 hover:text-gray-700 p-1"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+            {chatMessages.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="mb-2">No messages yet.</p>
+                <p className="text-sm">
+                  Messages from before you were added to this Moai are not shown.
+                </p>
+              </div>
+            ) : (
+              chatMessages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.is_coach ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className="flex items-start gap-2 max-w-[80%]">
+                    {!message.is_coach && message.sender_profile_picture_url && (
+                      <img
+                        src={message.sender_profile_picture_url}
+                        alt={message.sender_name || 'User'}
+                        className="h-8 w-8 rounded-full flex-shrink-0"
+                      />
+                    )}
+                    <div
+                      className={`px-4 py-2 rounded-lg ${
+                        message.is_coach
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-900 border border-gray-200'
+                      }`}
+                    >
+                      {!message.is_coach && (
+                        <p
+                          className={`text-xs font-medium mb-1 ${
+                            message.is_coach ? 'text-blue-100' : 'text-gray-600'
+                          }`}
+                        >
+                          {message.sender_name || 'User'}
+                        </p>
+                      )}
+                      <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
+                      <p
+                        className={`text-xs mt-1 ${
+                          message.is_coach ? 'text-blue-100' : 'text-gray-500'
+                        }`}
+                      >
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-gray-200 p-4 bg-white">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatInputText}
+                onChange={(e) => setChatInputText(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Type a message..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!chatInputText.trim() || sendingMessage}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Overlay when chat is open */}
+      {showChat && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-30 z-40 md:hidden"
+          onClick={() => setShowChat(false)}
+        />
+      )}
     </div>
   )
 }
