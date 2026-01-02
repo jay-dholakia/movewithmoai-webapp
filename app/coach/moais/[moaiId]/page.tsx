@@ -13,6 +13,7 @@ import type {
   WorkoutHistory,
   MoaiMemberMetrics,
   ExercisePerformance,
+  WorkoutInPlan,
 } from '@/lib/types/coach'
 import type { MoaiChatMessage, MoaiChat } from '@/lib/services/chatService'
 import Link from 'next/link'
@@ -78,15 +79,17 @@ export default function MoaiDetailPage() {
     commitmentHistory: CommitmentHistory[]
     workoutHistory: WorkoutHistory[]
     exercisePerformance: ExercisePerformance[]
+    weeklyWorkouts: WorkoutInPlan[]
     loading: boolean
   }>({
     metrics: null,
     commitmentHistory: [],
     workoutHistory: [],
     exercisePerformance: [],
+    weeklyWorkouts: [],
     loading: false,
   })
-  const [activeMemberTab, setActiveMemberTab] = useState<'workouts' | 'progression'>('workouts')
+  const [activeMemberTab, setActiveMemberTab] = useState<'workouts' | 'progression' | 'program'>('workouts')
   const [selectedWorkout, setSelectedWorkout] = useState<{
     sessionId: string
     workout: WorkoutHistory
@@ -162,17 +165,26 @@ export default function MoaiDetailPage() {
       commitmentHistory: [],
       workoutHistory: [],
       exercisePerformance: [],
+      weeklyWorkouts: [],
       loading: true,
     })
 
     try {
+      // Get current week start for weekly workouts
+      const currentWeekStart = new Date()
+      const dayOfWeek = currentWeekStart.getDay()
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday)
+      const weekStartStr = currentWeekStart.toISOString().split('T')[0]
+
       // Fetch all data, but handle errors gracefully since Moai members might not be direct clients
-      const [metricsResult, commitmentHistoryResult, workoutHistoryResult, exercisePerformanceResult] =
+      const [metricsResult, commitmentHistoryResult, workoutHistoryResult, exercisePerformanceResult, weeklyWorkoutsResult] =
         await Promise.allSettled([
           CoachService.getClientMetrics(userId, coachProfile.id),
           CoachService.getClientCommitmentHistory(userId, coachProfile.id),
           CoachService.getClientWorkoutHistory(userId, coachProfile.id, 20),
           CoachService.getClientExercisePerformance(userId),
+          CoachService.getWeeklyAssignedWorkouts(userId, weekStartStr),
         ])
 
       const metrics =
@@ -189,6 +201,10 @@ export default function MoaiDetailPage() {
         exercisePerformanceResult.status === 'fulfilled'
           ? exercisePerformanceResult.value || []
           : []
+      const weeklyWorkouts =
+        weeklyWorkoutsResult.status === 'fulfilled'
+          ? weeklyWorkoutsResult.value || []
+          : []
 
       // Log errors but don't fail completely
       if (metricsResult.status === 'rejected') {
@@ -203,12 +219,16 @@ export default function MoaiDetailPage() {
       if (exercisePerformanceResult.status === 'rejected') {
         console.warn('Error fetching exercise performance:', exercisePerformanceResult.reason)
       }
+      if (weeklyWorkoutsResult.status === 'rejected') {
+        console.warn('Error fetching weekly workouts:', weeklyWorkoutsResult.reason)
+      }
 
       setMemberDetails({
         metrics,
         commitmentHistory,
         workoutHistory,
         exercisePerformance,
+        weeklyWorkouts,
         loading: false,
       })
     } catch (error) {
@@ -218,6 +238,7 @@ export default function MoaiDetailPage() {
         commitmentHistory: [],
         workoutHistory: [],
         exercisePerformance: [],
+        weeklyWorkouts: [],
         loading: false,
       })
     }
@@ -849,6 +870,7 @@ export default function MoaiDetailPage() {
                             commitmentHistory: [],
                             workoutHistory: [],
                             exercisePerformance: [],
+                            weeklyWorkouts: [],
                             loading: false,
                           })
                           setActiveMemberTab('workouts')
@@ -901,6 +923,19 @@ export default function MoaiDetailPage() {
                               }`}
                             >
                               Progression
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveMemberTab('program')
+                                setSelectedWorkout(null)
+                              }}
+                              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                                activeMemberTab === 'program'
+                                  ? 'border-blue-500 text-blue-600'
+                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                              }`}
+                            >
+                              Program
                             </button>
                           </nav>
                         </div>
@@ -1324,6 +1359,86 @@ export default function MoaiDetailPage() {
                               ) : (
                                 <div className="text-center py-12">
                                   <p className="text-gray-500">Select an exercise to view progression</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {activeMemberTab === 'program' && (
+                            <div className="space-y-6">
+                              {/* Current Week Program */}
+                              {memberDetails.metrics && memberDetails.metrics.current_week_commitment > 0 ? (
+                                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                  <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-900">
+                                      This Week's Program
+                                    </h3>
+                                    <div className="text-sm text-gray-600">
+                                      {memberDetails.metrics.current_week_start
+                                        ? formatDate(memberDetails.metrics.current_week_start.split('T')[0])
+                                        : 'Current Week'}
+                                    </div>
+                                  </div>
+                                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                                    <p className="text-sm text-gray-700">
+                                      <span className="font-medium">Commitment:</span> {memberDetails.metrics.current_week_commitment} workout{memberDetails.metrics.current_week_commitment !== 1 ? 's' : ''}
+                                    </p>
+                                    <p className="text-sm text-gray-700 mt-1">
+                                      <span className="font-medium">Completed:</span> {memberDetails.metrics.current_week_completed} / {memberDetails.metrics.current_week_commitment}
+                                    </p>
+                                  </div>
+                                  {memberDetails.weeklyWorkouts.length > 0 ? (
+                                    <div className="space-y-3">
+                                      {memberDetails.weeklyWorkouts.map((workout) => (
+                                        <div
+                                          key={workout.workout_id}
+                                          className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                        >
+                                          <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-900">
+                                              {workout.workout_title}
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                              {workout.workout_type} • Assigned {formatDate(workout.assigned_at.split('T')[0])}
+                                            </p>
+                                          </div>
+                                          <div className="text-right ml-4">
+                                            {workout.status === 'completed' ? (
+                                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                                ✓ Completed
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                                Assigned
+                                              </span>
+                                            )}
+                                            {workout.completed_at && (
+                                              <p className="text-xs text-gray-500 mt-1">
+                                                {formatDate(workout.completed_at.split('T')[0])}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-center py-8">
+                                      <p className="text-gray-500">No workouts assigned for this week</p>
+                                      <p className="text-sm text-gray-400 mt-2">
+                                        Workouts will appear here when assigned based on the user's commitment
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                  <div className="text-center py-8">
+                                    <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                    <p className="text-gray-600 font-medium">No Commitment Set</p>
+                                    <p className="text-sm text-gray-500 mt-2">
+                                      This user hasn't set a commitment for this week, so no workouts have been assigned.
+                                    </p>
+                                  </div>
                                 </div>
                               )}
                             </div>

@@ -696,6 +696,102 @@ export class CoachService {
   }
 
   /**
+   * Get weekly assigned workouts for a user based on their commitment
+   */
+  static async getWeeklyAssignedWorkouts(userId: string, weekStart?: string): Promise<WorkoutInPlan[]> {
+    try {
+      // Calculate current week start (Monday) if not provided
+      let weekStartDate: Date
+      if (weekStart) {
+        weekStartDate = new Date(weekStart)
+      } else {
+        weekStartDate = new Date()
+        const dayOfWeek = weekStartDate.getDay() // 0 = Sunday, 1 = Monday, etc.
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        weekStartDate.setDate(weekStartDate.getDate() - daysToMonday)
+      }
+      
+      const weekEndDate = new Date(weekStartDate)
+      weekEndDate.setDate(weekEndDate.getDate() + 7) // End of week (next Monday)
+      
+      const weekStartStr = weekStartDate.toISOString().split('T')[0]
+      const weekEndStr = weekEndDate.toISOString().split('T')[0]
+
+      // Get user workouts assigned this week
+      const { data: userWorkouts, error: uwError } = await supabase
+        .from("user_workouts")
+        .select("id, workout_id, base_plan_id, created_at")
+        .eq("user_id", userId)
+        .gte("created_at", weekStartStr)
+        .lt("created_at", weekEndStr)
+        .order("created_at", { ascending: true })
+
+      if (uwError) {
+        console.error("Error fetching weekly user workouts:", uwError)
+        return []
+      }
+
+      if (!userWorkouts || userWorkouts.length === 0) {
+        return []
+      }
+
+      // Get workout details
+      const workoutIds = userWorkouts.map((uw) => uw.workout_id).filter(Boolean)
+      if (workoutIds.length === 0) {
+        return []
+      }
+
+      const { data: workouts, error: workoutsError } = await supabase
+        .from("workoutss")
+        .select("id, title, type")
+        .in("id", workoutIds)
+
+      if (workoutsError) {
+        console.error("Error fetching workouts:", workoutsError)
+        return []
+      }
+
+      const workoutLookup = new Map(workouts?.map((w) => [w.id, w]) || [])
+
+      // Get completed workout sessions for this week
+      const { data: completedSessions, error: sessionsError } = await supabase
+        .from("workout_sessions")
+        .select("id, user_workout_id, completed_at, workout_template_id")
+        .eq("user_id", userId)
+        .eq("status", "completed")
+        .gte("completed_at", weekStartStr)
+        .lt("completed_at", weekEndStr)
+
+      if (sessionsError) {
+        console.error("Error fetching workout sessions:", sessionsError)
+      }
+
+      // Map user workouts to WorkoutInPlan format
+      const weeklyWorkouts: WorkoutInPlan[] = userWorkouts.map((uw) => {
+        const workout = workoutLookup.get(uw.workout_id)
+        const completedSession = completedSessions?.find(
+          (s) => s.user_workout_id === uw.id || s.workout_template_id === workout?.id
+        )
+
+        return {
+          workout_id: uw.workout_id,
+          workout_title: workout?.title || "Unknown Workout",
+          workout_type: workout?.type || "unknown",
+          assigned_at: uw.created_at,
+          completed_at: completedSession?.completed_at || null,
+          status: completedSession ? "completed" : "assigned",
+          workout_session_id: completedSession?.id || null,
+        }
+      })
+
+      return weeklyWorkouts
+    } catch (err) {
+      console.error("Exception in getWeeklyAssignedWorkouts:", err)
+      return []
+    }
+  }
+
+  /**
    * Get personal bests for a user by exercise
    */
   static async getUserPersonalBests(userId: string): Promise<PersonalBest[]> {
