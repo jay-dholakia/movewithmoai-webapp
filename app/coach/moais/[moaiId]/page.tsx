@@ -1401,26 +1401,28 @@ export default function MoaiDetailPage() {
                           {activeMemberTab === 'program' && (
                             <div className="space-y-6">
                               {/* Current Week Program */}
-                              {memberDetails.metrics && memberDetails.metrics.current_week_commitment > 0 ? (
+                              {(memberDetails.weeklyWorkouts.length > 0 || (memberDetails.metrics && memberDetails.metrics.current_week_commitment > 0)) ? (
                                 <div className="bg-white border border-gray-200 rounded-lg p-6">
                                   <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg font-semibold text-gray-900">
                                       This Week's Program
                                     </h3>
                                     <div className="text-sm text-gray-600">
-                                      {memberDetails.metrics.current_week_start
+                                      {memberDetails.metrics?.current_week_start
                                         ? formatDate(memberDetails.metrics.current_week_start.split('T')[0])
                                         : 'Current Week'}
                                     </div>
                                   </div>
-                                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                                    <p className="text-sm text-gray-700">
-                                      <span className="font-medium">Commitment:</span> {memberDetails.metrics.current_week_commitment} workout{memberDetails.metrics.current_week_commitment !== 1 ? 's' : ''}
-                                    </p>
-                                    <p className="text-sm text-gray-700 mt-1">
-                                      <span className="font-medium">Completed:</span> {memberDetails.metrics.current_week_completed} / {memberDetails.metrics.current_week_commitment}
-                                    </p>
-                                  </div>
+                                  {memberDetails.metrics && memberDetails.metrics.current_week_commitment > 0 && (
+                                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                                      <p className="text-sm text-gray-700">
+                                        <span className="font-medium">Commitment:</span> {memberDetails.metrics.current_week_commitment} workout{memberDetails.metrics.current_week_commitment !== 1 ? 's' : ''}
+                                      </p>
+                                      <p className="text-sm text-gray-700 mt-1">
+                                        <span className="font-medium">Completed:</span> {memberDetails.metrics.current_week_completed} / {memberDetails.metrics.current_week_commitment}
+                                      </p>
+                                    </div>
+                                  )}
                                   {memberDetails.weeklyWorkouts.length > 0 ? (
                                     <div className="space-y-3">
                                       {memberDetails.weeklyWorkouts.map((workout) => (
