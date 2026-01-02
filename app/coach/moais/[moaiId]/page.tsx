@@ -187,8 +187,36 @@ export default function MoaiDetailPage() {
           CoachService.getWeeklyAssignedWorkouts(userId, weekStartStr),
         ])
 
-      const metrics =
+      let metrics =
         metricsResult.status === 'fulfilled' ? metricsResult.value : null
+
+      // If metrics is null (member not a direct client), create metrics from selectedMember.member data
+      if (!metrics && selectedMember && selectedMember.member) {
+        const member = selectedMember.member
+        metrics = {
+          user_id: member.user_id,
+          email: member.email,
+          username: member.username,
+          first_name: member.first_name,
+          last_name: member.last_name,
+          profile_picture_url: member.profile_picture_url,
+          user_created_at: member.joined_at,
+          coach_id: coachProfile.id,
+          assigned_coach_id: null,
+          subscription_status: null,
+          current_week_commitment: member.current_week_commitment,
+          current_week_completed: member.current_week_completed,
+          current_week_completion_rate: member.current_week_completion_rate,
+          current_week_start: weekStartStr,
+          total_commitment_weeks: member.total_commitment_weeks,
+          total_completed_sessions: 0, // Not available in member data
+          total_commitment_count: 0, // Not available in member data
+          overall_completion_rate: member.overall_completion_rate,
+          total_completed_workouts: member.total_workouts,
+          total_workout_sessions: member.total_workouts,
+        }
+      }
+
       const commitmentHistory =
         commitmentHistoryResult.status === 'fulfilled'
           ? commitmentHistoryResult.value || []

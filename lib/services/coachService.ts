@@ -731,6 +731,11 @@ export class CoachService {
         return []
       }
 
+      console.log(`Weekly workouts for user ${userId} (${weekStartStr} to ${weekEndStr}):`, {
+        count: userWorkouts?.length || 0,
+        workouts: userWorkouts,
+      })
+
       if (!userWorkouts || userWorkouts.length === 0) {
         return []
       }

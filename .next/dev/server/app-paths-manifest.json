@@ -1,5 +1,5 @@
 {
-  "/coach/clients/[userId]/page": "app/coach/clients/[userId]/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/coach/moais/[moaiId]/page": "app/coach/moais/[moaiId]/page.js",
   "/coach/moais/page": "app/coach/moais/page.js",
   "/coach/page": "app/coach/page.js",
