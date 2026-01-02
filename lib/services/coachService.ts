@@ -972,6 +972,117 @@ export class CoachService {
   }
 
   /**
+   * Get workout template details with exercises, sets, and reps
+   */
+  static async getWorkoutTemplateDetails(workoutId: string): Promise<{
+    workout_id: string
+    title: string
+    type: string
+    exercises: Array<{
+      exercise_name: string
+      sets: Array<{
+        set_number: number
+        target_reps: number | null
+        target_weight_lbs: number | null
+      }>
+    }>
+  } | null> {
+    try {
+      // Get workout template
+      const { data: workout, error: workoutError } = await supabase
+        .from("workoutss")
+        .select("id, title, type")
+        .eq("id", workoutId)
+        .single()
+
+      if (workoutError || !workout) {
+        console.error("Error fetching workout template:", workoutError)
+        return null
+      }
+
+      // Get workout exercises - check if there's a workout_exercises table
+      // If not, we might need to get from a different table structure
+      const { data: workoutExercises, error: exercisesError } = await supabase
+        .from("workout_exercises")
+        .select("exercise_name, set_number, target_reps, target_weight_lbs")
+        .eq("workout_id", workoutId)
+        .order("exercise_name", { ascending: true })
+        .order("set_number", { ascending: true })
+
+      if (exercisesError) {
+        console.error("Error fetching workout exercises:", exercisesError)
+        // Try alternative table name
+        const { data: altExercises, error: altError } = await supabase
+          .from("workout_exercise")
+          .select("exercise_name, set_number, target_reps, target_weight_lbs")
+          .eq("workout_id", workoutId)
+          .order("exercise_name", { ascending: true })
+          .order("set_number", { ascending: true })
+
+        if (altError) {
+          console.error("Error fetching workout exercises from alternative table:", altError)
+          // Return workout info without exercises if we can't find the table
+          return {
+            workout_id: workout.id,
+            title: workout.title || "Unknown Workout",
+            type: workout.type || "unknown",
+            exercises: [],
+          }
+        }
+
+        // Group exercises by name
+        const exercisesMap = new Map<string, Array<{ set_number: number; target_reps: number | null; target_weight_lbs: number | null }>>()
+        altExercises?.forEach((ex: any) => {
+          if (!exercisesMap.has(ex.exercise_name)) {
+            exercisesMap.set(ex.exercise_name, [])
+          }
+          exercisesMap.get(ex.exercise_name)!.push({
+            set_number: ex.set_number,
+            target_reps: ex.target_reps,
+            target_weight_lbs: ex.target_weight_lbs,
+          })
+        })
+
+        return {
+          workout_id: workout.id,
+          title: workout.title || "Unknown Workout",
+          type: workout.type || "unknown",
+          exercises: Array.from(exercisesMap.entries()).map(([exercise_name, sets]) => ({
+            exercise_name,
+            sets,
+          })),
+        }
+      }
+
+      // Group exercises by name
+      const exercisesMap = new Map<string, Array<{ set_number: number; target_reps: number | null; target_weight_lbs: number | null }>>()
+      workoutExercises?.forEach((ex: any) => {
+        if (!exercisesMap.has(ex.exercise_name)) {
+          exercisesMap.set(ex.exercise_name, [])
+        }
+        exercisesMap.get(ex.exercise_name)!.push({
+          set_number: ex.set_number,
+          target_reps: ex.target_reps,
+          target_weight_lbs: ex.target_weight_lbs,
+        })
+      })
+
+      return {
+        workout_id: workout.id,
+        title: workout.title || "Unknown Workout",
+        type: workout.type || "unknown",
+        exercises: Array.from(exercisesMap.entries()).map(([exercise_name, sets]) => ({
+          exercise_name,
+          sets,
+        })),
+      }
+    } catch (err) {
+      console.error("Exception in getWorkoutTemplateDetails:", err)
+      return null
+    }
+  }
+
+  /**
    * Get all Moais that a coach is subscribed to
    */
   static async getMoais(coachId: string): Promise<MoaiMetrics[]> {

@@ -14,6 +14,7 @@ import type {
   MoaiMemberMetrics,
   ExercisePerformance,
   WorkoutInPlan,
+  PersonalBest,
 } from '@/lib/types/coach'
 import type { MoaiChatMessage, MoaiChat } from '@/lib/services/chatService'
 import Link from 'next/link'
@@ -108,6 +109,19 @@ export default function MoaiDetailPage() {
     }>
   } | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
+  const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null)
+  const [workoutTemplateDetails, setWorkoutTemplateDetails] = useState<{
+    workoutId: string
+    exercises: Array<{
+      exercise_name: string
+      sets: Array<{
+        set_number: number
+        target_reps: number | null
+        target_weight_lbs: number | null
+      }>
+    }>
+  } | null>(null)
+  const [workoutPersonalBests, setWorkoutPersonalBests] = useState<Map<string, PersonalBest>>(new Map())
 
   useEffect(() => {
     loadMoaiDetail()
@@ -288,6 +302,38 @@ export default function MoaiDetailPage() {
   const handleWorkoutClick = async (workout: WorkoutHistory) => {
     setSelectedWorkout({ sessionId: workout.session_id, workout })
     await loadWorkoutDetails(workout.session_id)
+  }
+
+  // Handle weekly workout expansion
+  const handleWeeklyWorkoutClick = async (workout: WorkoutInPlan) => {
+    if (expandedWorkoutId === workout.workout_id) {
+      // Collapse
+      setExpandedWorkoutId(null)
+      setWorkoutTemplateDetails(null)
+      setWorkoutPersonalBests(new Map())
+    } else {
+      // Expand
+      setExpandedWorkoutId(workout.workout_id)
+      
+      // Fetch workout template details
+      const templateDetails = await CoachService.getWorkoutTemplateDetails(workout.workout_id)
+      if (templateDetails) {
+        setWorkoutTemplateDetails({
+          workoutId: templateDetails.workout_id,
+          exercises: templateDetails.exercises,
+        })
+      }
+
+      // Fetch personal bests for the user
+      if (selectedMember) {
+        const personalBests = await CoachService.getUserPersonalBests(selectedMember.userId)
+        const pbMap = new Map<string, PersonalBest>()
+        personalBests.forEach((pb) => {
+          pbMap.set(pb.exercise_name, pb)
+        })
+        setWorkoutPersonalBests(pbMap)
+      }
+    }
   }
 
   // Handle exercise click - navigate to progression tab
@@ -1439,37 +1485,111 @@ export default function MoaiDetailPage() {
                                   )}
                                   {memberDetails.weeklyWorkouts.length > 0 ? (
                                     <div className="space-y-3">
-                                      {memberDetails.weeklyWorkouts.map((workout) => (
-                                        <div
-                                          key={workout.workout_id}
-                                          className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-                                        >
-                                          <div className="flex-1">
-                                            <p className="text-sm font-medium text-gray-900">
-                                              {workout.workout_title}
-                                            </p>
-                                            <p className="text-xs text-gray-500 mt-1">
-                                              {workout.workout_type} • Assigned {formatDate(workout.assigned_at.split('T')[0])}
-                                            </p>
-                                          </div>
-                                          <div className="text-right ml-4">
-                                            {workout.status === 'completed' ? (
-                                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                                ✓ Completed
-                                              </span>
-                                            ) : (
-                                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                                Assigned
-                                              </span>
+                                      {memberDetails.weeklyWorkouts.map((workout) => {
+                                        const isExpanded = expandedWorkoutId === workout.workout_id
+                                        const templateDetails = workoutTemplateDetails?.workoutId === workout.workout_id 
+                                          ? workoutTemplateDetails 
+                                          : null
+                                        
+                                        return (
+                                          <div key={workout.workout_id} className="border border-gray-200 rounded-lg overflow-hidden">
+                                            <button
+                                              onClick={() => handleWeeklyWorkoutClick(workout)}
+                                              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
+                                            >
+                                              <div className="flex-1">
+                                                <p className="text-sm font-medium text-gray-900">
+                                                  {workout.workout_title}
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                  {workout.workout_type} • Assigned {formatDate(workout.assigned_at.split('T')[0])}
+                                                </p>
+                                              </div>
+                                              <div className="text-right ml-4 flex items-center gap-2">
+                                                {workout.status === 'completed' ? (
+                                                  <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                                    ✓ Completed
+                                                  </span>
+                                                ) : (
+                                                  <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                                    Assigned
+                                                  </span>
+                                                )}
+                                                {workout.completed_at && (
+                                                  <p className="text-xs text-gray-500 mt-1">
+                                                    {formatDate(workout.completed_at.split('T')[0])}
+                                                  </p>
+                                                )}
+                                                <ArrowDownRight 
+                                                  className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                                />
+                                              </div>
+                                            </button>
+                                            
+                                            {isExpanded && templateDetails && (
+                                              <div className="border-t border-gray-200 bg-gray-50 p-4">
+                                                <div className="space-y-4">
+                                                  {templateDetails.exercises.map((exercise) => {
+                                                    const pb = workoutPersonalBests.get(exercise.exercise_name)
+                                                    return (
+                                                      <div key={exercise.exercise_name} className="bg-white rounded-lg p-4 border border-gray-200">
+                                                        <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                                                          {exercise.exercise_name}
+                                                          {pb && (
+                                                            <span className="ml-2 text-xs font-normal text-blue-600">
+                                                              (PB: {pb.max_weight_lbs ? `${pb.max_weight_lbs} lbs` : ''} {pb.max_reps ? `${pb.max_reps} reps` : ''})
+                                                            </span>
+                                                          )}
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                          {exercise.sets.map((set, idx) => (
+                                                            <div
+                                                              key={idx}
+                                                              className="flex items-center gap-4 p-2 bg-gray-50 rounded"
+                                                            >
+                                                              <span className="text-xs font-medium text-gray-600 w-12">
+                                                                Set {set.set_number}
+                                                              </span>
+                                                              <div className="flex-1 flex items-center gap-4">
+                                                                {set.target_weight_lbs && (
+                                                                  <span className="text-xs text-gray-900">
+                                                                    {set.target_weight_lbs} lbs
+                                                                  </span>
+                                                                )}
+                                                                {set.target_reps && (
+                                                                  <span className="text-xs text-gray-900">
+                                                                    {set.target_reps} reps
+                                                                  </span>
+                                                                )}
+                                                                {!set.target_weight_lbs && !set.target_reps && (
+                                                                  <span className="text-xs text-gray-400">—</span>
+                                                                )}
+                                                              </div>
+                                                            </div>
+                                                          ))}
+                                                        </div>
+                                                      </div>
+                                                    )
+                                                  })}
+                                                  {templateDetails.exercises.length === 0 && (
+                                                    <p className="text-sm text-gray-500 text-center py-4">
+                                                      No exercise details available for this workout
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              </div>
                                             )}
-                                            {workout.completed_at && (
-                                              <p className="text-xs text-gray-500 mt-1">
-                                                {formatDate(workout.completed_at.split('T')[0])}
-                                              </p>
+                                            
+                                            {isExpanded && !templateDetails && (
+                                              <div className="border-t border-gray-200 bg-gray-50 p-4">
+                                                <p className="text-sm text-gray-500 text-center py-4">
+                                                  Loading workout details...
+                                                </p>
+                                              </div>
                                             )}
                                           </div>
-                                        </div>
-                                      ))}
+                                        )
+                                      })}
                                     </div>
                                   ) : (
                                     <div className="text-center py-8">
