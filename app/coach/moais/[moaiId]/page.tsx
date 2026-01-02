@@ -522,9 +522,23 @@ export default function MoaiDetailPage() {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Overall Completion Rate</p>
+                    <p className="text-sm font-medium text-gray-600">Commitment %</p>
                     <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {moaiDetail.moai_workout_stats?.average_completion_rate.toFixed(1) || '0'}%
+                      {(() => {
+                        // Calculate total commitments met / total commitments set
+                        const totalCommitment = moaiDetail.moai_commitment_history?.reduce(
+                          (sum, week) => sum + (week.total_commitment || 0),
+                          0
+                        ) || 0
+                        const totalCompleted = moaiDetail.moai_commitment_history?.reduce(
+                          (sum, week) => sum + (week.total_completed || 0),
+                          0
+                        ) || 0
+                        const commitmentPercent = totalCommitment > 0 
+                          ? (totalCompleted / totalCommitment) * 100 
+                          : 0
+                        return commitmentPercent.toFixed(1)
+                      })()}%
                     </p>
                     {trendAnalysis && (
                       <div className="flex items-center gap-1 mt-2">
