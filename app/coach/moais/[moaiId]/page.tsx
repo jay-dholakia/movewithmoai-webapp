@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CoachService } from '@/lib/services/coachService'
@@ -62,6 +62,7 @@ export default function MoaiDetailPage() {
   const [moaiChat, setMoaiChat] = useState<MoaiChat | null>(null)
   const [chatInputText, setChatInputText] = useState('')
   const [sendingMessage, setSendingMessage] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const [selectedMember, setSelectedMember] = useState<{
     userId: string
     member: MoaiMemberMetrics
@@ -332,6 +333,82 @@ export default function MoaiDetailPage() {
     setSelectedExercise(exerciseName)
     setActiveMemberTab('progression')
     setSelectedWorkout(null) // Close workout detail if open
+  }
+
+  // Load chat when chat panel is opened
+  useEffect(() => {
+    if (!showChat || !moaiDetail || !coachProfile?.user_id) return
+
+    let unsubscribe: (() => void) | null = null
+
+    const loadChat = async () => {
+      try {
+        const chat = await ChatService.getMoaiChat(moaiId)
+        if (!chat) {
+          console.error('Moai chat not found')
+          return
+        }
+
+        setMoaiChat(chat)
+        const messages = await ChatService.getMoaiChatMessages(
+          chat.id,
+          moaiDetail.coach_subscription_started_at
+        )
+        setChatMessages(messages)
+
+        // Subscribe to new messages
+        unsubscribe = ChatService.subscribeToMoaiChatMessages(
+          chat.id,
+          moaiDetail.coach_subscription_started_at,
+          (newMessage) => {
+            setChatMessages((prev) => {
+              if (prev.some((m) => m.id === newMessage.id)) {
+                return prev
+              }
+              return [...prev, newMessage]
+            })
+          }
+        )
+      } catch (error) {
+        console.error('Error loading chat:', error)
+      }
+    }
+
+    loadChat()
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
+  }, [showChat, moaiId, moaiDetail, coachProfile?.user_id])
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (showChat && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [chatMessages, showChat])
+
+  const handleSendMessage = async () => {
+    if (!chatInputText.trim() || !moaiChat || !coachProfile?.user_id || sendingMessage) return
+
+    setSendingMessage(true)
+    try {
+      const newMessage = await ChatService.sendMoaiChatMessage(
+        moaiChat.id,
+        coachProfile.user_id,
+        chatInputText.trim()
+      )
+      if (newMessage) {
+        setChatMessages((prev) => [...prev, newMessage])
+        setChatInputText('')
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+    } finally {
+      setSendingMessage(false)
+    }
   }
 
   // Handle member card click
@@ -1732,6 +1809,7 @@ export default function MoaiDetailPage() {
                 </div>
               ))
             )}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input */}
