@@ -1737,8 +1737,8 @@ export default function MoaiDetailPage() {
 
       {/* Chat Slide-in Panel */}
       <div
-        className={`fixed inset-y-0 left-0 w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-          showChat ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+          showChat ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="h-full flex flex-col">
