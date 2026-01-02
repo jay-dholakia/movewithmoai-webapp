@@ -1000,30 +1000,37 @@ export class CoachService {
         return null
       }
 
-      // Get workout exercises - exercise_id maps to exercises table
+      // Get workout exercises - first query all columns to see what exists
       let workoutExercises: any[] = []
       let exercisesError: any = null
 
-      // Fetch workout exercises with exercise_id
+      // Query all columns to discover the actual schema
       const { data: workoutExercisesData, error: dataError } = await supabase
         .from("workout_exercises")
-        .select("exercise_id, set_number, target_reps, target_weight_lbs")
+        .select("*")
         .eq("workout_id", workoutId)
-        .order("set_number", { ascending: true })
+        .limit(10)
 
       if (dataError) {
         console.error("Error fetching workout exercises:", dataError)
         exercisesError = dataError
       } else if (workoutExercisesData && workoutExercisesData.length > 0) {
-        // Get unique exercise IDs
-        const exerciseIds = [...new Set(workoutExercisesData.map((ex: any) => ex.exercise_id).filter(Boolean))]
+        // Log the actual columns to help debug
+        console.log("workout_exercises actual columns:", Object.keys(workoutExercisesData[0]))
+        console.log("workout_exercises sample row:", workoutExercisesData[0])
+        
+        // Get unique exercise IDs (try different possible column names)
+        const exerciseIds: string[] = []
+        workoutExercisesData.forEach((row: any) => {
+          if (row.exercise_id) exerciseIds.push(row.exercise_id)
+        })
         
         if (exerciseIds.length > 0) {
           // Fetch exercise names from exercises table
           const { data: exercises, error: exercisesNameError } = await supabase
             .from("exercises")
             .select("id, name")
-            .in("id", exerciseIds)
+            .in("id", [...new Set(exerciseIds)])
 
           if (exercisesNameError) {
             console.error("Error fetching exercise names:", exercisesNameError)
@@ -1032,13 +1039,22 @@ export class CoachService {
             // Create a map of exercise_id -> exercise_name
             const exerciseNameMap = new Map(exercises.map((e: any) => [e.id, e.name]))
             
-            // Map workout exercises with exercise names
-            workoutExercises = workoutExercisesData.map((ex: any) => ({
-              exercise_name: exerciseNameMap.get(ex.exercise_id) || null,
-              set_number: ex.set_number,
-              target_reps: ex.target_reps,
-              target_weight_lbs: ex.target_weight_lbs,
-            })).filter((ex: any) => ex.exercise_name) // Filter out any without names
+            // Map workout exercises - use whatever columns actually exist
+            workoutExercises = workoutExercisesData.map((row: any) => {
+              const exerciseName = exerciseNameMap.get(row.exercise_id) || null
+              
+              // Try to find set number, reps, and weight columns (could be various names)
+              const setNumber = row.set_number || row.set_num || row.set || row.order || null
+              const targetReps = row.target_reps || row.reps || row.rep_count || null
+              const targetWeight = row.target_weight_lbs || row.weight_lbs || row.weight || row.target_weight || null
+              
+              return {
+                exercise_name: exerciseName,
+                set_number: setNumber,
+                target_reps: targetReps,
+                target_weight_lbs: targetWeight,
+              }
+            }).filter((ex: any) => ex.exercise_name) // Filter out any without names
           }
         }
       }
