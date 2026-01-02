@@ -164,6 +164,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../../app/coach/moais/[moaiId]/chat/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/coach/moais/[moaiId]/chat">> = Specific
+  const handler = {} as typeof import("../../../app/coach/moais/[moaiId]/chat/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../../app/coach/moais/[moaiId]/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/coach/moais/[moaiId]">> = Specific

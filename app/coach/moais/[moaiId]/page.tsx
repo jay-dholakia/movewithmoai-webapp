@@ -57,7 +57,6 @@ export default function MoaiDetailPage() {
   const [moaiDetail, setMoaiDetail] = useState<MoaiDetail | null>(null)
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showChat, setShowChat] = useState(false)
   const [selectedMember, setSelectedMember] = useState<{
     userId: string
     member: MoaiMemberMetrics
@@ -426,13 +425,13 @@ export default function MoaiDetailPage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setShowChat(!showChat)}
+            <Link
+              href={`/coach/moais/${moaiId}/chat`}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <MessageSquare className="h-5 w-5" />
               Chat
-            </button>
+            </Link>
           </div>
         </div>
       </header>
@@ -1652,217 +1651,7 @@ export default function MoaiDetailPage() {
         </div>
       </div>
 
-      {/* Chat Modal */}
-      {showChat && moaiDetail && coachProfile && coachProfile.user_id && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl h-[80vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Moai Chat</h2>
-              <button
-                onClick={() => setShowChat(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <MoaiChatInterface
-                moaiId={moaiId}
-                coachUserId={coachProfile.user_id}
-                coachSubscriptionStart={moaiDetail.coach_subscription_started_at}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-// Moai Chat Interface Component
-function MoaiChatInterface({
-  moaiId,
-  coachUserId,
-  coachSubscriptionStart,
-}: {
-  moaiId: string
-  coachUserId: string
-  coachSubscriptionStart: string
-}) {
-  const [messages, setMessages] = useState<MoaiChatMessage[]>([])
-  const [chat, setChat] = useState<MoaiChat | null>(null)
-  const [inputText, setInputText] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
-
-  useEffect(() => {
-    let unsubscribe: (() => void) | null = null
-
-    const loadChat = async () => {
-      try {
-        setLoading(true)
-        const moaiChat = await ChatService.getMoaiChat(moaiId)
-        if (!moaiChat) {
-          console.error('Moai chat not found')
-          setLoading(false)
-          return
-        }
-
-        setChat(moaiChat)
-        const chatMessages = await ChatService.getMoaiChatMessages(
-          moaiChat.id,
-          coachSubscriptionStart
-        )
-        setMessages(chatMessages)
-
-        // Subscribe to new messages in real-time
-        unsubscribe = ChatService.subscribeToMoaiChatMessages(
-          moaiChat.id,
-          coachSubscriptionStart,
-          (newMessage) => {
-            console.log('New message received:', newMessage)
-            setMessages((prev) => {
-              // Check if message already exists (avoid duplicates)
-              if (prev.some((m) => m.id === newMessage.id)) {
-                return prev
-              }
-              return [...prev, newMessage]
-            })
-          }
-        )
-      } catch (error) {
-        console.error('Error loading chat:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadChat()
-
-    // Cleanup: unsubscribe when component unmounts or dependencies change
-    return () => {
-      if (unsubscribe) {
-        unsubscribe()
-      }
-    }
-  }, [moaiId, coachSubscriptionStart])
-
-  const handleSend = async () => {
-    if (!inputText.trim() || !chat || sending) return
-
-    setSending(true)
-    try {
-      const newMessage = await ChatService.sendMoaiChatMessage(
-        chat.id,
-        coachUserId,
-        inputText.trim()
-      )
-      if (newMessage) {
-        setMessages((prev) => [...prev, newMessage])
-        setInputText('')
-      }
-    } catch (error) {
-      console.error('Error sending message:', error)
-    } finally {
-      setSending(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow p-8 text-center h-full flex items-center justify-center">
-        <div>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading chat...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!chat) {
-    return (
-      <div className="bg-white rounded-lg shadow p-8 text-center h-full flex items-center justify-center">
-        <p className="text-gray-600">Chat not available</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="bg-white flex flex-col h-full">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
-        {messages.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            <p className="mb-2">No messages yet.</p>
-            <p className="text-sm">
-              Messages from before you were added to this Moai are not shown.
-            </p>
-          </div>
-        ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.is_coach ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className="flex items-start gap-2 max-w-xs lg:max-w-md">
-                {!message.is_coach && message.sender_profile_picture_url && (
-                  <img
-                    src={message.sender_profile_picture_url}
-                    alt={message.sender_name || 'User'}
-                    className="h-8 w-8 rounded-full"
-                  />
-                )}
-                <div
-                  className={`px-4 py-2 rounded-lg ${
-                    message.is_coach
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-200 text-gray-900'
-                  }`}
-                >
-                  {!message.is_coach && (
-                    <p
-                      className={`text-xs font-medium mb-1 ${
-                        message.is_coach ? 'text-blue-100' : 'text-gray-600'
-                      }`}
-                    >
-                      {message.sender_name || 'User'}
-                    </p>
-                  )}
-                  <p className="text-sm">{message.message}</p>
-                  <p
-                    className={`text-xs mt-1 ${
-                      message.is_coach ? 'text-blue-100' : 'text-gray-500'
-                    }`}
-                  >
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Input */}
-      <div className="border-t border-gray-200 p-4">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!inputText.trim() || sending}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Send
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
