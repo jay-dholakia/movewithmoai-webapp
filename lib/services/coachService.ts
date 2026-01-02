@@ -1000,60 +1000,98 @@ export class CoachService {
         return null
       }
 
-      // Get workout exercises - try different column name patterns
+      // Get workout exercises - try to discover the actual column structure
       let workoutExercises: any[] = []
       let exercisesError: any = null
 
-      // First try with exercise_id (most common pattern)
-      const { data: workoutExercisesById, error: idError } = await supabase
+      // First, try to get all columns to see what's available
+      const { data: allColumns, error: allError } = await supabase
         .from("workout_exercises")
-        .select("exercise_id, set_number, target_reps, target_weight_lbs")
+        .select("*")
         .eq("workout_id", workoutId)
-        .order("set_number", { ascending: true })
+        .limit(1)
 
-      if (!idError && workoutExercisesById && workoutExercisesById.length > 0) {
-        // Get unique exercise IDs
-        const exerciseIds = [...new Set(workoutExercisesById.map((ex: any) => ex.exercise_id).filter(Boolean))]
+      if (allError) {
+        console.error("Error fetching workout_exercises structure:", allError)
+        exercisesError = allError
+      } else if (allColumns && allColumns.length > 0) {
+        // Inspect the first row to see what columns exist
+        const firstRow = allColumns[0]
+        console.log("workout_exercises columns:", Object.keys(firstRow))
         
-        if (exerciseIds.length > 0) {
-          // Fetch exercise names
-          const { data: exercises, error: exercisesNameError } = await supabase
-            .from("exercises")
-            .select("id, name")
-            .in("id", exerciseIds)
+        // Try to map based on what we find
+        const columnMap: any = {}
+        if (firstRow.exercise_id) columnMap.exercise_id = 'exercise_id'
+        if (firstRow.exercise_name) columnMap.exercise_name = 'exercise_name'
+        if (firstRow.exercise) columnMap.exercise = 'exercise'
+        if (firstRow.set_number) columnMap.set_number = 'set_number'
+        if (firstRow.set_num) columnMap.set_number = 'set_num'
+        if (firstRow.target_reps) columnMap.target_reps = 'target_reps'
+        if (firstRow.reps) columnMap.target_reps = 'reps'
+        if (firstRow.target_weight_lbs) columnMap.target_weight_lbs = 'target_weight_lbs'
+        if (firstRow.weight_lbs) columnMap.target_weight_lbs = 'weight_lbs'
+        if (firstRow.weight) columnMap.target_weight_lbs = 'weight'
 
-          if (!exercisesNameError && exercises) {
-            const exerciseNameMap = new Map(exercises.map((e: any) => [e.id, e.name]))
-            workoutExercises = workoutExercisesById.map((ex: any) => ({
-              exercise_name: exerciseNameMap.get(ex.exercise_id) || null,
-              set_number: ex.set_number,
-              target_reps: ex.target_reps,
-              target_weight_lbs: ex.target_weight_lbs,
-            })).filter((ex: any) => ex.exercise_name)
+        // Build select query based on discovered columns
+        const selectColumns = Object.values(columnMap).filter(Boolean).join(', ')
+        
+        if (selectColumns) {
+          const { data: workoutExercisesData, error: dataError } = await supabase
+            .from("workout_exercises")
+            .select(selectColumns)
+            .eq("workout_id", workoutId)
+            .order(columnMap.set_number || "id", { ascending: true })
+
+          if (!dataError && workoutExercisesData) {
+            // Process the data based on what columns we found
+            workoutExercises = workoutExercisesData.map((ex: any) => {
+              let exerciseName = null
+              
+              // Try to get exercise name from various possible columns
+              if (ex.exercise_name) {
+                exerciseName = ex.exercise_name
+              } else if (ex.exercise) {
+                exerciseName = ex.exercise
+              } else if (ex.exercise_id) {
+                // We'll need to fetch the name separately
+                exerciseName = null // Will handle below
+              }
+
+              return {
+                exercise_name: exerciseName,
+                exercise_id: ex.exercise_id || null,
+                set_number: ex.set_number || ex.set_num || null,
+                target_reps: ex.target_reps || ex.reps || null,
+                target_weight_lbs: ex.target_weight_lbs || ex.weight_lbs || ex.weight || null,
+              }
+            })
+
+            // If we have exercise_id but no name, fetch names
+            const needsNameLookup = workoutExercises.some((ex: any) => !ex.exercise_name && ex.exercise_id)
+            if (needsNameLookup) {
+              const exerciseIds = [...new Set(workoutExercises.map((ex: any) => ex.exercise_id).filter(Boolean))]
+              if (exerciseIds.length > 0) {
+                const { data: exercises, error: exercisesNameError } = await supabase
+                  .from("exercises")
+                  .select("id, name")
+                  .in("id", exerciseIds)
+
+                if (!exercisesNameError && exercises) {
+                  const exerciseNameMap = new Map(exercises.map((e: any) => [e.id, e.name]))
+                  workoutExercises = workoutExercises.map((ex: any) => ({
+                    ...ex,
+                    exercise_name: ex.exercise_name || exerciseNameMap.get(ex.exercise_id) || null,
+                  }))
+                }
+              }
+            }
+
+            // Filter out entries without exercise names
+            workoutExercises = workoutExercises.filter((ex: any) => ex.exercise_name)
           } else {
-            console.error("Error fetching exercise names:", exercisesNameError)
-            exercisesError = exercisesNameError
+            exercisesError = dataError
+            console.error("Error fetching workout exercises data:", dataError)
           }
-        }
-      } else {
-        // Try with name column directly
-        const { data: workoutExercisesByName, error: nameError } = await supabase
-          .from("workout_exercises")
-          .select("name, set_number, target_reps, target_weight_lbs")
-          .eq("workout_id", workoutId)
-          .order("name", { ascending: true })
-          .order("set_number", { ascending: true })
-
-        if (!nameError && workoutExercisesByName) {
-          workoutExercises = workoutExercisesByName.map((ex: any) => ({
-            exercise_name: ex.name,
-            set_number: ex.set_number,
-            target_reps: ex.target_reps,
-            target_weight_lbs: ex.target_weight_lbs,
-          }))
-        } else {
-          exercisesError = nameError || idError
-          console.error("Error fetching workout exercises:", exercisesError)
         }
       }
 
