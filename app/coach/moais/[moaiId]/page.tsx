@@ -170,12 +170,18 @@ export default function MoaiDetailPage() {
     })
 
     try {
-      // Get current week start for weekly workouts
+      // Get current week start for weekly workouts (Monday)
       const currentWeekStart = new Date()
-      const dayOfWeek = currentWeekStart.getDay()
+      const dayOfWeek = currentWeekStart.getDay() // 0 = Sunday, 1 = Monday, etc.
       const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
       currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday)
-      const weekStartStr = currentWeekStart.toISOString().split('T')[0]
+      currentWeekStart.setHours(0, 0, 0, 0) // Set to start of day
+      
+      // Format as YYYY-MM-DD in local time (not UTC)
+      const year = currentWeekStart.getFullYear()
+      const month = String(currentWeekStart.getMonth() + 1).padStart(2, '0')
+      const day = String(currentWeekStart.getDate()).padStart(2, '0')
+      const weekStartStr = `${year}-${month}-${day}`
 
       // Fetch all data, but handle errors gracefully since Moai members might not be direct clients
       const [metricsResult, commitmentHistoryResult, workoutHistoryResult, exercisePerformanceResult, weeklyWorkoutsResult] =

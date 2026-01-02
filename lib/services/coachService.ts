@@ -705,19 +705,51 @@ export class CoachService {
       // Calculate current week start (Monday) if not provided
       let weekStartDate: Date
       if (weekStart) {
-        weekStartDate = new Date(weekStart)
+        weekStartDate = new Date(weekStart + 'T00:00:00') // Parse as local date
       } else {
-        weekStartDate = new Date()
+        const now = new Date()
+        weekStartDate = new Date(now)
         const dayOfWeek = weekStartDate.getDay() // 0 = Sunday, 1 = Monday, etc.
         const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
         weekStartDate.setDate(weekStartDate.getDate() - daysToMonday)
+        // Set to start of day (midnight) in local time
+        weekStartDate.setHours(0, 0, 0, 0)
       }
       
       const weekEndDate = new Date(weekStartDate)
       weekEndDate.setDate(weekEndDate.getDate() + 7) // End of week (next Monday)
       
-      const weekStartStr = weekStartDate.toISOString().split('T')[0]
-      const weekEndStr = weekEndDate.toISOString().split('T')[0]
+      // Format as YYYY-MM-DD in local time (not UTC)
+      const year = weekStartDate.getFullYear()
+      const month = String(weekStartDate.getMonth() + 1).padStart(2, '0')
+      const day = String(weekStartDate.getDate()).padStart(2, '0')
+      const weekStartStr = `${year}-${month}-${day}`
+      
+      const yearEnd = weekEndDate.getFullYear()
+      const monthEnd = String(weekEndDate.getMonth() + 1).padStart(2, '0')
+      const dayEnd = String(weekEndDate.getDate()).padStart(2, '0')
+      const weekEndStr = `${yearEnd}-${monthEnd}-${dayEnd}`
+      
+      const today = new Date()
+      console.log(`Week calculation for user ${userId}:`, {
+        today: today.toLocaleDateString(),
+        todayDayOfWeek: today.getDay(), // 0=Sunday, 1=Monday, etc.
+        calculatedMonday: weekStartStr,
+        weekStartDate: weekStartDate.toLocaleDateString(),
+      })
+
+      // First, check what week_of values exist for this user (for debugging)
+      const { data: allUserWorkoutsSample, error: sampleError } = await supabase
+        .from("user_workouts")
+        .select("week_of, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(10)
+
+      if (!sampleError && allUserWorkoutsSample) {
+        const uniqueWeekOfs = [...new Set(allUserWorkoutsSample.map(uw => uw.week_of).filter(Boolean))]
+        console.log(`Sample week_of values for user ${userId}:`, uniqueWeekOfs)
+      }
 
       // Get user workouts for this specific week using week_of column
       const { data: userWorkouts, error: uwError } = await supabase
@@ -735,6 +767,7 @@ export class CoachService {
       console.log(`Weekly workouts for user ${userId} (week_of: ${weekStartStr}):`, {
         count: userWorkouts?.length || 0,
         workouts: userWorkouts,
+        weekOfValues: userWorkouts?.map(uw => uw.week_of), // Show all week_of values found
       })
 
       if (!userWorkouts || userWorkouts.length === 0) {
