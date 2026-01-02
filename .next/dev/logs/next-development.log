@@ -653,3 +653,6 @@ Import traces:
 [00:39:57.613] Browser ERROR   Error fetching workout exercises: {"code":"42703","details":null,"hint":null,"message":"column workout_exercises.name does not exist"}
 [00:39:57.613] Browser WARN    Could not fetch workout exercises, returning workout without exercise details
 [00:40:40.482] Server  LOG      ✓ Compiled in 472ms
+[00:41:12.062] Browser ERROR   Error fetching workout exercises: {"code":"42703","details":null,"hint":null,"message":"column workout_exercises.name does not exist"}
+[00:41:12.062] Browser WARN    Could not fetch workout exercises, returning workout without exercise details
+[00:42:14.396] Server  LOG      ✓ Compiled in 247ms
