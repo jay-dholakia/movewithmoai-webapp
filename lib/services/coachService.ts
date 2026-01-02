@@ -1000,63 +1000,77 @@ export class CoachService {
         return null
       }
 
-      // Get workout exercises - check if there's a workout_exercises table
-      // If not, we might need to get from a different table structure
-      const { data: workoutExercises, error: exercisesError } = await supabase
+      // Get workout exercises - try different column name patterns
+      let workoutExercises: any[] = []
+      let exercisesError: any = null
+
+      // First try with exercise_id (most common pattern)
+      const { data: workoutExercisesById, error: idError } = await supabase
         .from("workout_exercises")
-        .select("exercise_name, set_number, target_reps, target_weight_lbs")
+        .select("exercise_id, set_number, target_reps, target_weight_lbs")
         .eq("workout_id", workoutId)
-        .order("exercise_name", { ascending: true })
         .order("set_number", { ascending: true })
 
-      if (exercisesError) {
-        console.error("Error fetching workout exercises:", exercisesError)
-        // Try alternative table name
-        const { data: altExercises, error: altError } = await supabase
-          .from("workout_exercise")
-          .select("exercise_name, set_number, target_reps, target_weight_lbs")
-          .eq("workout_id", workoutId)
-          .order("exercise_name", { ascending: true })
-          .order("set_number", { ascending: true })
+      if (!idError && workoutExercisesById && workoutExercisesById.length > 0) {
+        // Get unique exercise IDs
+        const exerciseIds = [...new Set(workoutExercisesById.map((ex: any) => ex.exercise_id).filter(Boolean))]
+        
+        if (exerciseIds.length > 0) {
+          // Fetch exercise names
+          const { data: exercises, error: exercisesNameError } = await supabase
+            .from("exercises")
+            .select("id, name")
+            .in("id", exerciseIds)
 
-        if (altError) {
-          console.error("Error fetching workout exercises from alternative table:", altError)
-          // Return workout info without exercises if we can't find the table
-          return {
-            workout_id: workout.id,
-            title: workout.title || "Unknown Workout",
-            type: workout.type || "unknown",
-            exercises: [],
+          if (!exercisesNameError && exercises) {
+            const exerciseNameMap = new Map(exercises.map((e: any) => [e.id, e.name]))
+            workoutExercises = workoutExercisesById.map((ex: any) => ({
+              exercise_name: exerciseNameMap.get(ex.exercise_id) || null,
+              set_number: ex.set_number,
+              target_reps: ex.target_reps,
+              target_weight_lbs: ex.target_weight_lbs,
+            })).filter((ex: any) => ex.exercise_name)
+          } else {
+            console.error("Error fetching exercise names:", exercisesNameError)
+            exercisesError = exercisesNameError
           }
         }
+      } else {
+        // Try with name column directly
+        const { data: workoutExercisesByName, error: nameError } = await supabase
+          .from("workout_exercises")
+          .select("name, set_number, target_reps, target_weight_lbs")
+          .eq("workout_id", workoutId)
+          .order("name", { ascending: true })
+          .order("set_number", { ascending: true })
 
-        // Group exercises by name
-        const exercisesMap = new Map<string, Array<{ set_number: number; target_reps: number | null; target_weight_lbs: number | null }>>()
-        altExercises?.forEach((ex: any) => {
-          if (!exercisesMap.has(ex.exercise_name)) {
-            exercisesMap.set(ex.exercise_name, [])
-          }
-          exercisesMap.get(ex.exercise_name)!.push({
+        if (!nameError && workoutExercisesByName) {
+          workoutExercises = workoutExercisesByName.map((ex: any) => ({
+            exercise_name: ex.name,
             set_number: ex.set_number,
             target_reps: ex.target_reps,
             target_weight_lbs: ex.target_weight_lbs,
-          })
-        })
+          }))
+        } else {
+          exercisesError = nameError || idError
+          console.error("Error fetching workout exercises:", exercisesError)
+        }
+      }
 
+      if (exercisesError || workoutExercises.length === 0) {
+        console.warn("Could not fetch workout exercises, returning workout without exercise details")
         return {
           workout_id: workout.id,
           title: workout.title || "Unknown Workout",
           type: workout.type || "unknown",
-          exercises: Array.from(exercisesMap.entries()).map(([exercise_name, sets]) => ({
-            exercise_name,
-            sets,
-          })),
+          exercises: [],
         }
       }
 
       // Group exercises by name
       const exercisesMap = new Map<string, Array<{ set_number: number; target_reps: number | null; target_weight_lbs: number | null }>>()
-      workoutExercises?.forEach((ex: any) => {
+      workoutExercises.forEach((ex: any) => {
+        if (!ex.exercise_name) return
         if (!exercisesMap.has(ex.exercise_name)) {
           exercisesMap.set(ex.exercise_name, [])
         }
