@@ -476,9 +476,11 @@ export class CoachService {
       .eq("user_id", userId)
       .eq("coach_id", coachId)
       .eq("subscription_status", "active")
-      .single();
+      .maybeSingle(); // Use maybeSingle() instead of single() to avoid errors when no record found
 
     if (error) {
+      // Only log actual errors, not "not found" cases
+      // maybeSingle() shouldn't error on "not found", but log if there's a real error
       console.error("Error fetching client metrics:", error);
       return null;
     }
