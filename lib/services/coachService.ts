@@ -719,13 +719,12 @@ export class CoachService {
       const weekStartStr = weekStartDate.toISOString().split('T')[0]
       const weekEndStr = weekEndDate.toISOString().split('T')[0]
 
-      // Get user workouts assigned this week
+      // Get user workouts for this specific week using week_of column
       const { data: userWorkouts, error: uwError } = await supabase
         .from("user_workouts")
-        .select("id, workout_id, base_plan_id, created_at")
+        .select("id, workout_id, base_plan_id, created_at, week_of")
         .eq("user_id", userId)
-        .gte("created_at", weekStartStr)
-        .lt("created_at", weekEndStr)
+        .eq("week_of", weekStartStr) // Filter by the week_of column
         .order("created_at", { ascending: true })
 
       if (uwError) {
@@ -733,12 +732,13 @@ export class CoachService {
         return []
       }
 
-      console.log(`Weekly workouts for user ${userId} (${weekStartStr} to ${weekEndStr}):`, {
+      console.log(`Weekly workouts for user ${userId} (week_of: ${weekStartStr}):`, {
         count: userWorkouts?.length || 0,
         workouts: userWorkouts,
       })
 
       if (!userWorkouts || userWorkouts.length === 0) {
+        console.log(`No user workouts found for week ${weekStartStr}`)
         return []
       }
 
@@ -789,6 +789,11 @@ export class CoachService {
           status: completedSession ? "completed" : "assigned",
           workout_session_id: completedSession?.id || null,
         }
+      })
+
+      console.log(`Mapped weekly workouts for user ${userId}:`, {
+        count: weeklyWorkouts.length,
+        workouts: weeklyWorkouts,
       })
 
       return weeklyWorkouts
