@@ -476,9 +476,11 @@ export class CoachService {
       .eq("user_id", userId)
       .eq("coach_id", coachId)
       .eq("subscription_status", "active")
-      .single();
+      .maybeSingle(); // Use maybeSingle() instead of single() to avoid errors when no record found
 
     if (error) {
+      // Only log actual errors, not "not found" cases
+      // maybeSingle() shouldn't error on "not found", but log if there's a real error
       console.error("Error fetching client metrics:", error);
       return null;
     }
@@ -696,6 +698,145 @@ export class CoachService {
   }
 
   /**
+   * Get weekly assigned workouts for a user based on their commitment
+   */
+  static async getWeeklyAssignedWorkouts(userId: string, weekStart?: string): Promise<WorkoutInPlan[]> {
+    try {
+      // Calculate current week start (Monday) if not provided
+      let weekStartDate: Date
+      if (weekStart) {
+        weekStartDate = new Date(weekStart + 'T00:00:00') // Parse as local date
+      } else {
+        const now = new Date()
+        weekStartDate = new Date(now)
+        const dayOfWeek = weekStartDate.getDay() // 0 = Sunday, 1 = Monday, etc.
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        weekStartDate.setDate(weekStartDate.getDate() - daysToMonday)
+        // Set to start of day (midnight) in local time
+        weekStartDate.setHours(0, 0, 0, 0)
+      }
+      
+      const weekEndDate = new Date(weekStartDate)
+      weekEndDate.setDate(weekEndDate.getDate() + 7) // End of week (next Monday)
+      
+      // Format as YYYY-MM-DD in local time (not UTC)
+      const year = weekStartDate.getFullYear()
+      const month = String(weekStartDate.getMonth() + 1).padStart(2, '0')
+      const day = String(weekStartDate.getDate()).padStart(2, '0')
+      const weekStartStr = `${year}-${month}-${day}`
+      
+      const yearEnd = weekEndDate.getFullYear()
+      const monthEnd = String(weekEndDate.getMonth() + 1).padStart(2, '0')
+      const dayEnd = String(weekEndDate.getDate()).padStart(2, '0')
+      const weekEndStr = `${yearEnd}-${monthEnd}-${dayEnd}`
+      
+      const today = new Date()
+      console.log(`Week calculation for user ${userId}:`, {
+        today: today.toLocaleDateString(),
+        todayDayOfWeek: today.getDay(), // 0=Sunday, 1=Monday, etc.
+        calculatedMonday: weekStartStr,
+        weekStartDate: weekStartDate.toLocaleDateString(),
+      })
+
+      // First, check what week_of values exist for this user (for debugging)
+      const { data: allUserWorkoutsSample, error: sampleError } = await supabase
+        .from("user_workouts")
+        .select("week_of, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(10)
+
+      if (!sampleError && allUserWorkoutsSample) {
+        const uniqueWeekOfs = [...new Set(allUserWorkoutsSample.map(uw => uw.week_of).filter(Boolean))]
+        console.log(`Sample week_of values for user ${userId}:`, uniqueWeekOfs)
+      }
+
+      // Get user workouts for this specific week using week_of column
+      const { data: userWorkouts, error: uwError } = await supabase
+        .from("user_workouts")
+        .select("id, workout_id, base_plan_id, created_at, week_of")
+        .eq("user_id", userId)
+        .eq("week_of", weekStartStr) // Filter by the week_of column
+        .order("created_at", { ascending: true })
+
+      if (uwError) {
+        console.error("Error fetching weekly user workouts:", uwError)
+        return []
+      }
+
+      console.log(`Weekly workouts for user ${userId} (week_of: ${weekStartStr}):`, {
+        count: userWorkouts?.length || 0,
+        workouts: userWorkouts,
+        weekOfValues: userWorkouts?.map(uw => uw.week_of), // Show all week_of values found
+      })
+
+      if (!userWorkouts || userWorkouts.length === 0) {
+        console.log(`No user workouts found for week ${weekStartStr}`)
+        return []
+      }
+
+      // Get workout details
+      const workoutIds = userWorkouts.map((uw) => uw.workout_id).filter(Boolean)
+      if (workoutIds.length === 0) {
+        return []
+      }
+
+      const { data: workouts, error: workoutsError } = await supabase
+        .from("workoutss")
+        .select("id, title, type")
+        .in("id", workoutIds)
+
+      if (workoutsError) {
+        console.error("Error fetching workouts:", workoutsError)
+        return []
+      }
+
+      const workoutLookup = new Map(workouts?.map((w) => [w.id, w]) || [])
+
+      // Get completed workout sessions for this week
+      const { data: completedSessions, error: sessionsError } = await supabase
+        .from("workout_sessions")
+        .select("id, user_workout_id, completed_at, workout_template_id")
+        .eq("user_id", userId)
+        .eq("status", "completed")
+        .gte("completed_at", weekStartStr)
+        .lt("completed_at", weekEndStr)
+
+      if (sessionsError) {
+        console.error("Error fetching workout sessions:", sessionsError)
+      }
+
+      // Map user workouts to WorkoutInPlan format
+      const weeklyWorkouts: WorkoutInPlan[] = userWorkouts.map((uw) => {
+        const workout = workoutLookup.get(uw.workout_id)
+        const completedSession = completedSessions?.find(
+          (s) => s.user_workout_id === uw.id || s.workout_template_id === workout?.id
+        )
+
+        return {
+          workout_id: uw.workout_id,
+          workout_title: workout?.title || "Unknown Workout",
+          workout_type: workout?.type || "unknown",
+          assigned_at: uw.created_at,
+          completed_at: completedSession?.completed_at || null,
+          status: completedSession ? "completed" : "assigned",
+          workout_session_id: completedSession?.id || null,
+        }
+      })
+
+      console.log(`Mapped weekly workouts for user ${userId}:`, {
+        count: weeklyWorkouts.length,
+        workouts: weeklyWorkouts,
+      })
+
+      return weeklyWorkouts
+    } catch (err) {
+      console.error("Exception in getWeeklyAssignedWorkouts:", err)
+      return []
+    }
+  }
+
+  /**
    * Get personal bests for a user by exercise
    */
   static async getUserPersonalBests(userId: string): Promise<PersonalBest[]> {
@@ -827,6 +968,133 @@ export class CoachService {
     } catch (err) {
       console.error("Exception in getUserPersonalBests:", err);
       return [];
+    }
+  }
+
+  /**
+   * Get workout template details with exercises, sets, and reps
+   */
+  static async getWorkoutTemplateDetails(workoutId: string): Promise<{
+    workout_id: string
+    title: string
+    type: string
+    exercises: Array<{
+      exercise_name: string
+      sets: Array<{
+        set_number: number
+        target_reps: number | null
+        target_weight_lbs: number | null
+      }>
+    }>
+  } | null> {
+    try {
+      // Get workout template
+      const { data: workout, error: workoutError } = await supabase
+        .from("workoutss")
+        .select("id, title, type")
+        .eq("id", workoutId)
+        .single()
+
+      if (workoutError || !workout) {
+        console.error("Error fetching workout template:", workoutError)
+        return null
+      }
+
+      // Get workout exercises - first query all columns to see what exists
+      let workoutExercises: any[] = []
+      let exercisesError: any = null
+
+      // Query all columns to discover the actual schema
+      const { data: workoutExercisesData, error: dataError } = await supabase
+        .from("workout_exercises")
+        .select("*")
+        .eq("workout_template_id", workoutId)
+        .limit(10)
+
+      if (dataError) {
+        console.error("Error fetching workout exercises:", dataError)
+        exercisesError = dataError
+      } else if (workoutExercisesData && workoutExercisesData.length > 0) {
+        // Log the actual columns to help debug
+        console.log("workout_exercises actual columns:", Object.keys(workoutExercisesData[0]))
+        console.log("workout_exercises sample row:", workoutExercisesData[0])
+        
+        // Get unique exercise IDs (try different possible column names)
+        const exerciseIds: string[] = []
+        workoutExercisesData.forEach((row: any) => {
+          if (row.exercise_id) exerciseIds.push(row.exercise_id)
+        })
+        
+        if (exerciseIds.length > 0) {
+          // Fetch exercise names from exercises table
+          const { data: exercises, error: exercisesNameError } = await supabase
+            .from("exercises")
+            .select("id, name")
+            .in("id", [...new Set(exerciseIds)])
+
+          if (exercisesNameError) {
+            console.error("Error fetching exercise names:", exercisesNameError)
+            exercisesError = exercisesNameError
+          } else if (exercises) {
+            // Create a map of exercise_id -> exercise_name
+            const exerciseNameMap = new Map(exercises.map((e: any) => [e.id, e.name]))
+            
+            // Map workout exercises - use whatever columns actually exist
+            workoutExercises = workoutExercisesData.map((row: any) => {
+              const exerciseName = exerciseNameMap.get(row.exercise_id) || null
+              
+              // Try to find set number, reps, and weight columns (could be various names)
+              const setNumber = row.set_number || row.set_num || row.set || row.order || null
+              const targetReps = row.target_reps || row.reps || row.rep_count || null
+              const targetWeight = row.target_weight_lbs || row.weight_lbs || row.weight || row.target_weight || null
+              
+              return {
+                exercise_name: exerciseName,
+                set_number: setNumber,
+                target_reps: targetReps,
+                target_weight_lbs: targetWeight,
+              }
+            }).filter((ex: any) => ex.exercise_name) // Filter out any without names
+          }
+        }
+      }
+
+      if (exercisesError || workoutExercises.length === 0) {
+        console.warn("Could not fetch workout exercises, returning workout without exercise details")
+        return {
+          workout_id: workout.id,
+          title: workout.title || "Unknown Workout",
+          type: workout.type || "unknown",
+          exercises: [],
+        }
+      }
+
+      // Group exercises by name
+      const exercisesMap = new Map<string, Array<{ set_number: number; target_reps: number | null; target_weight_lbs: number | null }>>()
+      workoutExercises.forEach((ex: any) => {
+        if (!ex.exercise_name) return
+        if (!exercisesMap.has(ex.exercise_name)) {
+          exercisesMap.set(ex.exercise_name, [])
+        }
+        exercisesMap.get(ex.exercise_name)!.push({
+          set_number: ex.set_number,
+          target_reps: ex.target_reps,
+          target_weight_lbs: ex.target_weight_lbs,
+        })
+      })
+
+      return {
+        workout_id: workout.id,
+        title: workout.title || "Unknown Workout",
+        type: workout.type || "unknown",
+        exercises: Array.from(exercisesMap.entries()).map(([exercise_name, sets]) => ({
+          exercise_name,
+          sets,
+        })),
+      }
+    } catch (err) {
+      console.error("Exception in getWorkoutTemplateDetails:", err)
+      return null
     }
   }
 
