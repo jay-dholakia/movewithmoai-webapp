@@ -1039,13 +1039,13 @@ export class CoachService {
             // Create a map of exercise_id -> exercise_name
             const exerciseNameMap = new Map(exercises.map((e: any) => [e.id, e.name]))
             
-            // Map workout exercises - use whatever columns actually exist
+            // Map workout exercises - use sets and reps columns
             workoutExercises = workoutExercisesData.map((row: any) => {
               const exerciseName = exerciseNameMap.get(row.exercise_id) || null
               
-              // Try to find set number, reps, and weight columns (could be various names)
-              const setNumber = row.set_number || row.set_num || row.set || row.order || null
-              const targetReps = row.target_reps || row.reps || row.rep_count || null
+              // Use sets and reps columns directly from workout_exercises table
+              const setNumber = row.sets ?? null
+              const targetReps = row.reps ?? null
               const targetWeight = row.target_weight_lbs || row.weight_lbs || row.weight || row.target_weight || null
               
               return {
