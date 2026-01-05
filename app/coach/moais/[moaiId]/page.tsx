@@ -34,6 +34,7 @@ import {
   Calendar,
   Dumbbell,
   BarChart3,
+  LogOut,
 } from 'lucide-react'
 
 interface TrendAnalysis {
@@ -226,6 +227,13 @@ export default function MoaiDetailPage() {
           overall_completion_rate: member.overall_completion_rate,
           total_completed_workouts: member.total_workouts,
           total_workout_sessions: member.total_workouts,
+          last_workout_date: null,
+          chat_sessions_count: 0,
+          last_message_at: null,
+          unread_messages_count: 0,
+          last_note_updated_at: null,
+          notes_count: 0,
+          pending_video_reviews: 0,
         }
       }
 
@@ -507,13 +515,25 @@ export default function MoaiDetailPage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setShowChat(!showChat)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <MessageSquare className="h-5 w-5" />
-              Chat
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut()
+                  router.push('/coach/login')
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </button>
+              <button
+                onClick={() => setShowChat(!showChat)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <MessageSquare className="h-5 w-5" />
+                Chat
+              </button>
+            </div>
           </div>
         </div>
       </header>

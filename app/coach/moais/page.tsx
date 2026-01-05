@@ -1,13 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CoachService } from '@/lib/services/coachService'
 import type { MoaiMetrics, CoachProfile } from '@/lib/types/coach'
 import Link from 'next/link'
-import { Users, MessageSquare, TrendingUp, Calendar, ArrowRight, Search, X } from 'lucide-react'
+import { Users, MessageSquare, TrendingUp, Calendar, ArrowRight, Search, X, LogOut } from 'lucide-react'
 
 export default function MoaisPage() {
+  const router = useRouter()
   const [moais, setMoais] = useState<MoaiMetrics[]>([])
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -92,6 +94,16 @@ export default function MoaisPage() {
               >
                 <span>Clients</span>
               </Link>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut()
+                  router.push('/coach/login')
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </button>
             </div>
           </div>
         </div>
