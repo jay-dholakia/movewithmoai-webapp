@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CoachService } from '@/lib/services/coachService'
 import type { CoachProfile } from '@/lib/types/coach'
-import { User, Save, Upload, X, ArrowLeft, Loader2, LogOut } from 'lucide-react'
+import { User, Save, Upload, X, ArrowLeft, Loader2 } from 'lucide-react'
 
 export default function CoachProfilePage() {
   const router = useRouter()
@@ -237,18 +237,6 @@ export default function CoachProfilePage() {
                 <h1 className="text-2xl font-bold text-gray-900">Edit Profile</h1>
                 <p className="text-sm text-gray-600 mt-1">Update your coach profile information</p>
               </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut()
-                  router.push('/coach/login')
-                }}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </button>
             </div>
           </div>
         </div>

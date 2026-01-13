@@ -1,18 +1,16 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CoachService } from '@/lib/services/coachService'
 import type { ClientMetrics, CoachProfile } from '@/lib/types/coach'
 import Link from 'next/link'
-import { Users, MessageSquare, TrendingUp, Calendar, AlertCircle, Search, ArrowUp, ArrowDown, X, User, LogOut } from 'lucide-react'
+import { Users, MessageSquare, TrendingUp, Calendar, AlertCircle, Search, ArrowUp, ArrowDown, X, User } from 'lucide-react'
 
 type SortField = 'name' | 'current_week' | 'overall_rate' | 'workouts' | 'last_activity' | 'status'
 type SortDirection = 'asc' | 'desc'
 
 export default function CoachDashboard() {
-  const router = useRouter()
   const [clients, setClients] = useState<ClientMetrics[]>([])
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -233,16 +231,6 @@ export default function CoachDashboard() {
                 <User className="h-4 w-4" />
                 <span>Profile</span>
               </Link>
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut()
-                  router.push('/coach/login')
-                }}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </button>
             </div>
           </div>
         </div>

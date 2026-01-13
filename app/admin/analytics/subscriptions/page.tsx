@@ -1,15 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
 import { AdminService } from '@/lib/services/adminService'
 import { ArrowLeft, Activity } from 'lucide-react'
 import Link from 'next/link'
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
-// Dynamically import chart components with SSR disabled - load each separately
-const StatusChart = dynamic(() => import('./StatusChart'), { ssr: false })
-const TrendsChart = dynamic(() => import('./TrendsChart'), { ssr: false })
-const SubscriptionsChart = dynamic(() => import('./SubscriptionsChart'), { ssr: false })
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
 export default function SubscriptionAnalyticsPage() {
   const [dailyData, setDailyData] = useState<any[]>([])
@@ -122,7 +119,25 @@ export default function SubscriptionAnalyticsPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Subscription Status Distribution
         </h2>
-        <StatusChart data={statusChartData} />
+        <ResponsiveContainer width="100%" height={300}>
+          <PieChart>
+            <Pie
+              data={statusChartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+              outerRadius={100}
+              fill="#8884d8"
+              dataKey="value"
+            >
+              {statusChartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Subscription Trends */}
@@ -130,7 +145,29 @@ export default function SubscriptionAnalyticsPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Subscription Trends Over Time
         </h2>
-        <TrendsChart data={chartData} />
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="period" />
+            <YAxis label={{ value: 'Count', angle: -90, position: 'insideLeft' }} />
+            <Tooltip />
+            <Legend />
+            <Line
+              type="monotone"
+              dataKey="Active"
+              stroke="#10b981"
+              strokeWidth={2}
+              dot={{ r: 4 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="Total"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              dot={{ r: 4 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
       {/* New Subscriptions */}
@@ -138,7 +175,16 @@ export default function SubscriptionAnalyticsPage() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           New Subscriptions Created
         </h2>
-        <SubscriptionsChart data={chartData} />
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="period" />
+            <YAxis label={{ value: 'New Subscriptions', angle: -90, position: 'insideLeft' }} />
+            <Tooltip />
+            <Legend />
+            <Bar dataKey="Total" fill="#3b82f6" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   )

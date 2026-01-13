@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CoachService } from '@/lib/services/coachService'
@@ -13,8 +13,6 @@ import type {
   WorkoutHistory,
   MoaiMemberMetrics,
   ExercisePerformance,
-  WorkoutInPlan,
-  PersonalBest,
 } from '@/lib/types/coach'
 import type { MoaiChatMessage, MoaiChat } from '@/lib/services/chatService'
 import Link from 'next/link'
@@ -30,11 +28,11 @@ import {
   Activity,
   ArrowUpRight,
   ArrowDownRight,
+  Sparkles,
   X,
   Calendar,
   Dumbbell,
   BarChart3,
-  LogOut,
 } from 'lucide-react'
 
 interface TrendAnalysis {
@@ -49,6 +47,17 @@ interface TrendAnalysis {
   }>
 }
 
+interface CoachingOpportunity {
+  type: 'declining_performance' | 'low_engagement' | 'inconsistent' | 'high_performer' | 'new_member'
+  priority: 'high' | 'medium' | 'low'
+  memberId: string
+  memberName: string
+  description: string
+  suggestion: string
+  metric: string
+  value: number
+  trend?: 'up' | 'down' | 'stable'
+}
 
 export default function MoaiDetailPage() {
   const params = useParams()
@@ -59,11 +68,7 @@ export default function MoaiDetailPage() {
   const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [showChat, setShowChat] = useState(false)
-  const [chatMessages, setChatMessages] = useState<MoaiChatMessage[]>([])
-  const [moaiChat, setMoaiChat] = useState<MoaiChat | null>(null)
-  const [chatInputText, setChatInputText] = useState('')
-  const [sendingMessage, setSendingMessage] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [showAllOpportunities, setShowAllOpportunities] = useState(false)
   const [selectedMember, setSelectedMember] = useState<{
     userId: string
     member: MoaiMemberMetrics
@@ -73,17 +78,15 @@ export default function MoaiDetailPage() {
     commitmentHistory: CommitmentHistory[]
     workoutHistory: WorkoutHistory[]
     exercisePerformance: ExercisePerformance[]
-    weeklyWorkouts: WorkoutInPlan[]
     loading: boolean
   }>({
     metrics: null,
     commitmentHistory: [],
     workoutHistory: [],
     exercisePerformance: [],
-    weeklyWorkouts: [],
     loading: false,
   })
-  const [activeMemberTab, setActiveMemberTab] = useState<'workouts' | 'progression' | 'program'>('workouts')
+  const [activeMemberTab, setActiveMemberTab] = useState<'workouts' | 'progression'>('workouts')
   const [selectedWorkout, setSelectedWorkout] = useState<{
     sessionId: string
     workout: WorkoutHistory
@@ -98,23 +101,11 @@ export default function MoaiDetailPage() {
         weight_lbs: number | null
         reps: number | null
         is_completed: boolean
+        rest_seconds: number | null
       }>
     }>
   } | null>(null)
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
-  const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null)
-  const [workoutTemplateDetails, setWorkoutTemplateDetails] = useState<{
-    workoutId: string
-    exercises: Array<{
-      exercise_name: string
-      sets: Array<{
-        set_number: number
-        target_reps: number | null
-        target_weight_lbs: number | null
-      }>
-    }>
-  } | null>(null)
-  const [workoutPersonalBests, setWorkoutPersonalBests] = useState<Map<string, PersonalBest>>(new Map())
 
   useEffect(() => {
     loadMoaiDetail()
@@ -172,71 +163,21 @@ export default function MoaiDetailPage() {
       commitmentHistory: [],
       workoutHistory: [],
       exercisePerformance: [],
-      weeklyWorkouts: [],
       loading: true,
     })
 
     try {
-      // Get current week start for weekly workouts (Monday)
-      const currentWeekStart = new Date()
-      const dayOfWeek = currentWeekStart.getDay() // 0 = Sunday, 1 = Monday, etc.
-      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-      currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday)
-      currentWeekStart.setHours(0, 0, 0, 0) // Set to start of day
-      
-      // Format as YYYY-MM-DD in local time (not UTC)
-      const year = currentWeekStart.getFullYear()
-      const month = String(currentWeekStart.getMonth() + 1).padStart(2, '0')
-      const day = String(currentWeekStart.getDate()).padStart(2, '0')
-      const weekStartStr = `${year}-${month}-${day}`
-
       // Fetch all data, but handle errors gracefully since Moai members might not be direct clients
-      const [metricsResult, commitmentHistoryResult, workoutHistoryResult, exercisePerformanceResult, weeklyWorkoutsResult] =
+      const [metricsResult, commitmentHistoryResult, workoutHistoryResult, exercisePerformanceResult] =
         await Promise.allSettled([
           CoachService.getClientMetrics(userId, coachProfile.id),
           CoachService.getClientCommitmentHistory(userId, coachProfile.id),
           CoachService.getClientWorkoutHistory(userId, coachProfile.id, 20),
           CoachService.getClientExercisePerformance(userId),
-          CoachService.getWeeklyAssignedWorkouts(userId, weekStartStr),
         ])
 
-      let metrics =
+      const metrics =
         metricsResult.status === 'fulfilled' ? metricsResult.value : null
-
-      // If metrics is null (member not a direct client), create metrics from selectedMember.member data
-      if (!metrics && selectedMember && selectedMember.member) {
-        const member = selectedMember.member
-        metrics = {
-          user_id: member.user_id,
-          email: member.email,
-          username: member.username,
-          first_name: member.first_name,
-          last_name: member.last_name,
-          profile_picture_url: member.profile_picture_url,
-          user_created_at: member.joined_at,
-          coach_id: coachProfile.id,
-          assigned_coach_id: null,
-          subscription_status: null,
-          current_week_commitment: member.current_week_commitment,
-          current_week_completed: member.current_week_completed,
-          current_week_completion_rate: member.current_week_completion_rate,
-          current_week_start: weekStartStr,
-          total_commitment_weeks: member.total_commitment_weeks,
-          total_completed_sessions: 0, // Not available in member data
-          total_commitment_count: 0, // Not available in member data
-          overall_completion_rate: member.overall_completion_rate,
-          total_completed_workouts: member.total_workouts,
-          total_workout_sessions: member.total_workouts,
-          last_workout_date: null,
-          chat_sessions_count: 0,
-          last_message_at: null,
-          unread_messages_count: 0,
-          last_note_updated_at: null,
-          notes_count: 0,
-          pending_video_reviews: 0,
-        }
-      }
-
       const commitmentHistory =
         commitmentHistoryResult.status === 'fulfilled'
           ? commitmentHistoryResult.value || []
@@ -248,10 +189,6 @@ export default function MoaiDetailPage() {
       const exercisePerformance =
         exercisePerformanceResult.status === 'fulfilled'
           ? exercisePerformanceResult.value || []
-          : []
-      const weeklyWorkouts =
-        weeklyWorkoutsResult.status === 'fulfilled'
-          ? weeklyWorkoutsResult.value || []
           : []
 
       // Log errors but don't fail completely
@@ -267,16 +204,12 @@ export default function MoaiDetailPage() {
       if (exercisePerformanceResult.status === 'rejected') {
         console.warn('Error fetching exercise performance:', exercisePerformanceResult.reason)
       }
-      if (weeklyWorkoutsResult.status === 'rejected') {
-        console.warn('Error fetching weekly workouts:', weeklyWorkoutsResult.reason)
-      }
 
       setMemberDetails({
         metrics,
         commitmentHistory,
         workoutHistory,
         exercisePerformance,
-        weeklyWorkouts,
         loading: false,
       })
     } catch (error) {
@@ -286,7 +219,6 @@ export default function MoaiDetailPage() {
         commitmentHistory: [],
         workoutHistory: [],
         exercisePerformance: [],
-        weeklyWorkouts: [],
         loading: false,
       })
     }
@@ -304,119 +236,11 @@ export default function MoaiDetailPage() {
     await loadWorkoutDetails(workout.session_id)
   }
 
-  // Handle weekly workout expansion
-  const handleWeeklyWorkoutClick = async (workout: WorkoutInPlan) => {
-    if (expandedWorkoutId === workout.workout_id) {
-      // Collapse
-      setExpandedWorkoutId(null)
-      setWorkoutTemplateDetails(null)
-      setWorkoutPersonalBests(new Map())
-    } else {
-      // Expand
-      setExpandedWorkoutId(workout.workout_id)
-      
-      // Fetch workout template details
-      const templateDetails = await CoachService.getWorkoutTemplateDetails(workout.workout_id)
-      if (templateDetails) {
-        setWorkoutTemplateDetails({
-          workoutId: templateDetails.workout_id,
-          exercises: templateDetails.exercises,
-        })
-      }
-
-      // Fetch personal bests for the user
-      if (selectedMember) {
-        const personalBests = await CoachService.getUserPersonalBests(selectedMember.userId)
-        const pbMap = new Map<string, PersonalBest>()
-        personalBests.forEach((pb) => {
-          pbMap.set(pb.exercise_name, pb)
-        })
-        setWorkoutPersonalBests(pbMap)
-      }
-    }
-  }
-
   // Handle exercise click - navigate to progression tab
   const handleExerciseClick = (exerciseName: string) => {
     setSelectedExercise(exerciseName)
     setActiveMemberTab('progression')
     setSelectedWorkout(null) // Close workout detail if open
-  }
-
-  // Load chat when chat panel is opened
-  useEffect(() => {
-    if (!showChat || !moaiDetail || !coachProfile?.user_id) return
-
-    let unsubscribe: (() => void) | null = null
-
-    const loadChat = async () => {
-      try {
-        const chat = await ChatService.getMoaiChat(moaiId)
-        if (!chat) {
-          console.error('Moai chat not found')
-          return
-        }
-
-        setMoaiChat(chat)
-        const messages = await ChatService.getMoaiChatMessages(
-          chat.id,
-          moaiDetail.coach_subscription_started_at
-        )
-        setChatMessages(messages)
-
-        // Subscribe to new messages
-        unsubscribe = ChatService.subscribeToMoaiChatMessages(
-          chat.id,
-          moaiDetail.coach_subscription_started_at,
-          (newMessage) => {
-            setChatMessages((prev) => {
-              if (prev.some((m) => m.id === newMessage.id)) {
-                return prev
-              }
-              return [...prev, newMessage]
-            })
-          }
-        )
-      } catch (error) {
-        console.error('Error loading chat:', error)
-      }
-    }
-
-    loadChat()
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe()
-      }
-    }
-  }, [showChat, moaiId, moaiDetail, coachProfile?.user_id])
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (showChat && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [chatMessages, showChat])
-
-  const handleSendMessage = async () => {
-    if (!chatInputText.trim() || !moaiChat || !coachProfile?.user_id || sendingMessage) return
-
-    setSendingMessage(true)
-    try {
-      const newMessage = await ChatService.sendMoaiChatMessage(
-        moaiChat.id,
-        coachProfile.user_id,
-        chatInputText.trim()
-      )
-      if (newMessage) {
-        setChatMessages((prev) => [...prev, newMessage])
-        setChatInputText('')
-      }
-    } catch (error) {
-      console.error('Error sending message:', error)
-    } finally {
-      setSendingMessage(false)
-    }
   }
 
   // Handle member card click
@@ -465,6 +289,114 @@ export default function MoaiDetailPage() {
     }
   }, [moaiDetail])
 
+  // Identify coaching opportunities
+  const coachingOpportunities = useMemo((): CoachingOpportunity[] => {
+    if (!moaiDetail) return []
+
+    const opportunities: CoachingOpportunity[] = []
+
+    moaiDetail.members.forEach((member) => {
+      const memberName =
+        member.first_name && member.last_name
+          ? `${member.first_name} ${member.last_name}`
+          : member.first_name || member.username || 'Member'
+
+      // Check current week performance
+      if (member.current_week_completion_rate < 50 && member.current_week_commitment > 0) {
+        opportunities.push({
+          type: 'low_engagement',
+          priority: 'high',
+          memberId: member.user_id,
+          memberName,
+          description: `Only completed ${member.current_week_completed}/${member.current_week_commitment} sessions this week`,
+          suggestion: 'Reach out to understand barriers and provide motivation',
+          metric: 'Current Week',
+          value: member.current_week_completion_rate,
+          trend: 'down',
+        })
+      }
+
+      // Check overall performance
+      if (member.overall_completion_rate < 60 && member.total_commitment_weeks >= 3) {
+        opportunities.push({
+          type: 'declining_performance',
+          priority: 'high',
+          memberId: member.user_id,
+          memberName,
+          description: `Overall completion rate is ${member.overall_completion_rate.toFixed(1)}% over ${member.total_commitment_weeks} weeks`,
+          suggestion: 'Consider adjusting commitment level or providing additional support',
+          metric: 'Overall Rate',
+          value: member.overall_completion_rate,
+          trend: 'down',
+        })
+      }
+
+      // Check for inconsistency (high variance)
+      if (
+        member.current_week_completion_rate > 80 &&
+        member.overall_completion_rate < 70 &&
+        member.total_commitment_weeks >= 4
+      ) {
+        opportunities.push({
+          type: 'inconsistent',
+          priority: 'medium',
+          memberId: member.user_id,
+          memberName,
+          description: 'Strong this week but inconsistent overall performance',
+          suggestion: 'Help establish consistent habits and routines',
+          metric: 'Consistency',
+          value: member.overall_completion_rate,
+          trend: 'stable',
+        })
+      }
+
+      // Highlight high performers for recognition
+      if (member.overall_completion_rate >= 85 && member.total_commitment_weeks >= 4) {
+        opportunities.push({
+          type: 'high_performer',
+          priority: 'low',
+          memberId: member.user_id,
+          memberName,
+          description: `Maintaining ${member.overall_completion_rate.toFixed(1)}% completion rate`,
+          suggestion: 'Consider recognizing their consistency and leadership',
+          metric: 'Overall Rate',
+          value: member.overall_completion_rate,
+          trend: 'up',
+        })
+      }
+
+      // New members who need onboarding
+      const weeksSinceJoined = Math.floor(
+        (new Date().getTime() - new Date(member.joined_at).getTime()) / (1000 * 60 * 60 * 24 * 7)
+      )
+      if (weeksSinceJoined <= 2 && member.total_commitment_weeks <= 2) {
+        opportunities.push({
+          type: 'new_member',
+          priority: 'medium',
+          memberId: member.user_id,
+          memberName,
+          description: `Joined ${weeksSinceJoined === 0 ? 'this' : weeksSinceJoined === 1 ? 'last' : `${weeksSinceJoined}`} week${weeksSinceJoined !== 1 ? 's' : ''} ago`,
+          suggestion: 'Ensure they understand the commitment system and feel welcomed',
+          metric: 'Weeks Active',
+          value: member.total_commitment_weeks,
+          trend: 'stable',
+        })
+      }
+    })
+
+    // Sort by priority (high first) and then by value (worst first for issues, best first for high performers)
+    return opportunities.sort((a, b) => {
+      const priorityOrder = { high: 0, medium: 1, low: 2 }
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+        return priorityOrder[a.priority] - priorityOrder[b.priority]
+      }
+      // For issues, sort by worst value first; for high performers, sort by best first
+      if (a.type === 'high_performer') {
+        return b.value - a.value
+      }
+      return a.value - b.value
+    })
+  }, [moaiDetail])
 
   if (loading) {
     return (
@@ -499,7 +431,7 @@ export default function MoaiDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 relative">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -515,33 +447,19 @@ export default function MoaiDetailPage() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut()
-                  router.push('/coach/login')
-                }}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </button>
-              <button
-                onClick={() => setShowChat(!showChat)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <MessageSquare className="h-5 w-5" />
-                Chat
-              </button>
-            </div>
+            <button
+              onClick={() => setShowChat(!showChat)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <MessageSquare className="h-5 w-5" />
+              Chat
+            </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300 ${
-        showChat ? 'md:mr-96' : ''
-      }`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -550,23 +468,9 @@ export default function MoaiDetailPage() {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Commitment %</p>
+                    <p className="text-sm font-medium text-gray-600">Overall Completion Rate</p>
                     <p className="text-2xl font-bold text-gray-900 mt-1">
-                      {(() => {
-                        // Calculate total commitments met / total commitments set
-                        const totalCommitment = moaiDetail.moai_commitment_history?.reduce(
-                          (sum, week) => sum + (week.total_commitment || 0),
-                          0
-                        ) || 0
-                        const totalCompleted = moaiDetail.moai_commitment_history?.reduce(
-                          (sum, week) => sum + (week.total_completed || 0),
-                          0
-                        ) || 0
-                        const commitmentPercent = totalCommitment > 0 
-                          ? (totalCompleted / totalCommitment) * 100 
-                          : 0
-                        return commitmentPercent.toFixed(1)
-                      })()}%
+                      {moaiDetail.moai_workout_stats?.average_completion_rate.toFixed(1) || '0'}%
                     </p>
                     {trendAnalysis && (
                       <div className="flex items-center gap-1 mt-2">
@@ -636,6 +540,161 @@ export default function MoaiDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Coaching Opportunities */}
+            {coachingOpportunities.length > 0 && (
+              <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-yellow-600" />
+                    <h2 className="text-lg font-semibold text-gray-900">Coaching Opportunities</h2>
+                    <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
+                      {coachingOpportunities.length}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-6 space-y-4">
+                  {(showAllOpportunities
+                    ? coachingOpportunities
+                    : coachingOpportunities.slice(0, 5)
+                  ).map((opp, idx) => (
+                    <div
+                      key={`${opp.memberId}-${opp.type}-${idx}`}
+                      className={`p-4 rounded-lg border-l-4 ${
+                        opp.priority === 'high'
+                          ? 'bg-red-50 border-red-500'
+                          : opp.priority === 'medium'
+                          ? 'bg-yellow-50 border-yellow-500'
+                          : 'bg-green-50 border-green-500'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Link
+                              href={`/coach/clients/${opp.memberId}`}
+                              className="font-semibold text-gray-900 hover:text-blue-600"
+                            >
+                              {opp.memberName}
+                            </Link>
+                            <span
+                              className={`px-2 py-0.5 text-xs font-medium rounded ${
+                                opp.priority === 'high'
+                                  ? 'bg-red-100 text-red-800'
+                                  : opp.priority === 'medium'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}
+                            >
+                              {opp.priority.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-700 mb-2">{opp.description}</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            💡 {opp.suggestion}
+                          </p>
+                        </div>
+                        <div className="ml-4 text-right">
+                          <p className="text-xs text-gray-500">{opp.metric}</p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {opp.value.toFixed(1)}
+                            {opp.metric.includes('Rate') || opp.metric.includes('Week') ? '%' : ''}
+                          </p>
+                          {opp.trend && (
+                            <div className="mt-1">
+                              {opp.trend === 'up' ? (
+                                <ArrowUpRight className="h-4 w-4 text-green-600" />
+                              ) : opp.trend === 'down' ? (
+                                <ArrowDownRight className="h-4 w-4 text-red-600" />
+                              ) : (
+                                <Activity className="h-4 w-4 text-gray-400" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {coachingOpportunities.length > 5 && (
+                    <button
+                      onClick={() => setShowAllOpportunities(!showAllOpportunities)}
+                      className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium text-center pt-2 border-t border-gray-200"
+                    >
+                      {showAllOpportunities
+                        ? 'Show Less'
+                        : `+${coachingOpportunities.length - 5} more opportunities`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Week-over-Week Performance Trend */}
+            {trendAnalysis && trendAnalysis.recentWeeks.length > 0 && (
+              <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900">Recent Performance Trend</h2>
+                  <p className="text-sm text-gray-500 mt-1">Last 4 weeks</p>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    {trendAnalysis.recentWeeks.map((week, idx) => {
+                      const prevWeek = trendAnalysis.recentWeeks[idx - 1]
+                      const change = prevWeek
+                        ? week.completion_rate - prevWeek.completion_rate
+                        : 0
+                      return (
+                        <div key={week.week_start} className="flex items-center gap-4">
+                          <div className="w-24 text-sm text-gray-600">
+                            {formatDate(week.week_start)}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-900">
+                                {week.completion_rate.toFixed(1)}% completion
+                              </span>
+                              {prevWeek && (
+                                <span
+                                  className={`text-xs flex items-center gap-1 ${
+                                    change > 0
+                                      ? 'text-green-600'
+                                      : change < 0
+                                      ? 'text-red-600'
+                                      : 'text-gray-500'
+                                  }`}
+                                >
+                                  {change > 0 ? (
+                                    <ArrowUpRight className="h-3 w-3" />
+                                  ) : change < 0 ? (
+                                    <ArrowDownRight className="h-3 w-3" />
+                                  ) : null}
+                                  {change !== 0 ? Math.abs(change).toFixed(1) + '%' : 'No change'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${
+                                  week.completion_rate >= 80
+                                    ? 'bg-green-600'
+                                    : week.completion_rate >= 60
+                                    ? 'bg-yellow-500'
+                                    : 'bg-red-500'
+                                }`}
+                                style={{ width: `${Math.min(week.completion_rate, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-500 w-16 text-right">
+                            {week.member_count} members
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Member Performance Overview */}
             <div className="bg-white rounded-lg shadow">
@@ -733,238 +792,6 @@ export default function MoaiDetailPage() {
               </div>
             </div>
 
-            {/* Week-over-Week Performance Trend */}
-            {trendAnalysis && trendAnalysis.recentWeeks.length > 0 && (
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">Recent Performance Trend</h2>
-                  <p className="text-sm text-gray-500 mt-1">Last 4 weeks</p>
-                </div>
-                <div className="p-6">
-                  <div className="space-y-4">
-                    {trendAnalysis.recentWeeks.map((week, idx) => {
-                      const prevWeek = trendAnalysis.recentWeeks[idx - 1]
-                      const change = prevWeek
-                        ? week.completion_rate - prevWeek.completion_rate
-                        : 0
-                      return (
-                        <div key={week.week_start} className="flex items-center gap-4">
-                          <div className="w-24 text-sm text-gray-600">
-                            {formatDate(week.week_start)}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium text-gray-900">
-                                {week.completion_rate.toFixed(1)}% completion
-                              </span>
-                              {prevWeek && (
-                                <span
-                                  className={`text-xs flex items-center gap-1 ${
-                                    change > 0
-                                      ? 'text-green-600'
-                                      : change < 0
-                                      ? 'text-red-600'
-                                      : 'text-gray-500'
-                                  }`}
-                                >
-                                  {change > 0 ? (
-                                    <ArrowUpRight className="h-3 w-3" />
-                                  ) : change < 0 ? (
-                                    <ArrowDownRight className="h-3 w-3" />
-                                  ) : null}
-                                  {change !== 0 ? Math.abs(change).toFixed(1) + '%' : 'No change'}
-                                </span>
-                              )}
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${
-                                  week.completion_rate >= 80
-                                    ? 'bg-green-600'
-                                    : week.completion_rate >= 60
-                                    ? 'bg-yellow-500'
-                                    : 'bg-red-500'
-                                }`}
-                                style={{ width: `${Math.min(week.completion_rate, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                          <div className="text-sm text-gray-500 w-16 text-right">
-                            {week.member_count} members
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Member Engagement Dashboard */}
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-blue-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">Member Engagement Dashboard</h2>
-                </div>
-              </div>
-              <div className="p-6 space-y-6">
-                {/* Engagement Scores */}
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Engagement Scores</h3>
-                  <div className="space-y-2">
-                    {moaiDetail.members?.map((member) => {
-                      const memberName =
-                        member.first_name && member.last_name
-                          ? `${member.first_name} ${member.last_name}`
-                          : member.first_name || member.username || 'Member'
-                      
-                      // Calculate engagement score (0-100)
-                      // Factors: current week completion, overall completion, consistency, commitment set
-                      const hasCommitment = member.current_week_commitment > 0
-                      const currentWeekScore = member.current_week_completion_rate
-                      const overallScore = member.overall_completion_rate
-                      const consistencyScore = member.total_commitment_weeks > 0 
-                        ? Math.min(100, (member.total_workouts / (member.total_commitment_weeks * 3)) * 100)
-                        : 0
-                      
-                      const engagementScore = Math.round(
-                        (currentWeekScore * 0.4) + 
-                        (overallScore * 0.4) + 
-                        (consistencyScore * 0.2)
-                      )
-                      
-                      const engagementLevel = engagementScore >= 80 ? 'high' : engagementScore >= 60 ? 'medium' : 'low'
-                      
-                      return (
-                        <div key={member.user_id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                              {member.profile_picture_url ? (
-                                <img
-                                  src={member.profile_picture_url}
-                                  alt={memberName}
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-gray-600 font-medium text-sm">
-                                  {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{memberName}</p>
-                              {member.username && (
-                                <p className="text-xs text-gray-500">@{member.username}</p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="w-32">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-gray-600">Score</span>
-                                <span className={`text-sm font-semibold ${
-                                  engagementLevel === 'high' ? 'text-green-600' :
-                                  engagementLevel === 'medium' ? 'text-yellow-600' : 'text-red-600'
-                                }`}>
-                                  {engagementScore}
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className={`h-2 rounded-full ${
-                                    engagementLevel === 'high' ? 'bg-green-600' :
-                                    engagementLevel === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
-                                  }`}
-                                  style={{ width: `${engagementScore}%` }}
-                                />
-                              </div>
-                            </div>
-                            {!hasCommitment && (
-                              <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">
-                                No Commitment
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                {/* At-Risk Members */}
-                {(() => {
-                  const atRiskMembers = moaiDetail.members?.filter((member) => {
-                    const noCommitment = member.current_week_commitment === 0
-                    const lowCompletion = member.current_week_completion_rate < 50 && member.current_week_commitment > 0
-                    const declining = member.overall_completion_rate < 60 && member.total_commitment_weeks >= 3
-                    return noCommitment || lowCompletion || declining
-                  }) || []
-
-                  if (atRiskMembers.length === 0) return null
-
-                  return (
-                    <div className="border-t border-gray-200 pt-4">
-                      <h3 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                        At-Risk Members ({atRiskMembers.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {atRiskMembers.map((member) => {
-                          const memberName =
-                            member.first_name && member.last_name
-                              ? `${member.first_name} ${member.last_name}`
-                              : member.first_name || member.username || 'Member'
-                          
-                          const reasons = []
-                          if (member.current_week_commitment === 0) reasons.push('No commitment set')
-                          if (member.current_week_completion_rate < 50 && member.current_week_commitment > 0) {
-                            reasons.push('Low completion this week')
-                          }
-                          if (member.overall_completion_rate < 60 && member.total_commitment_weeks >= 3) {
-                            reasons.push('Declining performance')
-                          }
-
-                          return (
-                            <div
-                              key={member.user_id}
-                              className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                  {member.profile_picture_url ? (
-                                    <img
-                                      src={member.profile_picture_url}
-                                      alt={memberName}
-                                      className="h-full w-full object-cover"
-                                    />
-                                  ) : (
-                                    <span className="text-gray-600 font-medium text-xs">
-                                      {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
-                                    </span>
-                                  )}
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">{memberName}</p>
-                                  <p className="text-xs text-gray-600">{reasons.join(', ')}</p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => handleMemberClick(member)}
-                                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                              >
-                                View Details
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                })()}
-              </div>
-            </div>
-
             {/* Member Details Modal */}
             {selectedMember && (
               <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -1023,7 +850,6 @@ export default function MoaiDetailPage() {
                             commitmentHistory: [],
                             workoutHistory: [],
                             exercisePerformance: [],
-                            weeklyWorkouts: [],
                             loading: false,
                           })
                           setActiveMemberTab('workouts')
@@ -1076,19 +902,6 @@ export default function MoaiDetailPage() {
                               }`}
                             >
                               Progression
-                            </button>
-                            <button
-                              onClick={() => {
-                                setActiveMemberTab('program')
-                                setSelectedWorkout(null)
-                              }}
-                              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                                activeMemberTab === 'program'
-                                  ? 'border-blue-500 text-blue-600'
-                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                              }`}
-                            >
-                              Program
                             </button>
                           </nav>
                         </div>
@@ -1284,7 +1097,7 @@ export default function MoaiDetailPage() {
                               )}
 
                               {/* Workout Detail View */}
-                              {selectedWorkout && workoutDetails && workoutDetails.session ? (
+                              {selectedWorkout && workoutDetails ? (
                                 <div className="space-y-4">
                                   <button
                                     onClick={() => setSelectedWorkout(null)}
@@ -1516,148 +1329,6 @@ export default function MoaiDetailPage() {
                               )}
                             </div>
                           )}
-
-                          {activeMemberTab === 'program' && (
-                            <div className="space-y-6">
-                              {/* Current Week Program */}
-                              {(memberDetails.weeklyWorkouts.length > 0 || (memberDetails.metrics && memberDetails.metrics.current_week_commitment > 0)) ? (
-                                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                                  <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-900">
-                                      This Week's Program
-                                    </h3>
-                                    <div className="text-sm text-gray-600">
-                                      {memberDetails.metrics?.current_week_start
-                                        ? formatDate(memberDetails.metrics.current_week_start.split('T')[0])
-                                        : 'Current Week'}
-                                    </div>
-                                  </div>
-                                  {memberDetails.metrics && (
-                                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                                      <p className="text-sm text-gray-700">
-                                        <span className="font-medium">Commitment Level:</span> {memberDetails.metrics.current_week_commitment} workout{memberDetails.metrics.current_week_commitment !== 1 ? 's' : ''} this week
-                                      </p>
-                                      {memberDetails.metrics.current_week_commitment > 0 && (
-                                        <p className="text-sm text-gray-700 mt-1">
-                                          <span className="font-medium">Completed:</span> {memberDetails.metrics.current_week_completed} / {memberDetails.metrics.current_week_commitment}
-                                        </p>
-                                      )}
-                                    </div>
-                                  )}
-                                  {memberDetails.weeklyWorkouts.length > 0 ? (
-                                    <div className="space-y-3">
-                                      {memberDetails.weeklyWorkouts.map((workout) => {
-                                        const isExpanded = expandedWorkoutId === workout.workout_id
-                                        const templateDetails = workoutTemplateDetails?.workoutId === workout.workout_id 
-                                          ? workoutTemplateDetails 
-                                          : null
-                                        
-                                        return (
-                                          <div key={workout.workout_id} className="border border-gray-200 rounded-lg overflow-hidden">
-                                            <button
-                                              onClick={() => handleWeeklyWorkoutClick(workout)}
-                                              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
-                                            >
-                                              <div className="flex-1">
-                                                <p className="text-sm font-medium text-gray-900">
-                                                  {workout.workout_title}
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                  {workout.workout_type} • Assigned {formatDate(workout.assigned_at.split('T')[0])}
-                                                </p>
-                                              </div>
-                                              <div className="text-right ml-4 flex items-center gap-2">
-                                                {workout.status === 'completed' ? (
-                                                  <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                                    <CheckCircle className="h-3 w-3" />
-                                                    Completed
-                                                  </span>
-                                                ) : (
-                                                  <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                                    Assigned
-                                                  </span>
-                                                )}
-                                                <ArrowDownRight 
-                                                  className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                                />
-                                              </div>
-                                            </button>
-                                            
-                                            {isExpanded && templateDetails && (
-                                              <div className="border-t border-gray-200 bg-white p-4">
-                                                <div className="space-y-3">
-                                                  {templateDetails.exercises.map((exercise) => {
-                                                    const pb = workoutPersonalBests.get(exercise.exercise_name)
-                                                    const setsList = exercise.sets.map((set, idx) => {
-                                                      const parts = []
-                                                      if (set.target_weight_lbs) parts.push(`${set.target_weight_lbs} lbs`)
-                                                      if (set.target_reps) parts.push(`${set.target_reps} reps`)
-                                                      const setNum = set.set_number ?? idx + 1
-                                                      return `Set ${setNum}: ${parts.join(' ')}`
-                                                    }).join(', ')
-                                                    
-                                                    return (
-                                                      <div key={exercise.exercise_name} className="flex items-start gap-3 py-2 border-b border-gray-100 last:border-b-0">
-                                                        <div className="flex-1">
-                                                          <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-sm font-semibold text-gray-900">
-                                                              {exercise.exercise_name}
-                                                            </span>
-                                                            {pb && (
-                                                              <span className="text-xs text-blue-600">
-                                                                (PB: {pb.max_weight_lbs ? `${pb.max_weight_lbs} lbs` : ''} {pb.max_reps ? `${pb.max_reps} reps` : ''})
-                                                              </span>
-                                                            )}
-                                                          </div>
-                                                          <p className="text-xs text-gray-600">
-                                                            {setsList || 'No sets specified'}
-                                                          </p>
-                                                        </div>
-                                                      </div>
-                                                    )
-                                                  })}
-                                                  {templateDetails.exercises.length === 0 && (
-                                                    <p className="text-sm text-gray-500 text-center py-4">
-                                                      No exercise details available for this workout
-                                                    </p>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            )}
-                                            
-                                            {isExpanded && !templateDetails && (
-                                              <div className="border-t border-gray-200 bg-gray-50 p-4">
-                                                <p className="text-sm text-gray-500 text-center py-4">
-                                                  Loading workout details...
-                                                </p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-                                  ) : (
-                                    <div className="text-center py-8">
-                                      <p className="text-gray-500">No workouts assigned for this week</p>
-                                      <p className="text-sm text-gray-400 mt-2">
-                                        Workouts will appear here when assigned based on the user's commitment
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                                  <div className="text-center py-8">
-                                    <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                    <p className="text-gray-600 font-medium">No Commitment Set</p>
-                                    <p className="text-sm text-gray-500 mt-2">
-                                      This user hasn't set a commitment for this week, so no workouts have been assigned.
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </>
                     )}
@@ -1741,114 +1412,217 @@ export default function MoaiDetailPage() {
         </div>
       </div>
 
-      {/* Chat Slide-in Panel */}
-      <div
-        className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-          showChat ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="h-full flex flex-col">
-          {/* Chat Header */}
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0 z-10">
-            <div>
+      {/* Chat Modal */}
+      {showChat && moaiDetail && coachProfile && coachProfile.user_id && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl h-[80vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Moai Chat</h2>
-              <p className="text-xs text-gray-500 mt-1">{moaiDetail?.name}</p>
-            </div>
-            <button
-              onClick={() => setShowChat(false)}
-              className="text-gray-500 hover:text-gray-700 p-1"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
-            {chatMessages.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
-                <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="mb-2">No messages yet.</p>
-                <p className="text-sm">
-                  Messages from before you were added to this Moai are not shown.
-                </p>
-              </div>
-            ) : (
-              chatMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.is_coach ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className="flex items-start gap-2 max-w-[80%]">
-                    {!message.is_coach && message.sender_profile_picture_url && (
-                      <img
-                        src={message.sender_profile_picture_url}
-                        alt={message.sender_name || 'User'}
-                        className="h-8 w-8 rounded-full flex-shrink-0"
-                      />
-                    )}
-                    <div
-                      className={`px-4 py-2 rounded-lg ${
-                        message.is_coach
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white text-gray-900 border border-gray-200'
-                      }`}
-                    >
-                      {!message.is_coach && (
-                        <p
-                          className={`text-xs font-medium mb-1 ${
-                            message.is_coach ? 'text-blue-100' : 'text-gray-600'
-                          }`}
-                        >
-                          {message.sender_name || 'User'}
-                        </p>
-                      )}
-                      <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
-                      <p
-                        className={`text-xs mt-1 ${
-                          message.is_coach ? 'text-blue-100' : 'text-gray-500'
-                        }`}
-                      >
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={chatInputText}
-                onChange={(e) => setChatInputText(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Type a message..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
               <button
-                onClick={handleSendMessage}
-                disabled={!chatInputText.trim() || sendingMessage}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowChat(false)}
+                className="text-gray-500 hover:text-gray-700"
               >
-                Send
+                ✕
               </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <MoaiChatInterface
+                moaiId={moaiId}
+                coachUserId={coachProfile.user_id}
+                coachSubscriptionStart={moaiDetail.coach_subscription_started_at}
+              />
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Overlay when chat is open */}
-      {showChat && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-30 z-40 md:hidden"
-          onClick={() => setShowChat(false)}
-        />
       )}
     </div>
   )
 }
 
+// Moai Chat Interface Component
+function MoaiChatInterface({
+  moaiId,
+  coachUserId,
+  coachSubscriptionStart,
+}: {
+  moaiId: string
+  coachUserId: string
+  coachSubscriptionStart: string
+}) {
+  const [messages, setMessages] = useState<MoaiChatMessage[]>([])
+  const [chat, setChat] = useState<MoaiChat | null>(null)
+  const [inputText, setInputText] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null
+
+    const loadChat = async () => {
+      try {
+        setLoading(true)
+        const moaiChat = await ChatService.getMoaiChat(moaiId)
+        if (!moaiChat) {
+          console.error('Moai chat not found')
+          setLoading(false)
+          return
+        }
+
+        setChat(moaiChat)
+        const chatMessages = await ChatService.getMoaiChatMessages(
+          moaiChat.id,
+          coachSubscriptionStart
+        )
+        setMessages(chatMessages)
+
+        // Subscribe to new messages in real-time
+        unsubscribe = ChatService.subscribeToMoaiChatMessages(
+          moaiChat.id,
+          coachSubscriptionStart,
+          (newMessage) => {
+            console.log('New message received:', newMessage)
+            setMessages((prev) => {
+              // Check if message already exists (avoid duplicates)
+              if (prev.some((m) => m.id === newMessage.id)) {
+                return prev
+              }
+              return [...prev, newMessage]
+            })
+          }
+        )
+      } catch (error) {
+        console.error('Error loading chat:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadChat()
+
+    // Cleanup: unsubscribe when component unmounts or dependencies change
+    return () => {
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
+  }, [moaiId, coachSubscriptionStart])
+
+  const handleSend = async () => {
+    if (!inputText.trim() || !chat || sending) return
+
+    setSending(true)
+    try {
+      const newMessage = await ChatService.sendMoaiChatMessage(
+        chat.id,
+        coachUserId,
+        inputText.trim()
+      )
+      if (newMessage) {
+        setMessages((prev) => [...prev, newMessage])
+        setInputText('')
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-8 text-center h-full flex items-center justify-center">
+        <div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading chat...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!chat) {
+    return (
+      <div className="bg-white rounded-lg shadow p-8 text-center h-full flex items-center justify-center">
+        <p className="text-gray-600">Chat not available</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white flex flex-col h-full">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {messages.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            <p className="mb-2">No messages yet.</p>
+            <p className="text-sm">
+              Messages from before you were added to this Moai are not shown.
+            </p>
+          </div>
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${message.is_coach ? 'justify-end' : 'justify-start'}`}
+            >
+              <div className="flex items-start gap-2 max-w-xs lg:max-w-md">
+                {!message.is_coach && message.sender_profile_picture_url && (
+                  <img
+                    src={message.sender_profile_picture_url}
+                    alt={message.sender_name || 'User'}
+                    className="h-8 w-8 rounded-full"
+                  />
+                )}
+                <div
+                  className={`px-4 py-2 rounded-lg ${
+                    message.is_coach
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-900'
+                  }`}
+                >
+                  {!message.is_coach && (
+                    <p
+                      className={`text-xs font-medium mb-1 ${
+                        message.is_coach ? 'text-blue-100' : 'text-gray-600'
+                      }`}
+                    >
+                      {message.sender_name || 'User'}
+                    </p>
+                  )}
+                  <p className="text-sm">{message.message}</p>
+                  <p
+                    className={`text-xs mt-1 ${
+                      message.is_coach ? 'text-blue-100' : 'text-gray-500'
+                    }`}
+                  >
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-gray-200 p-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Type a message..."
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!inputText.trim() || sending}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

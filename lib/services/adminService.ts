@@ -100,7 +100,7 @@ export class AdminService {
 
         if (!subsError && subscriptions) {
           totalSubscriptions = subscriptions.length
-          activeSubscriptions = subscriptions.filter((s: any) => s.status === 'active').length
+          activeSubscriptions = subscriptions.filter((s) => s.status === 'active').length
         } else if (subsError) {
           console.error('Error fetching subscriptions:', subsError)
         }
