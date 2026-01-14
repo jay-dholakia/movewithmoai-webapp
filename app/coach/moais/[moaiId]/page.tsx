@@ -526,13 +526,13 @@ export default function MoaiDetailPage() {
                 <LogOut className="h-4 w-4" />
                 <span>Sign Out</span>
               </button>
-              <button
-                onClick={() => setShowChat(!showChat)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <MessageSquare className="h-5 w-5" />
-                Chat
-              </button>
+            <button
+              onClick={() => setShowChat(!showChat)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <MessageSquare className="h-5 w-5" />
+              Chat
+            </button>
             </div>
           </div>
         </div>
@@ -638,10 +638,10 @@ export default function MoaiDetailPage() {
             </div>
 
             {/* Member Performance Overview */}
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="bg-white rounded-lg shadow">
+                <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900">Member Performance</h2>
-              </div>
+                  </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {moaiDetail.members?.map((member) => {
@@ -661,8 +661,8 @@ export default function MoaiDetailPage() {
                         key={member.user_id}
                         onClick={() => handleMemberClick(member)}
                         className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
-                      >
-                        <div className="flex items-start justify-between">
+                    >
+                      <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3 flex-1">
                             <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                               {member.profile_picture_url ? (
@@ -674,14 +674,14 @@ export default function MoaiDetailPage() {
                               ) : (
                                 <span className="text-gray-600 font-medium">
                                   {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
-                                </span>
+                            </span>
                               )}
-                            </div>
+                          </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <p className="text-sm font-semibold text-gray-900 truncate">
                                   {memberName}
-                                </p>
+                          </p>
                                 {isStruggling && (
                                   <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
                                 )}
@@ -690,14 +690,14 @@ export default function MoaiDetailPage() {
                                 )}
                                 {isInconsistent && (
                                   <Activity className="h-4 w-4 text-yellow-600 flex-shrink-0" />
-                                )}
-                              </div>
-                              {member.username && (
-                                <p className="text-xs text-gray-500">@{member.username}</p>
                               )}
                             </div>
-                          </div>
+                              {member.username && (
+                                <p className="text-xs text-gray-500">@{member.username}</p>
+                          )}
                         </div>
+                      </div>
+                    </div>
                         <div className="mt-3 grid grid-cols-2 gap-3">
                           <div>
                             <p className="text-xs text-gray-500">This Week</p>
@@ -726,7 +726,7 @@ export default function MoaiDetailPage() {
                             </p>
                           </div>
                         </div>
-                      </button>
+                    </button>
                     )
                   })}
                 </div>
@@ -806,19 +806,19 @@ export default function MoaiDetailPage() {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-blue-600" />
                   <h2 className="text-lg font-semibold text-gray-900">Member Engagement Dashboard</h2>
-                </div>
+              </div>
               </div>
               <div className="p-6 space-y-6">
                 {/* Engagement Scores */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-3">Engagement Scores</h3>
                   <div className="space-y-2">
-                    {moaiDetail.members?.map((member) => {
-                      const memberName =
-                        member.first_name && member.last_name
-                          ? `${member.first_name} ${member.last_name}`
-                          : member.first_name || member.username || 'Member'
-                      
+                  {moaiDetail.members?.map((member) => {
+                    const memberName =
+                      member.first_name && member.last_name
+                        ? `${member.first_name} ${member.last_name}`
+                        : member.first_name || member.username || 'Member'
+
                       // Calculate engagement score (0-100)
                       // Factors: current week completion, overall completion, consistency, commitment set
                       const hasCommitment = member.current_week_commitment > 0
@@ -835,8 +835,8 @@ export default function MoaiDetailPage() {
                       )
                       
                       const engagementLevel = engagementScore >= 80 ? 'high' : engagementScore >= 60 ? 'medium' : 'low'
-                      
-                      return (
+
+                    return (
                         <div key={member.user_id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -869,7 +869,7 @@ export default function MoaiDetailPage() {
                                 }`}>
                                   {engagementScore}
                                 </span>
-                              </div>
+                        </div>
                               <div className="w-full bg-gray-200 rounded-full h-2">
                                 <div
                                   className={`h-2 rounded-full ${
@@ -943,22 +943,22 @@ export default function MoaiDetailPage() {
                                       {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
                                     </span>
                                   )}
-                                </div>
-                                <div>
+                          </div>
+                          <div>
                                   <p className="text-sm font-medium text-gray-900">{memberName}</p>
                                   <p className="text-xs text-gray-600">{reasons.join(', ')}</p>
-                                </div>
-                              </div>
+                          </div>
+                        </div>
                               <button
                                 onClick={() => handleMemberClick(member)}
                                 className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                               >
                                 View Details
-                              </button>
+                      </button>
                             </div>
-                          )
-                        })}
-                      </div>
+                    )
+                  })}
+                </div>
                     </div>
                   )
                 })()}
@@ -1754,90 +1754,90 @@ export default function MoaiDetailPage() {
               <h2 className="text-lg font-semibold text-gray-900">Moai Chat</h2>
               <p className="text-xs text-gray-500 mt-1">{moaiDetail?.name}</p>
             </div>
-            <button
-              onClick={() => setShowChat(false)}
+              <button
+                onClick={() => setShowChat(false)}
               className="text-gray-500 hover:text-gray-700 p-1"
-            >
+              >
               <X className="h-5 w-5" />
-            </button>
-          </div>
+              </button>
+            </div>
 
-          {/* Messages */}
+      {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
             {chatMessages.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
+          <div className="text-center text-gray-500 py-8">
                 <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="mb-2">No messages yet.</p>
-                <p className="text-sm">
-                  Messages from before you were added to this Moai are not shown.
-                </p>
-              </div>
-            ) : (
+            <p className="mb-2">No messages yet.</p>
+            <p className="text-sm">
+              Messages from before you were added to this Moai are not shown.
+            </p>
+          </div>
+        ) : (
               chatMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.is_coach ? 'justify-end' : 'justify-start'}`}
-                >
+            <div
+              key={message.id}
+              className={`flex ${message.is_coach ? 'justify-end' : 'justify-start'}`}
+            >
                   <div className="flex items-start gap-2 max-w-[80%]">
-                    {!message.is_coach && message.sender_profile_picture_url && (
-                      <img
-                        src={message.sender_profile_picture_url}
-                        alt={message.sender_name || 'User'}
+                {!message.is_coach && message.sender_profile_picture_url && (
+                  <img
+                    src={message.sender_profile_picture_url}
+                    alt={message.sender_name || 'User'}
                         className="h-8 w-8 rounded-full flex-shrink-0"
-                      />
-                    )}
-                    <div
-                      className={`px-4 py-2 rounded-lg ${
-                        message.is_coach
-                          ? 'bg-blue-600 text-white'
+                  />
+                )}
+                <div
+                  className={`px-4 py-2 rounded-lg ${
+                    message.is_coach
+                      ? 'bg-blue-600 text-white'
                           : 'bg-white text-gray-900 border border-gray-200'
+                  }`}
+                >
+                  {!message.is_coach && (
+                    <p
+                      className={`text-xs font-medium mb-1 ${
+                        message.is_coach ? 'text-blue-100' : 'text-gray-600'
                       }`}
                     >
-                      {!message.is_coach && (
-                        <p
-                          className={`text-xs font-medium mb-1 ${
-                            message.is_coach ? 'text-blue-100' : 'text-gray-600'
-                          }`}
-                        >
-                          {message.sender_name || 'User'}
-                        </p>
-                      )}
+                      {message.sender_name || 'User'}
+                    </p>
+                  )}
                       <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
-                      <p
-                        className={`text-xs mt-1 ${
-                          message.is_coach ? 'text-blue-100' : 'text-gray-500'
-                        }`}
-                      >
-                        {new Date(message.timestamp).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
+                  <p
+                    className={`text-xs mt-1 ${
+                      message.is_coach ? 'text-blue-100' : 'text-gray-500'
+                    }`}
+                  >
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </p>
                 </div>
-              ))
-            )}
+              </div>
+            </div>
+          ))
+        )}
             <div ref={messagesEndRef} />
-          </div>
+      </div>
 
-          {/* Input */}
+      {/* Input */}
           <div className="border-t border-gray-200 p-4 bg-white">
-            <div className="flex gap-2">
-              <input
-                type="text"
+        <div className="flex gap-2">
+          <input
+            type="text"
                 value={chatInputText}
                 onChange={(e) => setChatInputText(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Type a message..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
+            placeholder="Type a message..."
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
                 onClick={handleSendMessage}
                 disabled={!chatInputText.trim() || sendingMessage}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Send
-              </button>
-            </div>
-          </div>
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+        </div>
+      </div>
         </div>
       </div>
 
