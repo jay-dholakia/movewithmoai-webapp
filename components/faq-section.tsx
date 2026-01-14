@@ -10,14 +10,6 @@ type FAQItem = {
 
 const faqData: FAQItem[] = [
   {
-    question: "What is Moai?",
-    answer: "Moai is a fitness app that helps you build lasting fitness habits through structured workout plans, certified coaches, and community accountability groups. It combines personalized guidance with group support to keep you consistent and motivated."
-  },
-  {
-    question: "How does Moai work?",
-    answer: "After downloading the app, you'll set your fitness goals and preferences. You'll receive personalized workout plans, have the option to connect with certified coaches, and can join or create Moai groups for accountability. You track your workouts, set weekly commitments, and celebrate progress together with your group."
-  },
-  {
     question: "Do I need a coach to use Moai?",
     answer: "No, you can use Moai independently with structured workout plans. However, connecting with a certified coach provides personalized guidance, program adjustments, and expert support. Many users find that coach support accelerates their progress and keeps them accountable."
   },
@@ -27,7 +19,7 @@ const faqData: FAQItem[] = [
   },
   {
     question: "How much does Moai cost?",
-    answer: "Moai offers flexible pricing options. The app includes free features, with premium options for coach access and advanced features. Check the App Store or Google Play for current pricing and subscription details."
+    answer: "Moai is free to use. Adding a certified coach to your Moai for added structure, support, and accountability costs $199/month per Moai. You can use Moai without a coach and still access all core features including workout plans, Village, and Moai groups."
   },
   {
     question: "Is Moai suitable for beginners?",
