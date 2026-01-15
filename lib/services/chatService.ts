@@ -14,6 +14,8 @@ export interface ChatMessage {
   is_edited: boolean;
   edited_at: string | null;
   reply_parent_message_id: string | null;
+  media_url?: string | null;
+  media_type?: 'image' | 'video' | null;
 }
 
 export interface ChatSession {
@@ -39,6 +41,8 @@ export interface MoaiChatMessage {
   sender_name?: string;
   sender_username?: string;
   sender_profile_picture_url?: string | null;
+  media_url?: string | null;
+  media_type?: 'image' | 'video' | null;
 }
 
 export interface MoaiChat {
@@ -49,6 +53,67 @@ export interface MoaiChat {
 }
 
 export class ChatService {
+  /**
+   * Upload media file (image or video) to Supabase Storage
+   * Note: The 'coach-chat-media' bucket must exist in Supabase Storage
+   */
+  static async uploadChatMedia(
+    file: File,
+    sessionIdOrChatId: string,
+    chatType: 'client' | 'moai'
+  ): Promise<string | null> {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const timestamp = Date.now();
+      const randomId = Math.random().toString(36).substring(2, 9);
+      const fileName = `${chatType}/${sessionIdOrChatId}/${timestamp}-${randomId}.${fileExt}`;
+      const filePath = fileName;
+
+      // Determine if it's an image or video
+      const isImage = file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/');
+      
+      if (!isImage && !isVideo) {
+        throw new Error('File must be an image or video');
+      }
+
+      // Validate file size (max 10MB for images, 50MB for videos)
+      const maxSize = isImage ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new Error(
+          `File size must be less than ${isImage ? '10MB' : '50MB'}`
+        );
+      }
+
+      // Upload file to Supabase Storage - using coach-chat-media bucket
+      const { data, error } = await supabase.storage
+        .from('coach-chat-media')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        console.error("Error uploading media:", error);
+        // If bucket doesn't exist, provide helpful error
+        if (error.message?.includes('Bucket not found')) {
+          throw new Error('Storage bucket "coach-chat-media" not found. Please create it in Supabase Storage settings.');
+        }
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('coach-chat-media')
+        .getPublicUrl(filePath);
+
+      return urlData.publicUrl;
+    } catch (err) {
+      console.error("Exception uploading media:", err);
+      throw err; // Re-throw to allow UI to show error message
+    }
+  }
+
   /**
    * Get chat session for a user
    */
@@ -130,7 +195,9 @@ export class ChatService {
     sessionId: string,
     coachId: string,
     message: string,
-    replyParentId?: string
+    replyParentId?: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
   ): Promise<ChatMessage | null> {
     const { data, error } = await supabase
       .from("coach_chat_messages")
@@ -141,6 +208,8 @@ export class ChatService {
         message: message,
         reply_parent_message_id: replyParentId || null,
         is_read: false,
+        media_url: mediaUrl || null,
+        media_type: mediaType || null,
       })
       .select()
       .single();
@@ -379,10 +448,16 @@ export class ChatService {
 
     // Enrich messages with sender info
     return messages.map((msg: any) => {
+      const baseMessage = {
+        ...msg,
+        media_url: msg.media_storage_path || null,
+        media_type: msg.media_type || null,
+      };
+      
       if (msg.is_coach) {
         const coachInfo = coachMap.get(msg.sender_id);
         return {
-          ...msg,
+          ...baseMessage,
           sender_name: coachInfo?.name,
           // Coaches don't have username or profile_picture_url in this context
           sender_username: undefined,
@@ -391,7 +466,7 @@ export class ChatService {
       } else {
         const userInfo = senderMap.get(msg.sender_id);
         return {
-          ...msg,
+          ...baseMessage,
           sender_name: userInfo?.name,
           sender_username: userInfo?.username,
           sender_profile_picture_url: userInfo?.profile_picture_url,
@@ -408,52 +483,101 @@ export class ChatService {
     moaiChatId: string,
     coachId: string, // This is user_id
     message: string,
-    replyParentId?: string
+    replyParentId?: string,
+    mediaUrl?: string | null,
+    mediaType?: 'image' | 'video' | null
   ): Promise<MoaiChatMessage | null> {
     console.log("Sending Moai chat message:", {
       moaiChatId,
       coachId,
       message: message.substring(0, 50),
       replyParentId,
+      mediaUrl,
+      mediaType,
     });
 
-    const { data, error } = await supabase.rpc(
-      "send_moai_chat_message_for_coach",
-      {
-        p_moai_chat_id: moaiChatId,
-        p_coach_user_id: coachId,
-        p_message: message,
-        p_reply_parent_message_id: replyParentId || null,
+    // If RPC doesn't support media, we'll need to insert directly or update the RPC
+    // For now, let's try inserting directly with proper RLS handling
+    const { data: messageData, error: insertError } = await supabase
+      .from("moai_chat_messages")
+      .insert({
+        moai_chat_id: moaiChatId,
+        sender_id: coachId,
+        message: message,
+        reply_parent_message_id: replyParentId || null,
+        media_storage_path: mediaUrl || null,
+        media_type: mediaType || null,
+        is_coach: true,
+      })
+      .select("id, moai_chat_id, sender_id, message, timestamp, is_deleted, is_edited, edited_at, updated_at, reply_parent_message_id, media_type, media_storage_path, media_note, is_coach")
+      .single();
+
+    if (insertError) {
+      console.error("Error inserting Moai chat message directly:", insertError);
+      // Fallback to RPC if direct insert fails (RLS might block it)
+      const { data, error } = await supabase.rpc(
+        "send_moai_chat_message_for_coach",
+        {
+          p_moai_chat_id: moaiChatId,
+          p_coach_user_id: coachId,
+          p_message: message,
+          p_reply_parent_message_id: replyParentId || null,
+        }
+      );
+
+      if (error) {
+        console.error("Error sending Moai chat message:", error);
+        return null;
       }
-    );
 
-    if (error) {
-      console.error("Error sending Moai chat message:", error);
-      return null;
+      const newMessage = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      if (!newMessage) {
+        console.error("No message returned from RPC function");
+        return null;
+      }
+
+      // Update with media if provided (might need separate update call)
+      if (mediaUrl) {
+        await supabase
+          .from("moai_chat_messages")
+          .update({ media_storage_path: mediaUrl, media_type: mediaType })
+          .eq("id", newMessage.id);
+      }
+
+      const { data: coachData } = await supabase
+        .from("coaches")
+        .select("name, first_name, last_name")
+        .eq("user_id", coachId)
+        .single();
+
+      return {
+        ...newMessage,
+        media_url: mediaUrl || newMessage.media_storage_path || null,
+        media_type: mediaType || newMessage.media_type || null,
+        sender_name:
+          coachData?.name ||
+          (coachData?.first_name && coachData?.last_name
+            ? `${coachData.first_name} ${coachData.last_name}`
+            : coachData?.first_name || "Coach"),
+      };
     }
 
-    // RPC function returns an array, get the first result
-    const newMessage = Array.isArray(data) && data.length > 0 ? data[0] : null;
-
-    if (!newMessage) {
-      console.error("No message returned from RPC function");
-      return null;
-    }
-
-    // Get coach info for the response
-    const { data: coach } = await supabase
+    // Direct insert succeeded
+    const { data: coachInfo } = await supabase
       .from("coaches")
       .select("name, first_name, last_name")
       .eq("user_id", coachId)
       .single();
 
     return {
-      ...newMessage,
+      ...messageData,
+      media_url: messageData.media_storage_path || null,
+      media_type: messageData.media_type || null,
       sender_name:
-        coach?.name ||
-        (coach?.first_name && coach?.last_name
-          ? `${coach.first_name} ${coach.last_name}`
-          : coach?.first_name || "Coach"),
+        coachInfo?.name ||
+        (coachInfo?.first_name && coachInfo?.last_name
+          ? `${coachInfo.first_name} ${coachInfo.last_name}`
+          : coachInfo?.first_name || "Coach"),
     };
   }
 
@@ -500,37 +624,54 @@ export class ChatService {
             );
 
             // Get sender info
-            if (newMessage.is_coach) {
-              const { data: coach } = await supabase
-                .from("coaches")
-                .select("name, first_name, last_name")
-                .eq("user_id", newMessage.sender_id)
-                .single();
+            try {
+              if (newMessage.is_coach) {
+                const { data: coach, error: coachError } = await supabase
+                  .from("coaches")
+                  .select("name, first_name, last_name")
+                  .eq("user_id", newMessage.sender_id)
+                  .single();
 
-              onNewMessage({
-                ...newMessage,
-                sender_name:
-                  coach?.name ||
-                  (coach?.first_name && coach?.last_name
-                    ? `${coach.first_name} ${coach.last_name}`
-                    : coach?.first_name || "Coach"),
-              });
-            } else {
-              const { data: user } = await supabase
-                .from("users")
-                .select("username, first_name, last_name, profile_picture_url")
-                .eq("id", newMessage.sender_id)
-                .single();
+                if (coachError) {
+                  console.error("Error fetching coach for message:", coachError);
+                }
 
-              onNewMessage({
-                ...newMessage,
-                sender_name:
-                  user?.first_name && user?.last_name
-                    ? `${user.first_name} ${user.last_name}`
-                    : user?.first_name || user?.username || "User",
-                sender_username: user?.username,
-                sender_profile_picture_url: user?.profile_picture_url,
-              });
+                onNewMessage({
+                  ...newMessage,
+                  media_url: newMessage.media_storage_path || null,
+                  media_type: newMessage.media_type || null,
+                  sender_name:
+                    coach?.name ||
+                    (coach?.first_name && coach?.last_name
+                      ? `${coach.first_name} ${coach.last_name}`
+                      : coach?.first_name || "Coach"),
+                });
+              } else {
+                const { data: user, error: userError } = await supabase
+                  .from("users")
+                  .select("username, first_name, last_name, profile_picture_url")
+                  .eq("id", newMessage.sender_id)
+                  .single();
+
+                if (userError) {
+                  console.error("Error fetching user for message:", userError);
+                }
+
+                onNewMessage({
+                  ...newMessage,
+                  media_url: newMessage.media_storage_path || null,
+                  media_type: newMessage.media_type || null,
+                  sender_name:
+                    user?.first_name && user?.last_name
+                      ? `${user.first_name} ${user.last_name}`
+                      : user?.first_name || user?.username || "User",
+                  sender_username: user?.username || null,
+                  sender_profile_picture_url: user?.profile_picture_url || null,
+                });
+              }
+            } catch (error) {
+              console.error("Error processing message in subscription:", error);
+              // Don't call onNewMessage if there's an error processing
             }
           } else {
             console.log(

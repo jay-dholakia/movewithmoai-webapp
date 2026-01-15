@@ -25,6 +25,9 @@ import {
   Trophy,
   ChevronDown,
   ChevronRight,
+  Image as ImageIcon,
+  X,
+  Loader2,
 } from "lucide-react";
 
 type TabType =
@@ -833,6 +836,19 @@ function ChatInterface({
   const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<{ file: File; preview: string; type: 'image' | 'video' } | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showRecordModal, setShowRecordModal] = useState(false);
+  const [showRecordOptions, setShowRecordOptions] = useState(false);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [recordedVideo, setRecordedVideo] = useState<Blob | null>(null);
+  const [recordedVideoPreview, setRecordedVideoPreview] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const isCancelingRef = useRef(false);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Store callback in ref to avoid dependency issues
@@ -845,6 +861,19 @@ function ChatInterface({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Cleanup media stream only on unmount (not when mediaStream changes)
+  useEffect(() => {
+    return () => {
+      // Only cleanup on unmount
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+      if (videoPreviewRef.current) {
+        videoPreviewRef.current.srcObject = null;
+      }
+    };
+  }, []); // Empty dependency array - only cleanup on unmount
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -1000,22 +1029,339 @@ function ChatInterface({
     };
   }, [userId, coachId]); // Only depend on userId and coachId
 
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+
+    if (!isImage && !isVideo) {
+      alert('Please select an image or video file');
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSelectedMedia({
+        file,
+        preview: reader.result as string,
+        type: isImage ? 'image' : 'video'
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Open record modal and get camera access
+  const openRecordModal = async () => {
+    try {
+      // Close the options menu first
+      setShowRecordOptions(false);
+      
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        }, 
+        audio: true 
+      });
+      
+      // Set stream and show modal, but don't start recording yet
+      setMediaStream(stream);
+      setShowRecordModal(true);
+      setIsRecording(false);
+
+      // Set up media recorder (but don't start yet)
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp8,opus'
+      });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          recordingChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        // Don't process if we're canceling
+        if (isCancelingRef.current) {
+          return;
+        }
+
+        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
+        setRecordedVideo(blob);
+        
+        // Create preview URL - this will be revoked when modal closes or new recording starts
+        const previewUrl = URL.createObjectURL(blob);
+        setRecordedVideoPreview(previewUrl);
+
+        // Stop camera preview but keep modal open
+        if (videoPreviewRef.current) {
+          videoPreviewRef.current.srcObject = null;
+        }
+        stream.getTracks().forEach(track => track.stop());
+        setMediaStream(null);
+        setIsRecording(false);
+      };
+
+      // Set up video preview after a short delay to ensure modal is mounted
+      setTimeout(() => {
+        if (videoPreviewRef.current && stream) {
+          try {
+            videoPreviewRef.current.srcObject = stream;
+            const playPromise = videoPreviewRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(err => {
+                // Ignore AbortError - it's expected if component unmounts or stream stops
+                if (err.name !== 'AbortError') {
+                  console.error('Error playing video:', err);
+                }
+              });
+            }
+          } catch (err: any) {
+            // Ignore errors if element is no longer available
+            if (err.name !== 'AbortError') {
+              console.error('Error setting up video:', err);
+            }
+          }
+        }
+      }, 200);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      alert('Unable to access camera. Please check permissions.');
+      setShowRecordOptions(false);
+      setShowRecordModal(false);
+      setIsRecording(false);
+      setMediaStream(null);
+    }
+  };
+
+  // Start recording (called from modal)
+  const startRecording = () => {
+    if (!mediaStream || !mediaRecorderRef.current) return;
+
+    setIsRecording(true);
+    recordingChunksRef.current = [];
+    isCancelingRef.current = false;
+
+    if (mediaRecorderRef.current.state === 'inactive') {
+      mediaRecorderRef.current.start();
+    }
+  };
+
+  // Stop video recording
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+    // Don't stop the stream here - let onstop handler do it after creating preview
+  };
+
+  // Attach recorded video to chat
+  const attachRecordedVideo = () => {
+    if (recordedVideo && recordedVideoPreview) {
+      // Create a File object from the blob
+      const file = new File([recordedVideo], `recording-${Date.now()}.webm`, { type: 'video/webm' });
+      
+      // Create a new data URL for the preview (since we'll revoke the blob URL)
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedMedia({
+          file,
+          preview: reader.result as string,
+          type: 'video'
+        });
+        // Close modal and clear recording state
+        setShowRecordModal(false);
+        setRecordedVideo(null);
+        // Revoke blob URL after creating data URL
+        URL.revokeObjectURL(recordedVideoPreview);
+        setRecordedVideoPreview(null);
+      };
+      reader.readAsDataURL(recordedVideo);
+    }
+  };
+
+  // Record again (start over)
+  const recordAgain = async () => {
+    // Clean up previous recording
+    if (recordedVideoPreview) {
+      URL.revokeObjectURL(recordedVideoPreview);
+      setRecordedVideoPreview(null);
+    }
+    setRecordedVideo(null);
+    recordingChunksRef.current = [];
+    
+    // Get camera access again
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        }, 
+        audio: true 
+      });
+      
+      setMediaStream(stream);
+      
+      // Set up media recorder again
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp8,opus'
+      });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          recordingChunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        if (isCancelingRef.current) {
+          return;
+        }
+
+        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' });
+        setRecordedVideo(blob);
+        
+        const previewUrl = URL.createObjectURL(blob);
+        setRecordedVideoPreview(previewUrl);
+
+        if (videoPreviewRef.current) {
+          videoPreviewRef.current.srcObject = null;
+        }
+        stream.getTracks().forEach(track => track.stop());
+        setMediaStream(null);
+        setIsRecording(false);
+      };
+
+      // Set up video preview
+      setTimeout(() => {
+        if (videoPreviewRef.current && stream) {
+          try {
+            videoPreviewRef.current.srcObject = stream;
+            videoPreviewRef.current.play().catch(err => {
+              if (err.name !== 'AbortError') {
+                console.error('Error playing video:', err);
+              }
+            });
+          } catch (err: any) {
+            if (err.name !== 'AbortError') {
+              console.error('Error setting up video:', err);
+            }
+          }
+        }
+      }, 200);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      alert('Unable to access camera. Please check permissions.');
+    }
+  };
+
+  // Cancel recording
+  const cancelRecording = () => {
+    // Set cancel flag to prevent processing
+    isCancelingRef.current = true;
+    
+    // Stop the media recorder if it's running
+    if (mediaRecorderRef.current && isRecording) {
+      try {
+        // Clear the onstop handler to prevent processing
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      } catch (err) {
+        // Ignore errors if already stopped
+      }
+    }
+    
+    // Stop all media tracks
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      setMediaStream(null);
+    }
+    
+    // Clean up preview URL if exists
+    if (recordedVideoPreview) {
+      URL.revokeObjectURL(recordedVideoPreview);
+    }
+    
+    // Clear all recording state
+    setIsRecording(false);
+    setRecordedVideo(null);
+    setRecordedVideoPreview(null);
+    setSelectedMedia(null);
+    setShowRecordOptions(false);
+    setShowRecordModal(false);
+    
+    // Clear video preview
+    if (videoPreviewRef.current) {
+      videoPreviewRef.current.srcObject = null;
+    }
+    
+    // Clear the media recorder reference and chunks
+    mediaRecorderRef.current = null;
+    recordingChunksRef.current = [];
+  };
+
   const handleSend = async () => {
-    if (!inputText.trim() || !session || sending) return;
+    if ((!inputText.trim() && !selectedMedia) || !session || sending || uploadingMedia) return;
 
     setSending(true);
+    let mediaUrl: string | null = null;
+    let mediaType: 'image' | 'video' | null = null;
+
     try {
+      // Upload media if selected
+      if (selectedMedia) {
+        setUploadingMedia(true);
+        try {
+          mediaUrl = await ChatService.uploadChatMedia(
+            selectedMedia.file,
+            session.id,
+            'client'
+          );
+          mediaType = selectedMedia.type;
+
+          if (!mediaUrl) {
+            alert('Failed to upload media. Please try again.');
+            setUploadingMedia(false);
+            setSending(false);
+            return;
+          }
+        } catch (error: any) {
+          alert(error.message || 'Failed to upload media. Please try again.');
+          setUploadingMedia(false);
+          setSending(false);
+          return;
+        } finally {
+          setUploadingMedia(false);
+        }
+      }
+
       const newMessage = await ChatService.sendMessage(
         session.id,
         coachId,
-        inputText.trim()
+        inputText.trim() || (mediaUrl ? (mediaType === 'image' ? '📷 Image' : '🎥 Video') : ''),
+        undefined,
+        mediaUrl,
+        mediaType
       );
       if (newMessage) {
         setMessages((prev) => [...prev, newMessage]);
         setInputText("");
+        setSelectedMedia(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      alert('Failed to send message. Please try again.');
     } finally {
       setSending(false);
     }
@@ -1059,7 +1405,27 @@ function ChatInterface({
                   : "bg-gray-200 text-gray-900"
               }`}
             >
-              <p className="text-sm">{message.message}</p>
+              {(message.media_url || (message as any).media_url) && (
+                <div className="mb-2">
+                  {(message.media_type || (message as any).media_type) === 'image' ? (
+                    <img
+                      src={message.media_url || (message as any).media_url}
+                      alt="Shared image"
+                      className="max-w-full rounded-lg cursor-pointer hover:opacity-90"
+                      onClick={() => window.open(message.media_url || (message as any).media_url, '_blank')}
+                    />
+                  ) : (
+                    <video
+                      src={message.media_url || (message as any).media_url}
+                      controls
+                      className="max-w-full rounded-lg"
+                    />
+                  )}
+                </div>
+              )}
+              {message.message && (
+                <p className="text-sm">{message.message}</p>
+              )}
               <p
                 className={`text-xs mt-1 ${
                   message.sender_type === "coach"
@@ -1082,7 +1448,162 @@ function ChatInterface({
 
       {/* Input */}
       <div className="border-t border-gray-200 p-4">
+        {selectedMedia && !isRecording && (
+          <div className="mb-2 relative">
+            <button
+              onClick={() => {
+                setSelectedMedia(null);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
+              }}
+              className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 z-10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {selectedMedia.type === 'image' ? (
+              <img
+                src={selectedMedia.preview}
+                alt="Preview"
+                className="max-w-xs rounded-lg"
+              />
+            ) : (
+              <video
+                src={selectedMedia.preview}
+                controls
+                className="max-w-xs rounded-lg"
+              />
+            )}
+          </div>
+        )}
+        
+        {/* Recording Modal */}
+        {showRecordModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="relative bg-black rounded-lg overflow-hidden shadow-2xl pointer-events-auto" style={{ width: '640px', maxWidth: '90vw', aspectRatio: '16/9' }}>
+              <button
+                onClick={cancelRecording}
+                className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full p-2 transition-colors"
+                title="Cancel"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              
+              {/* Camera Preview (when not showing recorded video) */}
+              {!recordedVideoPreview && (
+                <>
+                  <video
+                    ref={videoPreviewRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  {isRecording && (
+                    <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-full">
+                      <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                      <span className="font-medium">Recording</span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-3">
+                    {!isRecording ? (
+                      <button
+                        onClick={startRecording}
+                        className="bg-red-500 text-white px-6 py-3 rounded-full text-base font-medium hover:bg-red-600 shadow-lg"
+                      >
+                        Start Recording
+                      </button>
+                    ) : (
+                      <button
+                        onClick={stopRecording}
+                        className="bg-white text-gray-900 px-6 py-3 rounded-full text-base font-medium hover:bg-gray-100 shadow-lg"
+                      >
+                        Stop Recording
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Recorded Video Preview */}
+              {recordedVideoPreview && (
+                <>
+                  <video
+                    src={recordedVideoPreview}
+                    controls
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-3">
+                    <button
+                      onClick={recordAgain}
+                      className="bg-gray-500 text-white px-6 py-3 rounded-full text-base font-medium hover:bg-gray-600 shadow-lg"
+                    >
+                      Record Again
+                    </button>
+                    <button
+                      onClick={attachRecordedVideo}
+                      className="bg-blue-600 text-white px-6 py-3 rounded-full text-base font-medium hover:bg-blue-700 shadow-lg"
+                    >
+                      Attach to Chat
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Record Options Menu */}
+        {showRecordOptions && (
+          <div className="mb-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowRecordOptions(false);
+                  fileInputRef.current?.click();
+                }}
+                className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Upload File
+              </button>
+              <button
+                onClick={openRecordModal}
+                className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+              >
+                Record Video
+              </button>
+              <button
+                onClick={() => setShowRecordOptions(false)}
+                className="px-3 py-2 text-gray-600 hover:text-gray-900"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <div className="relative">
+            <button
+              onClick={() => setShowRecordOptions(!showRecordOptions)}
+              disabled={uploadingMedia || sending || isRecording}
+              className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Attach image or video"
+            >
+              {uploadingMedia ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ImageIcon className="h-5 w-5" />
+              )}
+            </button>
+          </div>
           <input
             type="text"
             value={inputText}
@@ -1090,13 +1611,21 @@ function ChatInterface({
             onKeyPress={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type a message..."
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={uploadingMedia}
           />
           <button
             onClick={handleSend}
-            disabled={!inputText.trim() || sending}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={(!inputText.trim() && !selectedMedia) || sending || uploadingMedia}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {sending ? "Sending..." : "Send"}
+            {sending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Sending...</span>
+              </>
+            ) : (
+              <span>Send</span>
+            )}
           </button>
         </div>
       </div>

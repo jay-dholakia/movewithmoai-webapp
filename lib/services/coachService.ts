@@ -1194,7 +1194,13 @@ export class CoachService {
         // Calculate Monday of current week: if Sunday (0), go back 6 days; otherwise go back (dayOfWeek - 1) days
         const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
         currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday);
-        const currentWeekStartStr = currentWeekStart.toISOString().split("T")[0];
+        // Set to start of day (midnight) in local time
+        currentWeekStart.setHours(0, 0, 0, 0);
+        // Format as YYYY-MM-DD in local time (not UTC)
+        const year = currentWeekStart.getFullYear();
+        const month = String(currentWeekStart.getMonth() + 1).padStart(2, '0');
+        const day = String(currentWeekStart.getDate()).padStart(2, '0');
+        const currentWeekStartStr = `${year}-${month}-${day}`;
 
         // Get all active members
         const { data: activeMembers } = await supabase
@@ -1212,7 +1218,7 @@ export class CoachService {
         let currentWeekCommitment = 0;
         let currentWeekCompleted = 0;
         if (memberUserIds.length > 0) {
-          const { data: commitments } = await supabase.rpc(
+          const { data: commitments, error: commitmentsError } = await supabase.rpc(
             "get_moai_members_weekly_commitments",
             {
               p_user_ids: memberUserIds,
@@ -1220,13 +1226,41 @@ export class CoachService {
             }
           );
 
-          commitments?.forEach((c: any) => {
-            const memberJoinedAt = memberJoinDates.get(c.user_id);
-            if (memberJoinedAt && new Date(currentWeekStartStr) >= new Date(memberJoinedAt)) {
-              currentWeekCommitment += c.commitment_count || 0;
-              currentWeekCompleted += c.completed_sessions || 0;
-            }
+          if (commitmentsError) {
+            console.error(`Error fetching current week commitments for Moai ${circle.id}:`, commitmentsError);
+            console.error('Week start:', currentWeekStartStr, 'Member IDs:', memberUserIds);
+          }
+
+          console.log(`Current week commitments for Moai ${circle.id} (${circle.name}):`, {
+            weekStart: currentWeekStartStr,
+            memberCount: memberUserIds.length,
+            commitmentsReturned: commitments?.length || 0,
+            commitments: commitments
           });
+
+          if (commitments && commitments.length > 0) {
+            commitments.forEach((c: any) => {
+              const memberJoinedAt = memberJoinDates.get(c.user_id);
+              
+              // Only filter by member join date - if member joined before or on the week start, include their commitment
+              // Compare dates as strings (YYYY-MM-DD) to avoid timezone issues
+              const weekStartDateStr = c.week_start?.split('T')[0] || c.week_start;
+              const joinedDateStr = memberJoinedAt ? new Date(memberJoinedAt).toISOString().split('T')[0] : null;
+              
+              if (!memberJoinedAt || !joinedDateStr || weekStartDateStr >= joinedDateStr) {
+                currentWeekCommitment += c.commitment_count || 0;
+                currentWeekCompleted += c.completed_sessions || 0;
+              } else {
+                console.log(`Skipping commitment for user ${c.user_id}:`, {
+                  weekStart: weekStartDateStr,
+                  memberJoinedAt: joinedDateStr,
+                  commitmentCount: c.commitment_count
+                });
+              }
+            });
+          } else {
+            console.log(`No commitments returned for week ${currentWeekStartStr} for Moai ${circle.id}`);
+          }
         }
 
         // Get overall stats using RPC function (bypasses RLS) - show ALL historical data
@@ -1273,22 +1307,25 @@ export class CoachService {
         const overallRate =
           overallCommitment > 0 ? (overallCompleted / overallCommitment) * 100 : 0;
 
-        moaiMetrics.push({
-          moai_id: circle.id,
-          moai_name: circle.name,
-          status: circle.status as "forming" | "active" | "inactive",
-          member_count: memberCount,
-          coach_subscription_started_at: subscriptionStart || circle.created_at,
-          last_message_at: chat?.last_message_at || null,
-          unread_messages_count: unreadCount,
-          current_week_commitment: currentWeekCommitment,
-          current_week_completed: currentWeekCompleted,
-          current_week_completion_rate: currentWeekRate,
-          overall_completion_rate: overallRate,
-          total_workouts: totalWorkouts,
-          created_at: circle.created_at,
-          activated_at: circle.activated_at,
-        });
+        // Only include active or forming Moais, exclude inactive ones
+        if (circle.status !== 'inactive') {
+          moaiMetrics.push({
+            moai_id: circle.id,
+            moai_name: circle.name,
+            status: circle.status as "forming" | "active" | "inactive",
+            member_count: memberCount,
+            coach_subscription_started_at: subscriptionStart || circle.created_at,
+            last_message_at: chat?.last_message_at || null,
+            unread_messages_count: unreadCount,
+            current_week_commitment: currentWeekCommitment,
+            current_week_completed: currentWeekCompleted,
+            current_week_completion_rate: currentWeekRate,
+            overall_completion_rate: overallRate,
+            total_workouts: totalWorkouts,
+            created_at: circle.created_at,
+            activated_at: circle.activated_at,
+          });
+        }
       }
 
       // Sort by last message or created date
@@ -1377,7 +1414,13 @@ export class CoachService {
           // Calculate Monday of current week: if Sunday (0), go back 6 days; otherwise go back (dayOfWeek - 1) days
           const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
           currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday);
-          const currentWeekStartStr = currentWeekStart.toISOString().split("T")[0];
+          // Set to start of day (midnight) in local time
+          currentWeekStart.setHours(0, 0, 0, 0);
+          // Format as YYYY-MM-DD in local time (not UTC)
+          const year = currentWeekStart.getFullYear();
+          const month = String(currentWeekStart.getMonth() + 1).padStart(2, '0');
+          const day = String(currentWeekStart.getDate()).padStart(2, '0');
+          const currentWeekStartStr = `${year}-${month}-${day}`;
 
           const { data: currentWeekData, error: currentWeekError } = await supabase.rpc(
             "get_moai_member_weekly_commitments",
@@ -1571,6 +1614,155 @@ export class CoachService {
     } catch (err) {
       console.error("Exception in getMoaiDetail:", err);
       return null;
+    }
+  }
+
+  /**
+   * Get community blog posts
+   */
+  static async getCommunityPosts(limit: number = 10): Promise<any[]> {
+    try {
+      const { data: posts, error } = await supabase
+        .from("community_posts")
+        .select(`
+          id,
+          content,
+          media_path,
+          media_type,
+          created_at,
+          updated_at,
+          user_id,
+          users:user_id (
+            id,
+            username,
+            first_name,
+            last_name,
+            profile_picture_url
+          )
+        `)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error("Error fetching community posts:", error);
+        return [];
+      }
+
+      return posts || [];
+    } catch (error) {
+      console.error("Error in getCommunityPosts:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get Moai leaderboard
+   */
+  static async getMoaiLeaderboard(limit: number = 10): Promise<any[]> {
+    try {
+      // Get active Moais with their stats
+      const { data: moais, error } = await supabase
+        .from("circles")
+        .select(`
+          id,
+          name,
+          status,
+          created_at,
+          activated_at
+        `)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching Moais for leaderboard:", error);
+        return [];
+      }
+
+      if (!moais || moais.length === 0) {
+        return [];
+      }
+
+      // Get stats for each Moai
+      const leaderboardData = await Promise.all(
+        moais.map(async (moai) => {
+          // Get active members
+          const { data: members } = await supabase
+            .from("circle_members")
+            .select("user_id")
+            .eq("circle_id", moai.id)
+            .eq("status", "active");
+
+          const memberIds = members?.map((m) => m.user_id) || [];
+
+          if (memberIds.length === 0) {
+            return {
+              moai_id: moai.id,
+              moai_name: moai.name,
+              member_count: 0,
+              total_workouts: 0,
+              total_completed: 0,
+              completion_rate: 0,
+            };
+          }
+
+          // Get total workouts
+          const { count: workoutCount } = await supabase
+            .from("workout_sessions")
+            .select("id", { count: "exact", head: true })
+            .in("user_id", memberIds)
+            .eq("status", "completed");
+
+          // Get total completed sessions from weekly commitments
+          const { data: commitments } = await supabase.rpc(
+            "get_moai_members_weekly_commitments",
+            {
+              p_user_ids: memberIds,
+              p_week_start: null,
+            }
+          );
+
+          const totalCompleted =
+            commitments?.reduce(
+              (sum: number, c: any) => sum + (c.completed_sessions || 0),
+              0
+            ) || 0;
+          const totalCommitment =
+            commitments?.reduce(
+              (sum: number, c: any) => sum + (c.commitment_count || 0),
+              0
+            ) || 0;
+
+          const completionRate =
+            totalCommitment > 0 ? (totalCompleted / totalCommitment) * 100 : 0;
+
+          return {
+            moai_id: moai.id,
+            moai_name: moai.name,
+            member_count: memberIds.length,
+            total_workouts: workoutCount || 0,
+            total_completed: totalCompleted,
+            total_commitment: totalCommitment,
+            completion_rate: completionRate,
+          };
+        })
+      );
+
+      // Sort by completion rate, then total completed, then total workouts
+      leaderboardData.sort((a, b) => {
+        if (b.completion_rate !== a.completion_rate) {
+          return b.completion_rate - a.completion_rate;
+        }
+        if (b.total_completed !== a.total_completed) {
+          return b.total_completed - a.total_completed;
+        }
+        return b.total_workouts - a.total_workouts;
+      });
+
+      return leaderboardData.slice(0, limit);
+    } catch (error) {
+      console.error("Error in getMoaiLeaderboard:", error);
+      return [];
     }
   }
 }
