@@ -461,8 +461,8 @@ export class AdminService {
         return { 
           success: false, 
           error: result?.error || result?.message || 'Failed to create coach account',
-          debug: result?.debug
-        }
+          ...(result?.debug && { debug: result.debug })
+        } as { success: false; error: string; debug?: unknown }
       }
 
       return {

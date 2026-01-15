@@ -240,8 +240,8 @@ export async function POST(request: NextRequest) {
         userErrorDetails: userError?.details,
         userErrorHint: userError?.hint,
         userData,
-        actualUserRole: actualUserData?.role || null,
-        actualUserEmail: actualUserData?.email || null,
+        actualUserRole: (actualUserData as { role?: string; email?: string } | null)?.role || null,
+        actualUserEmail: (actualUserData as { role?: string; email?: string } | null)?.email || null,
         actualUserError: actualUserError?.message,
         timestamp: new Date().toISOString(),
         codeVersion: 'v2-check-2025',
@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
     
-    console.log('✅ Admin role verified for user:', { userId, email: userData?.email })
+    console.log('✅ Admin role verified for user:', { userId, email: (userData as { role: string; email: string })?.email })
 
     // Check if email already exists
     const { data: existingUser } = await adminClient
@@ -298,8 +298,6 @@ export async function POST(request: NextRequest) {
         message: inviteError?.message,
         code: inviteError?.code,
         status: inviteError?.status,
-        details: inviteError?.details,
-        hint: inviteError?.hint,
       })
       return NextResponse.json(
         { 
@@ -338,7 +336,7 @@ export async function POST(request: NextRequest) {
       p_max_moais: max_moais,
       p_bio: bio,
       p_specializations: specializations || [],
-    })
+    } as any)
 
     console.log('💾 [API] RPC response:', { result, rpcError })
 

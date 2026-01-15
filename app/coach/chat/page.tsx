@@ -167,8 +167,9 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
         // Only check for multipart if we didn't use Storage API (Storage API should return raw binary)
         // Check if response is multipart/form-data (starts with boundary markers)
         let isMultipart = false
+        let firstBytesText = ''
         if (!isFromStorageAPI) {
-          const firstBytesText = String.fromCharCode(...uint8Array.slice(0, Math.min(50, uint8Array.length)))
+          firstBytesText = String.fromCharCode(...uint8Array.slice(0, Math.min(50, uint8Array.length)))
           isMultipart = firstBytesText.includes('--') && firstBytesText.includes('WebKitFormBoundary')
         }
         

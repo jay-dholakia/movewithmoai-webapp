@@ -480,7 +480,7 @@ export default function MoaisPage() {
                                             {memberName}
                                           </span>
                                           {hasCompletedToday && (
-                                            <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" title="Completed workout today" />
+                                            <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" aria-label="Completed workout today" />
                                           )}
                                         </div>
                                         <div className="mt-1">
