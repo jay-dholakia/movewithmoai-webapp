@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { AdminService } from '@/lib/services/adminService'
 import type { AdminCoach } from '@/lib/types/admin'
-import { Users, CheckCircle, XCircle, Edit2 } from 'lucide-react'
+import { Users, CheckCircle, XCircle, Edit2, UserPlus } from 'lucide-react'
+import CreateCoachModal from './CreateCoachModal'
 
 export default function AdminCoachesPage() {
   const [coaches, setCoaches] = useState<AdminCoach[]>([])
   const [loading, setLoading] = useState(true)
   const [editingCoach, setEditingCoach] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [editForm, setEditForm] = useState({
     is_available: false,
     max_clients: 50,
@@ -85,12 +87,29 @@ export default function AdminCoachesPage() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Coach Management</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Manage coaches, their availability, and capacity
-        </p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Coach Management</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Manage coaches, their availability, and capacity
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+        >
+          <UserPlus className="h-5 w-5" />
+          <span>Create Coach</span>
+        </button>
       </div>
+
+      <CreateCoachModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={() => {
+          loadCoaches()
+        }}
+      />
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">

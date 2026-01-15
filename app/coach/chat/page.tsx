@@ -12,6 +12,463 @@ import { MessageSquare, Users, Search, Send, X, ArrowLeft, Image as ImageIcon, L
 
 type ChatType = 'client' | 'moai'
 
+// Video player component that handles content type issues
+function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => {
+    // If src is already a blob URL, use it directly
+    if (src.startsWith('blob:')) {
+      console.log("Using existing blob URL:", src)
+      setVideoUrl(src)
+      setLoading(false)
+      return
+    }
+
+    // Try to fetch the video and create a blob URL with correct content type
+    let blobUrl: string | null = null
+    setLoading(true)
+    setError(null)
+    
+    const loadVideo = async () => {
+      try {
+        // Try using Supabase Storage download if it's a Supabase URL
+        // Otherwise fall back to regular fetch
+        let arrayBuffer: ArrayBuffer
+        let contentType = 'video/webm'
+        
+        let isFromStorageAPI = false
+        
+        if (src.includes('supabase.co/storage')) {
+          // Extract bucket and path from URL
+          // URL format: https://xxx.supabase.co/storage/v1/object/public/bucket/path
+          const urlMatch = src.match(/storage\/v1\/object\/public\/([^\/]+)\/(.+)/)
+          
+          if (urlMatch) {
+            const bucket = urlMatch[1]
+            const filePath = urlMatch[2]
+            
+            console.log("Using Supabase Storage API download:", { bucket, filePath })
+            
+            // Use Storage API download() method which should return raw binary
+            const { data: blobData, error: downloadError } = await supabase.storage
+              .from(bucket)
+              .download(filePath)
+            
+            if (downloadError) {
+              console.error("Storage API download failed:", downloadError)
+              setError(`Failed to load video: ${downloadError.message}`)
+              setLoading(false)
+              return
+            }
+            
+            if (!blobData) {
+              setError('Video file not found')
+              setLoading(false)
+              return
+            }
+            
+            // Convert Blob to ArrayBuffer - Storage API should return raw binary
+            arrayBuffer = await blobData.arrayBuffer()
+            isFromStorageAPI = true
+            
+            // Determine content type from file extension (don't trust blobData.type)
+            const fileExt = src.split('.').pop()?.toLowerCase()
+            if (fileExt === 'mp4') {
+              contentType = 'video/mp4'
+            } else if (fileExt === 'webm') {
+              contentType = 'video/webm'
+            } else if (fileExt === 'mov') {
+              contentType = 'video/quicktime'
+            } else {
+              contentType = 'video/webm' // Default
+            }
+            
+            // Check if the blob type is JSON - Storage API might be wrapping the data
+            const firstBytes = new Uint8Array(arrayBuffer.slice(0, Math.min(20, arrayBuffer.byteLength)))
+            const firstBytesText = String.fromCharCode(...firstBytes)
+            const looksLikeJSON = firstBytesText.trim().startsWith('{') || firstBytesText.trim().startsWith('[')
+            
+            console.log("Storage API download success:", {
+              blobSize: blobData.size,
+              blobType: blobData.type,
+              arrayBufferSize: arrayBuffer.byteLength,
+              determinedContentType: contentType,
+              firstBytes: Array.from(firstBytes.slice(0, 10)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '),
+              looksLikeJSON
+            })
+            
+            // If blob type is JSON or data looks like JSON, try to parse it
+            // Some Supabase Storage setups return JSON-wrapped data
+            if ((blobData.type === 'application/json' || looksLikeJSON) && arrayBuffer.byteLength > 100) {
+              try {
+                const text = new TextDecoder().decode(arrayBuffer)
+                const jsonData = JSON.parse(text)
+                
+                // Check if JSON contains base64-encoded data or other video data
+                if (jsonData.data || jsonData.content || jsonData.file) {
+                  console.warn("Storage API returned JSON-wrapped data, but video should be raw binary")
+                  // Continue anyway - maybe it's actually raw binary despite JSON type
+                }
+              } catch (e) {
+                // Not valid JSON, which is good - means it's likely raw binary
+                console.log("Data is not valid JSON, treating as raw binary (good)")
+              }
+            }
+          } else {
+            // Fallback to direct fetch if URL parsing fails
+            console.log("Could not parse Supabase URL, using direct fetch:", src)
+            const response = await fetch(src, {
+              method: 'GET',
+              headers: { 'Accept': 'video/*,application/octet-stream,*/*' },
+              cache: 'no-cache'
+            })
+            
+            if (!response.ok) {
+              setError(`Failed to load video: ${response.statusText}`)
+              setLoading(false)
+              return
+            }
+            
+            contentType = response.headers.get('content-type') || contentType
+            arrayBuffer = await response.arrayBuffer()
+          }
+          // Continue with validation and blob creation below
+        } else {
+          // Not a Supabase URL, use regular fetch
+          const response = await fetch(src)
+          if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.statusText}`)
+          }
+          contentType = response.headers.get('content-type') || contentType
+          arrayBuffer = await response.arrayBuffer()
+        }
+        
+        console.log("Video fetch test:", {
+          url: src,
+          contentType,
+          arrayBufferSize: arrayBuffer.byteLength
+        })
+        
+        // Check if array buffer is empty
+        if (arrayBuffer.byteLength === 0) {
+          console.error("Video fetch returned empty array buffer")
+          setError('Video file is empty')
+          setLoading(false)
+          return
+        }
+
+        // Validate and create blob from array buffer
+        let uint8Array = new Uint8Array(arrayBuffer)
+        
+        // Only check for multipart if we didn't use Storage API (Storage API should return raw binary)
+        // Check if response is multipart/form-data (starts with boundary markers)
+        let isMultipart = false
+        if (!isFromStorageAPI) {
+          const firstBytesText = String.fromCharCode(...uint8Array.slice(0, Math.min(50, uint8Array.length)))
+          isMultipart = firstBytesText.includes('--') && firstBytesText.includes('WebKitFormBoundary')
+        }
+        
+        if (isMultipart) {
+          console.log("Detected multipart/form-data response, extracting video data...")
+          
+          // Parse multipart response to extract the actual video file
+          // Find the boundary
+          const boundaryMatch = firstBytesText.match(/--([^\r\n]+)/)
+          if (boundaryMatch) {
+            const boundary = '--' + boundaryMatch[1]
+            
+            // Search for boundary in binary data (don't convert to text - it corrupts binary)
+            const boundaryBytes = new TextEncoder().encode(boundary)
+            const crlfBytes = new Uint8Array([0x0D, 0x0A, 0x0D, 0x0A]) // \r\n\r\n
+            
+            // Find first boundary position in binary
+            let boundaryPos = -1
+            for (let i = 0; i <= arrayBuffer.byteLength - boundaryBytes.length; i++) {
+              let match = true
+              for (let j = 0; j < boundaryBytes.length; j++) {
+                if (uint8Array[i + j] !== boundaryBytes[j]) {
+                  match = false
+                  break
+                }
+              }
+              if (match) {
+                boundaryPos = i
+                break
+              }
+            }
+            
+            if (boundaryPos !== -1) {
+              // Find next boundary (data is between boundaries)
+              let nextBoundaryPos = -1
+              for (let i = boundaryPos + boundaryBytes.length; i <= arrayBuffer.byteLength - boundaryBytes.length; i++) {
+                let match = true
+                for (let j = 0; j < boundaryBytes.length; j++) {
+                  if (uint8Array[i + j] !== boundaryBytes[j]) {
+                    match = false
+                    break
+                  }
+                }
+                if (match) {
+                  nextBoundaryPos = i
+                  break
+                }
+              }
+              
+              if (nextBoundaryPos !== -1) {
+                // Find double CRLF after first boundary (end of headers, start of data)
+                let dataStartIndex = -1
+                for (let i = boundaryPos + boundaryBytes.length; i <= nextBoundaryPos - crlfBytes.length; i++) {
+                  let match = true
+                  for (let j = 0; j < crlfBytes.length; j++) {
+                    if (uint8Array[i + j] !== crlfBytes[j]) {
+                      match = false
+                      break
+                    }
+                  }
+                  if (match) {
+                    dataStartIndex = i + crlfBytes.length
+                    break
+                  }
+                }
+                
+                if (dataStartIndex !== -1) {
+                  // Remove trailing CRLF before next boundary
+                  let dataEndIndex = nextBoundaryPos
+                  if (dataEndIndex >= 2 && uint8Array[dataEndIndex - 2] === 0x0D && uint8Array[dataEndIndex - 1] === 0x0A) {
+                    dataEndIndex -= 2
+                  }
+                  
+                  // Extract binary video data
+                  const videoDataArrayBuffer = arrayBuffer.slice(dataStartIndex, dataEndIndex)
+                  arrayBuffer = videoDataArrayBuffer
+                  uint8Array = new Uint8Array(arrayBuffer)
+                  
+                  console.log("✅ Extracted video data from multipart response:", {
+                    originalSize: arrayBuffer.byteLength,
+                    extractedSize: videoDataArrayBuffer.byteLength,
+                    firstBytes: Array.from(uint8Array.slice(0, 4)).map(b => '0x' + b.toString(16)).join(' ')
+                  })
+                }
+              }
+            }
+          }
+        }
+        
+        // Check first few bytes to see if it's JSON (starts with '{' or '[')
+        const firstBytes = String.fromCharCode(...uint8Array.slice(0, Math.min(10, uint8Array.length)))
+        const isLikelyJSON = firstBytes.trim().startsWith('{') || firstBytes.trim().startsWith('[')
+        
+        if (isLikelyJSON) {
+          // Try to parse as JSON
+          try {
+            const text = new TextDecoder().decode(arrayBuffer)
+            const jsonData = JSON.parse(text)
+            console.error("Server returned JSON instead of video:", jsonData)
+            setError(`Server error: ${jsonData.message || jsonData.error || 'Invalid response'}`)
+            setLoading(false)
+            return
+          } catch {
+            // Not valid JSON, continue
+          }
+        }
+        
+        // Log first bytes to debug what we're actually getting
+        const first20BytesHex = Array.from(uint8Array.slice(0, Math.min(20, uint8Array.length)))
+          .map(b => '0x' + b.toString(16).padStart(2, '0'))
+          .join(' ')
+        const first20BytesText = String.fromCharCode(...uint8Array.slice(0, Math.min(20, uint8Array.length)))
+        
+        console.log("First bytes of downloaded data:", {
+          hex: first20BytesHex,
+          text: first20BytesText.substring(0, 20),
+          isFromStorageAPI,
+          arrayBufferSize: arrayBuffer.byteLength
+        })
+        
+        // Check for valid video file signatures
+        // WebM signature: 0x1A 0x45 0xDF 0xA3 (EBML header)
+        const webmSignature = uint8Array[0] === 0x1A && uint8Array[1] === 0x45 && uint8Array[2] === 0xDF && uint8Array[3] === 0xA3
+        // MP4 signature: "ftyp" at offset 4
+        const mp4Signature = uint8Array.length > 8 && 
+                             uint8Array[4] === 0x66 && 
+                             uint8Array[5] === 0x74 && 
+                             uint8Array[6] === 0x79 && 
+                             uint8Array[7] === 0x70
+        
+        // Determine final type from URL extension or signatures
+        let finalType = contentType
+        if (!finalType || finalType === 'application/json') {
+          if (src.includes('.webm') || webmSignature) {
+            finalType = 'video/webm'
+          } else if (src.includes('.mp4') || mp4Signature) {
+            finalType = 'video/mp4'
+          } else if (src.includes('.mov')) {
+            finalType = 'video/quicktime'
+          } else {
+            finalType = 'video/webm' // Default
+          }
+        }
+        
+        // If we have the right file extension but wrong signature, still try to use it
+        // Sometimes the signature check might fail due to how the data was downloaded
+        if (src.includes('.webm') && !webmSignature && !mp4Signature && !isLikelyJSON) {
+          console.warn("WebM file but signature check failed - using video/webm type anyway")
+          finalType = 'video/webm'
+        }
+        
+        // Create blob with correct type
+        const finalBlob = new Blob([arrayBuffer], { type: finalType })
+        
+        console.log("Creating blob from array buffer:", {
+          blobSize: arrayBuffer.byteLength,
+          contentType: contentType,
+          finalType: finalType,
+          hasWebmSignature: webmSignature,
+          hasMp4Signature: mp4Signature,
+          isLikelyJSON: isLikelyJSON,
+          firstBytesHex: first20BytesHex
+        })
+        
+        // Validate blob size
+        if (finalBlob.size === 0) {
+          console.error("Created blob is empty!")
+          setError('Video file is empty')
+          setLoading(false)
+          return
+        }
+        
+        blobUrl = URL.createObjectURL(finalBlob)
+        
+        console.log("Video blob URL created:", {
+          blobUrl: blobUrl.substring(0, 50) + '...',
+          type: finalBlob.type,
+          originalServerType: contentType,
+          blobSize: finalBlob.size,
+          arrayBufferSize: arrayBuffer.byteLength
+        })
+        
+        setVideoUrl(blobUrl)
+        setLoading(false)
+      } catch (err: any) {
+        console.error("Error loading video:", err)
+        setError(err.message || 'Failed to load video')
+        setLoading(false)
+      }
+    }
+
+    loadVideo()
+    
+    // Cleanup blob URL on unmount or when src changes
+    return () => {
+      if (blobUrl && blobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(blobUrl)
+      }
+    }
+  }, [src])
+
+  if (loading) {
+    return (
+      <div className="max-w-xs rounded-lg bg-gray-100 p-4 text-sm text-gray-600 flex items-center gap-2">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Loading video...
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-xs rounded-lg bg-gray-100 p-4 text-sm text-gray-600">
+        Video unavailable: {error}
+        <br />
+        <a 
+          href={src} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
+          Open in new tab
+        </a>
+      </div>
+    )
+  }
+
+  if (!videoUrl) {
+    return (
+      <div className="max-w-xs rounded-lg bg-gray-100 p-4 text-sm text-gray-600">
+        Video URL not available
+      </div>
+    )
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      src={videoUrl}
+      controls
+      className="max-w-xs rounded-lg"
+      preload="auto"
+      playsInline
+      crossOrigin="anonymous"
+      onError={(e) => {
+        const videoEl = e.currentTarget;
+        const err = videoEl.error;
+        console.error("Video element error:", {
+          src: videoUrl,
+          errorCode: err?.code,
+          errorMessage: err?.message,
+          networkState: videoEl.networkState,
+          readyState: videoEl.readyState,
+          videoWidth: videoEl.videoWidth,
+          videoHeight: videoEl.videoHeight,
+          duration: videoEl.duration
+        });
+        
+        // Try to get more detailed error info
+        let errorMsg = 'Unknown error'
+        if (err) {
+          switch (err.code) {
+            case MediaError.MEDIA_ERR_ABORTED:
+              errorMsg = 'Video playback aborted'
+              break
+            case MediaError.MEDIA_ERR_NETWORK:
+              errorMsg = 'Network error loading video'
+              break
+            case MediaError.MEDIA_ERR_DECODE:
+              errorMsg = 'Video decode error - file may be corrupted or format not supported'
+              break
+            case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+              errorMsg = 'Video format not supported by browser'
+              break
+          }
+        }
+        
+        setError(`Video error: ${errorMsg} (Code: ${err?.code || 'unknown'})`);
+      }}
+      onLoadStart={() => {
+        console.log("Video loading:", videoUrl);
+      }}
+      onLoadedMetadata={() => {
+        console.log("Video metadata loaded:", {
+          duration: videoRef.current?.duration,
+          videoWidth: videoRef.current?.videoWidth,
+          videoHeight: videoRef.current?.videoHeight,
+          readyState: videoRef.current?.readyState
+        });
+      }}
+      onCanPlay={() => {
+        console.log("Video can play:", videoUrl);
+      }}
+      onLoadedData={() => {
+        console.log("Video data loaded");
+      }}
+    />
+  )
+}
+
 interface ChatListItem {
   id: string
   type: ChatType
@@ -57,6 +514,7 @@ export default function ChatPage() {
   const isCancelingRef = useRef(false)
   const videoPreviewRef = useRef<HTMLVideoElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const recordingMimeTypeRef = useRef<string>('video/webm')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -254,13 +712,50 @@ export default function ChatPage() {
       setIsRecording(false)
 
       // Set up media recorder (but don't start yet)
+      // Prefer WebM over MP4 - WebM is more widely supported and produces reliable output
+      // MP4 recording in browsers is experimental and often produces files that can't be played back
+      let mimeType = 'video/webm'
+      const codecs = [
+        // Prefer WebM - it's more reliable for browser recording
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        // MP4 is less reliable but include as fallback
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4;codecs=avc1.42E01E',
+        'video/mp4'
+      ]
+      
+      for (const codec of codecs) {
+        if (MediaRecorder.isTypeSupported(codec)) {
+          mimeType = codec
+          console.log('Using codec:', codec)
+          break
+        }
+      }
+      
+      // Store mimeType in ref so it's available in onstop handler
+      recordingMimeTypeRef.current = mimeType
+      
+      console.log('MediaRecorder setup:', {
+        supportedCodecs: codecs.filter(c => MediaRecorder.isTypeSupported(c)),
+        selectedCodec: mimeType
+      })
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp8,opus'
+        mimeType: mimeType
       })
       mediaRecorderRef.current = mediaRecorder
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
+        if (e.data && e.data.size > 0) {
+          console.log('Received data chunk:', {
+            size: e.data.size,
+            type: e.data.type,
+            totalChunks: recordingChunksRef.current.length + 1
+          })
           recordingChunksRef.current.push(e.data)
         }
       }
@@ -268,10 +763,37 @@ export default function ChatPage() {
       mediaRecorder.onstop = () => {
         // Don't process if we're canceling
         if (isCancelingRef.current) {
+          console.log('Recording canceled, not processing chunks')
+          recordingChunksRef.current = []
           return
         }
 
-        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' })
+        console.log('Recording stopped, creating blob from chunks:', {
+          chunkCount: recordingChunksRef.current.length,
+          totalSize: recordingChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0),
+          mimeType: recordingMimeTypeRef.current
+        })
+
+        if (recordingChunksRef.current.length === 0) {
+          console.error('No recording chunks available!')
+          alert('Recording failed: No data was captured. Please try again.')
+          return
+        }
+
+        // Use the same mimeType that was used for recording
+        const blob = new Blob(recordingChunksRef.current, { type: recordingMimeTypeRef.current })
+        
+        console.log('Blob created:', {
+          size: blob.size,
+          type: blob.type
+        })
+
+        if (blob.size === 0) {
+          console.error('Created blob is empty!')
+          alert('Recording failed: Video file is empty. Please try again.')
+          return
+        }
+
         setRecordedVideo(blob)
         
         // Create preview URL - this will be revoked when modal closes or new recording starts
@@ -328,7 +850,10 @@ export default function ChatPage() {
     isCancelingRef.current = false
 
     if (mediaRecorderRef.current.state === 'inactive') {
-      mediaRecorderRef.current.start()
+      // Start recording with 1 second timeslice to ensure chunks are collected reliably
+      // Without timeslice, some browsers may not fire ondataavailable events properly
+      mediaRecorderRef.current.start(1000)
+      console.log('Recording started with timeslice: 1000ms')
     }
   }
 
@@ -343,8 +868,31 @@ export default function ChatPage() {
   // Attach recorded video to chat
   const attachRecordedVideo = () => {
     if (recordedVideo && recordedVideoPreview) {
+      // Verify the blob has data
+      if (recordedVideo.size === 0) {
+        console.error('Cannot attach: recorded video blob is empty!')
+        alert('Recording is empty. Please record again.')
+        return
+      }
+
+      console.log('Attaching recorded video:', {
+        blobSize: recordedVideo.size,
+        blobType: recordedVideo.type
+      })
+
+      // Determine file extension and type based on the blob's mimeType
+      const isMP4 = recordedVideo.type.includes('mp4')
+      const extension = isMP4 ? 'mp4' : 'webm'
+      const mimeType = isMP4 ? 'video/mp4' : 'video/webm'
+      
       // Create a File object from the blob
-      const file = new File([recordedVideo], `recording-${Date.now()}.webm`, { type: 'video/webm' })
+      const file = new File([recordedVideo], `recording-${Date.now()}.${extension}`, { type: mimeType })
+      
+      console.log('File created for upload:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      })
       
       // Create a new data URL for the preview (since we'll revoke the blob URL)
       const reader = new FileReader()
@@ -389,23 +937,80 @@ export default function ChatPage() {
       setMediaStream(stream)
       
       // Set up media recorder again
+      // Prefer WebM over MP4 - WebM is more widely supported and produces reliable output
+      let mimeType = 'video/webm'
+      const codecs = [
+        // Prefer WebM - it's more reliable for browser recording
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm;codecs=vp9',
+        'video/webm;codecs=vp8',
+        'video/webm',
+        // MP4 is less reliable but include as fallback
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4;codecs=avc1.42E01E',
+        'video/mp4'
+      ]
+      
+      for (const codec of codecs) {
+        if (MediaRecorder.isTypeSupported(codec)) {
+          mimeType = codec
+          break
+        }
+      }
+      
+      // Store mimeType in ref so it's available in onstop handler
+      recordingMimeTypeRef.current = mimeType
+      
       const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp8,opus'
+        mimeType: mimeType
       })
       mediaRecorderRef.current = mediaRecorder
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
+        if (e.data && e.data.size > 0) {
+          console.log('Received data chunk (recordAgain):', {
+            size: e.data.size,
+            type: e.data.type,
+            totalChunks: recordingChunksRef.current.length + 1
+          })
           recordingChunksRef.current.push(e.data)
         }
       }
 
       mediaRecorder.onstop = () => {
         if (isCancelingRef.current) {
+          console.log('Recording canceled (recordAgain), not processing chunks')
+          recordingChunksRef.current = []
           return
         }
 
-        const blob = new Blob(recordingChunksRef.current, { type: 'video/webm' })
+        console.log('Recording stopped (recordAgain), creating blob from chunks:', {
+          chunkCount: recordingChunksRef.current.length,
+          totalSize: recordingChunksRef.current.reduce((sum, chunk) => sum + chunk.size, 0),
+          mimeType: recordingMimeTypeRef.current
+        })
+
+        if (recordingChunksRef.current.length === 0) {
+          console.error('No recording chunks available (recordAgain)!')
+          alert('Recording failed: No data was captured. Please try again.')
+          return
+        }
+
+        // Use the same mimeType that was used for recording
+        const blob = new Blob(recordingChunksRef.current, { type: recordingMimeTypeRef.current })
+        
+        console.log('Blob created (recordAgain):', {
+          size: blob.size,
+          type: blob.type
+        })
+
+        if (blob.size === 0) {
+          console.error('Created blob is empty (recordAgain)!')
+          alert('Recording failed: Video file is empty. Please try again.')
+          return
+        }
+
         setRecordedVideo(blob)
         
         const previewUrl = URL.createObjectURL(blob)
@@ -444,17 +1049,30 @@ export default function ChatPage() {
 
   // Cancel recording
   const cancelRecording = () => {
+    console.log('Canceling recording:', {
+      isRecording,
+      hasRecorder: !!mediaRecorderRef.current,
+      recorderState: mediaRecorderRef.current?.state,
+      hasRecordedVideo: !!recordedVideo
+    })
+
     // Set cancel flag to prevent processing
     isCancelingRef.current = true
+    
+    // Clear chunks immediately to prevent them from being used
+    recordingChunksRef.current = []
     
     // Stop the media recorder if it's running
     if (mediaRecorderRef.current && isRecording) {
       try {
         // Clear the onstop handler to prevent processing
         mediaRecorderRef.current.onstop = null
-        mediaRecorderRef.current.stop()
+        if (mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop()
+        }
       } catch (err) {
         // Ignore errors if already stopped
+        console.log('Error stopping recorder (expected if already stopped):', err)
       }
     }
     
@@ -564,6 +1182,13 @@ export default function ChatPage() {
           mediaType
         )
         if (newMessage) {
+          console.log("New message added to state:", {
+            id: newMessage.id,
+            media_url: newMessage.media_url,
+            media_type: newMessage.media_type,
+            media_storage_path: (newMessage as any).media_storage_path,
+            fullMessage: newMessage
+          });
           setMoaiChatMessages(prev => ({
             ...prev,
             [selectedChat.id]: [...(prev[selectedChat.id] || []), newMessage]
@@ -793,9 +1418,24 @@ export default function ChatPage() {
                                 : 'bg-white text-gray-900 border border-gray-200'
                             }`}
                           >
-                            {(message.media_url || (message as any).media_url) && (
-                              <div className="mb-2">
-                                {(message.media_type || (message as any).media_type) === 'image' ? (
+                            {(() => {
+                              const msgMediaUrl = message.media_url || (message as any).media_url;
+                              const msgMediaType = message.media_type || (message as any).media_type;
+                              const msgStoragePath = (message as any).media_storage_path;
+                              
+                              // Debug logging
+                              if (msgStoragePath && !msgMediaUrl) {
+                                console.warn("Message has storage_path but no media_url:", {
+                                  messageId: message.id,
+                                  storage_path: msgStoragePath,
+                                  media_type: msgMediaType,
+                                  fullMessage: message
+                                });
+                              }
+                              
+                              return msgMediaUrl ? (
+                                <div className="mb-2">
+                                  {msgMediaType === 'image' ? (
                                   <img
                                     src={message.media_url || (message as any).media_url}
                                     alt="Shared image"
@@ -803,14 +1443,14 @@ export default function ChatPage() {
                                     onClick={() => window.open(message.media_url || (message as any).media_url, '_blank')}
                                   />
                                 ) : (
-                                  <video
+                                  <VideoPlayer 
                                     src={message.media_url || (message as any).media_url}
-                                    controls
-                                    className="max-w-xs rounded-lg"
+                                    messageId={message.id}
                                   />
                                 )}
-                              </div>
-                            )}
+                                </div>
+                              ) : null;
+                            })()}
                             {message.message && (
                               <p className="text-sm whitespace-pre-wrap">{message.message}</p>
                             )}

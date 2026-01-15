@@ -54,6 +54,32 @@ export interface MoaiChat {
 
 export class ChatService {
   /**
+   * Helper function to convert storage path to full URL
+   */
+  private static getMediaUrl(storagePath: string | null): string | null {
+    if (!storagePath) return null;
+    // If it's already a full URL, return it
+    if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) {
+      return storagePath;
+    }
+    // Otherwise, construct the full URL from the storage path
+    // The path should be: moai/chatId/filename or client/sessionId/filename
+    const { data: urlData } = supabase.storage
+      .from('coach-chat-media')
+      .getPublicUrl(storagePath);
+    
+    const fullUrl = urlData.publicUrl;
+    console.log("getMediaUrl conversion:", {
+      input: storagePath,
+      output: fullUrl,
+      pathIncludesMoai: storagePath.includes('moai/'),
+      pathIncludesClient: storagePath.includes('client/')
+    });
+    
+    return fullUrl;
+  }
+
+  /**
    * Upload media file (image or video) to Supabase Storage
    * Note: The 'coach-chat-media' bucket must exist in Supabase Storage
    */
@@ -86,11 +112,35 @@ export class ChatService {
       }
 
       // Upload file to Supabase Storage - using coach-chat-media bucket
+      // Ensure correct content type is set - this is critical for video playback
+      let contentType = file.type;
+      if (!contentType) {
+        // Fallback content types if file.type is not set
+        if (isImage) {
+          contentType = fileExt === 'jpg' || fileExt === 'jpeg' ? 'image/jpeg' : 
+                       fileExt === 'png' ? 'image/png' : 
+                       fileExt === 'gif' ? 'image/gif' : 'image/*';
+        } else if (isVideo) {
+          contentType = fileExt === 'webm' ? 'video/webm' :
+                       fileExt === 'mp4' ? 'video/mp4' :
+                       fileExt === 'mov' ? 'video/quicktime' : 'video/*';
+        }
+      }
+      
+      console.log("Uploading file with content type:", {
+        fileName: file.name,
+        fileType: file.type,
+        fileExt,
+        determinedContentType: contentType,
+        fileSize: file.size
+      });
+      
       const { data, error } = await supabase.storage
         .from('coach-chat-media')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
+          contentType: contentType, // Explicitly set content type - critical for video playback
         });
 
       if (error) {
@@ -299,7 +349,7 @@ export class ChatService {
       "🔌 Setting up real-time subscription for channel:",
       channelName
     );
-
+    
     const channel = supabase
       .channel(channelName)
       // Listen for broadcast messages
@@ -371,7 +421,7 @@ export class ChatService {
       coachSubscriptionStart,
       limit,
     });
-
+    
     // Use RPC function to bypass RLS (coaches can only access messages from when they were added)
     const { data: messages, error } = await supabase.rpc(
       "get_moai_chat_messages_for_coach",
@@ -386,7 +436,7 @@ export class ChatService {
       console.error("Error fetching Moai chat messages:", error);
       return [];
     }
-
+    
     console.log("Fetched Moai chat messages:", {
       messageCount: messages?.length || 0,
       messages: messages?.map((m: any) => ({
@@ -416,7 +466,7 @@ export class ChatService {
         {
           name:
             s.first_name && s.last_name
-              ? `${s.first_name} ${s.last_name}`
+            ? `${s.first_name} ${s.last_name}`
               : s.first_name || s.username || "User",
           username: s.username,
           profile_picture_url: s.profile_picture_url,
@@ -440,7 +490,7 @@ export class ChatService {
           name:
             c.name ||
             (c.first_name && c.last_name
-              ? `${c.first_name} ${c.last_name}`
+            ? `${c.first_name} ${c.last_name}`
               : c.first_name || "Coach"),
         },
       ]) || []
@@ -450,7 +500,7 @@ export class ChatService {
     return messages.map((msg: any) => {
       const baseMessage = {
         ...msg,
-        media_url: msg.media_storage_path || null,
+        media_url: ChatService.getMediaUrl(msg.media_storage_path),
         media_type: msg.media_type || null,
       };
       
@@ -496,88 +546,165 @@ export class ChatService {
       mediaType,
     });
 
-    // If RPC doesn't support media, we'll need to insert directly or update the RPC
-    // For now, let's try inserting directly with proper RLS handling
-    const { data: messageData, error: insertError } = await supabase
-      .from("moai_chat_messages")
-      .insert({
-        moai_chat_id: moaiChatId,
-        sender_id: coachId,
-        message: message,
-        reply_parent_message_id: replyParentId || null,
-        media_storage_path: mediaUrl || null,
-        media_type: mediaType || null,
-        is_coach: true,
-      })
-      .select("id, moai_chat_id, sender_id, message, timestamp, is_deleted, is_edited, edited_at, updated_at, reply_parent_message_id, media_type, media_storage_path, media_note, is_coach")
-      .single();
+    // Extract the storage path from the full URL if it's a full URL
+    // Full URL format: https://...supabase.co/storage/v1/object/public/coach-chat-media/moai/chatId/filename
+    // We want to store just: moai/chatId/filename
+    let storagePath: string | null = null;
+    if (mediaUrl) {
+      if (mediaUrl.includes('/storage/v1/object/public/coach-chat-media/')) {
+        storagePath = mediaUrl.split('/storage/v1/object/public/coach-chat-media/')[1];
+      } else if (mediaUrl.includes('coach-chat-media/')) {
+        storagePath = mediaUrl.split('coach-chat-media/')[1];
+      } else {
+        storagePath = mediaUrl; // Assume it's already a path
+      }
+    }
 
-    if (insertError) {
-      console.error("Error inserting Moai chat message directly:", insertError);
-      // Fallback to RPC if direct insert fails (RLS might block it)
-      const { data, error } = await supabase.rpc(
-        "send_moai_chat_message_for_coach",
+    console.log("Preparing to send message:", {
+      hasMedia: !!mediaUrl,
+      originalMediaUrl: mediaUrl?.substring(0, 150),
+      extractedStoragePath: storagePath,
+      mediaType,
+      willUseNewRPC: !!storagePath
+    });
+
+    // Use RPC function with media support if available, otherwise fall back to old method
+    let data, error;
+    
+    // Always try new RPC function if we have media (even if storagePath extraction failed, use original URL)
+    if (mediaUrl) {
+      const pathToUse = storagePath || mediaUrl; // Use extracted path or fall back to full URL
+      
+      // Try the new RPC function with media support
+      console.log("Calling send_moai_chat_message_for_coach_with_media with:", {
+        p_moai_chat_id: moaiChatId,
+        p_coach_user_id: coachId,
+        p_message: message.substring(0, 50),
+        p_media_storage_path: pathToUse,
+        p_media_type: mediaType
+      });
+      
+      const result = await supabase.rpc(
+        "send_moai_chat_message_for_coach_with_media",
         {
           p_moai_chat_id: moaiChatId,
           p_coach_user_id: coachId,
           p_message: message,
           p_reply_parent_message_id: replyParentId || null,
+          p_media_storage_path: pathToUse,
+          p_media_type: mediaType || null,
         }
       );
-
+      data = result.data;
+      error = result.error;
+      
       if (error) {
-        console.error("Error sending Moai chat message:", error);
-        return null;
+        console.error("❌ Error calling new RPC function with media:", error);
+        // If the new function doesn't exist, fall back to old method
+        if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+          console.log("New RPC function not available, using fallback method");
+          error = null; // Reset error to try fallback
+          data = null; // Reset data to trigger fallback
+        }
+      } else {
+        console.log("✅ Successfully called new RPC function with media, response:", data);
       }
-
-      const newMessage = Array.isArray(data) && data.length > 0 ? data[0] : null;
-      if (!newMessage) {
-        console.error("No message returned from RPC function");
-        return null;
+    }
+    
+    // Fallback to old RPC function + UPDATE if new function doesn't exist or no media
+    if (!data || error) {
+      console.log("Using fallback: old RPC function + UPDATE");
+      const result = await supabase.rpc(
+        "send_moai_chat_message_for_coach",
+        {
+        p_moai_chat_id: moaiChatId,
+        p_coach_user_id: coachId,
+        p_message: message,
+        p_reply_parent_message_id: replyParentId || null,
       }
-
-      // Update with media if provided (might need separate update call)
-      if (mediaUrl) {
-        await supabase
-          .from("moai_chat_messages")
-          .update({ media_storage_path: mediaUrl, media_type: mediaType })
-          .eq("id", newMessage.id);
+    );
+      data = result.data;
+      error = result.error;
+      
+      if (error) {
+        console.error("❌ Error calling old RPC function:", error);
+      } else {
+        console.log("✅ Successfully called old RPC function, response:", data);
       }
-
-      const { data: coachData } = await supabase
-        .from("coaches")
-        .select("name, first_name, last_name")
-        .eq("user_id", coachId)
-        .single();
-
-      return {
-        ...newMessage,
-        media_url: mediaUrl || newMessage.media_storage_path || null,
-        media_type: mediaType || newMessage.media_type || null,
-        sender_name:
-          coachData?.name ||
-          (coachData?.first_name && coachData?.last_name
-            ? `${coachData.first_name} ${coachData.last_name}`
-            : coachData?.first_name || "Coach"),
-      };
     }
 
-    // Direct insert succeeded
-    const { data: coachInfo } = await supabase
+    if (error) {
+      console.error("Error sending Moai chat message:", error);
+      return null;
+    }
+
+    const newMessage = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    if (!newMessage) {
+      console.error("No message returned from RPC function");
+      return null;
+    }
+
+    // If we used the old RPC function and have media, try UPDATE
+    const pathToUseForUpdate = storagePath || mediaUrl;
+    if (pathToUseForUpdate && (!newMessage.media_storage_path || !newMessage.media_type)) {
+      console.log("Updating message with media via UPDATE:", {
+        messageId: newMessage.id,
+        storagePath: pathToUseForUpdate,
+        mediaType
+      });
+
+      const { error: updateError } = await supabase
+        .from("moai_chat_messages")
+        .update({ 
+          media_storage_path: pathToUseForUpdate, 
+          media_type: mediaType 
+        })
+        .eq("id", newMessage.id)
+        .eq("sender_id", coachId);
+
+      if (updateError) {
+        console.error("❌ Error updating message with media:", updateError);
+        // Set media info on message object so it displays even if DB update fails
+        newMessage.media_storage_path = pathToUseForUpdate;
+        newMessage.media_type = mediaType;
+      } else {
+        // Update from DB response
+        newMessage.media_storage_path = pathToUseForUpdate;
+        newMessage.media_type = mediaType;
+      }
+    }
+
+    const { data: coachData } = await supabase
       .from("coaches")
       .select("name, first_name, last_name")
       .eq("user_id", coachId)
       .single();
 
+    // Map media_storage_path to media_url for the frontend
+    const mediaUrlForDisplay = newMessage.media_storage_path 
+      ? ChatService.getMediaUrl(newMessage.media_storage_path)
+      : (mediaUrl || null);
+
+    console.log("Returning message with media:", {
+      messageId: newMessage.id,
+      media_storage_path: newMessage.media_storage_path,
+      media_type: newMessage.media_type,
+      media_url: mediaUrlForDisplay,
+      media_url_length: mediaUrlForDisplay?.length,
+      // Verify the path format
+      path_starts_with_moai: newMessage.media_storage_path?.startsWith('moai/'),
+      path_starts_with_client: newMessage.media_storage_path?.startsWith('client/')
+    });
+
     return {
-      ...messageData,
-      media_url: messageData.media_storage_path || null,
-      media_type: messageData.media_type || null,
+      ...newMessage,
+      media_url: mediaUrlForDisplay,
+      media_type: newMessage.media_type || mediaType || null,
       sender_name:
-        coachInfo?.name ||
-        (coachInfo?.first_name && coachInfo?.last_name
-          ? `${coachInfo.first_name} ${coachInfo.last_name}`
-          : coachInfo?.first_name || "Coach"),
+        coachData?.name ||
+        (coachData?.first_name && coachData?.last_name
+          ? `${coachData.first_name} ${coachData.last_name}`
+          : coachData?.first_name || "Coach"),
     };
   }
 
@@ -590,7 +717,7 @@ export class ChatService {
     onNewMessage: (message: MoaiChatMessage) => void
   ) {
     console.log("Setting up real-time subscription for Moai chat:", moaiChatId);
-
+    
     const channel = supabase
       .channel(`moai-chat-${moaiChatId}-${Date.now()}`) // Add timestamp to make channel unique
       .on(
@@ -606,15 +733,15 @@ export class ChatService {
           console.log("Payload type:", payload.eventType);
           console.log("New message data:", payload.new);
           const newMessage = payload.new as any;
-
+          
           if (!newMessage) {
             console.error("No new message in payload");
             return;
           }
-
+          
           console.log("Message timestamp:", newMessage.timestamp);
           console.log("Coach subscription start:", coachSubscriptionStart);
-
+          
           // Only include messages from when coach was added
           if (
             new Date(newMessage.timestamp) >= new Date(coachSubscriptionStart)
@@ -622,10 +749,10 @@ export class ChatService {
             console.log(
               "Message is after coach subscription start, processing..."
             );
-
+            
             // Get sender info
             try {
-              if (newMessage.is_coach) {
+            if (newMessage.is_coach) {
                 const { data: coach, error: coachError } = await supabase
                   .from("coaches")
                   .select("name, first_name, last_name")
@@ -636,17 +763,17 @@ export class ChatService {
                   console.error("Error fetching coach for message:", coachError);
                 }
 
-                onNewMessage({
-                  ...newMessage,
-                  media_url: newMessage.media_storage_path || null,
+              onNewMessage({
+                ...newMessage,
+                  media_url: ChatService.getMediaUrl(newMessage.media_storage_path),
                   media_type: newMessage.media_type || null,
                   sender_name:
                     coach?.name ||
                     (coach?.first_name && coach?.last_name
-                      ? `${coach.first_name} ${coach.last_name}`
+                  ? `${coach.first_name} ${coach.last_name}`
                       : coach?.first_name || "Coach"),
                 });
-              } else {
+            } else {
                 const { data: user, error: userError } = await supabase
                   .from("users")
                   .select("username, first_name, last_name, profile_picture_url")
@@ -657,13 +784,13 @@ export class ChatService {
                   console.error("Error fetching user for message:", userError);
                 }
 
-                onNewMessage({
-                  ...newMessage,
-                  media_url: newMessage.media_storage_path || null,
+              onNewMessage({
+                ...newMessage,
+                  media_url: ChatService.getMediaUrl(newMessage.media_storage_path),
                   media_type: newMessage.media_type || null,
                   sender_name:
                     user?.first_name && user?.last_name
-                      ? `${user.first_name} ${user.last_name}`
+                  ? `${user.first_name} ${user.last_name}`
                       : user?.first_name || user?.username || "User",
                   sender_username: user?.username || null,
                   sender_profile_picture_url: user?.profile_picture_url || null,

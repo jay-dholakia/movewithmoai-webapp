@@ -307,24 +307,172 @@ export class AdminService {
         return []
       }
 
-      return (data || []).map((coach) => ({
-        id: coach.id,
-        user_id: coach.user_id,
-        name: coach.name,
-        email: coach.email,
-        first_name: coach.first_name,
-        last_name: coach.last_name,
-        is_available: coach.is_available || false,
-        current_clients: coach.current_clients || 0,
-        max_clients: coach.max_clients || 50,
-        current_moais: coach.current_moais || 0,
-        max_moais: coach.max_moais || 10,
-        created_at: coach.created_at,
-        profile_image_url: coach.profile_image_url,
-      }))
+      // Get actual Moai counts for each coach by counting active subscriptions
+      // Only count subscriptions where BOTH the subscription AND the circle (Moai) are active
+      const { data: allSubscriptions, error: subsError } = await supabase
+        .from('moai_coach_subscriptions')
+        .select('coach_id, status, moai_id')
+        .eq('status', 'active')
+
+      if (subsError) {
+        console.error('Error fetching Moai subscriptions for admin:', subsError)
+        // Fall back to stored values if query fails
+      }
+
+      // Create a map of coach_id -> count of active subscriptions with active circles
+      const moaiCountMap = new Map<string, number>()
+      
+      if (allSubscriptions && allSubscriptions.length > 0) {
+        // Get unique Moai IDs from active subscriptions
+        const moaiIds = [...new Set(allSubscriptions.map((s: any) => s.moai_id).filter(Boolean))]
+        
+        if (moaiIds.length > 0) {
+          // Fetch circle statuses - only get active circles
+          const { data: circles, error: circlesError } = await supabase
+            .from('circles')
+            .select('id, status')
+            .in('id', moaiIds)
+            .eq('status', 'active')
+
+          if (circlesError) {
+            console.error('Error fetching circle statuses:', circlesError)
+          }
+
+          // Create set of active circle IDs for fast lookup
+          const activeCircleIds = new Set(circles?.map(c => c.id) || [])
+
+          // Count only subscriptions where the circle is also active
+          allSubscriptions.forEach((sub: any) => {
+            if (sub.coach_id && sub.moai_id && activeCircleIds.has(sub.moai_id)) {
+              const currentCount = moaiCountMap.get(sub.coach_id) || 0
+              moaiCountMap.set(sub.coach_id, currentCount + 1)
+            }
+          })
+        }
+      }
+
+      const coachesWithMoaiCounts = (data || []).map((coach) => {
+        // Get count from map, or fall back to stored value
+        const currentMoaiCount = moaiCountMap.get(coach.id) ?? coach.current_moais ?? 0
+
+        return {
+          id: coach.id,
+          user_id: coach.user_id,
+          name: coach.name,
+          email: coach.email,
+          first_name: coach.first_name,
+          last_name: coach.last_name,
+          is_available: coach.is_available || false,
+          current_clients: coach.current_clients || 0,
+          max_clients: coach.max_clients || 50,
+          current_moais: currentMoaiCount, // Use actual count instead of stored value
+          max_moais: coach.max_moais || 10,
+          created_at: coach.created_at,
+          profile_image_url: coach.profile_image_url,
+        }
+      })
+
+      return coachesWithMoaiCounts
     } catch (error) {
       console.error('Error fetching coaches:', error)
       return []
+    }
+  }
+
+  /**
+   * Create a new coach account with invitation
+   * This calls an API route that uses service role key to create auth user
+   */
+  static async createCoach(data: {
+    email: string
+    first_name: string
+    last_name: string
+    is_available?: boolean
+    max_clients?: number
+    max_moais?: number
+    bio?: string
+    specializations?: string[]
+  }): Promise<{ success: boolean; coachId?: string; error?: string; warning?: string }> {
+    try {
+      // Get current session for auth header
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        return { success: false, error: 'Not authenticated' }
+      }
+
+      // Call API route to create coach account
+      const response = await fetch('/api/admin/create-coach', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(data),
+      })
+
+      console.log('📡 [Client] Fetch completed, status:', response.status, 'ok:', response.ok)
+      
+      let result: any = null
+      let responseText = ''
+      try {
+        responseText = await response.text()
+        console.log('📡 [Client] Response text length:', responseText.length)
+        console.log('📡 [Client] Response text (full):', responseText)
+        
+        if (!responseText || responseText.trim() === '') {
+          console.error('❌ [Client] Empty response body')
+          return { 
+            success: false, 
+            error: `Server error (${response.status}): Empty response` 
+          }
+        }
+        
+        if (responseText.trim() === '{}') {
+          console.error('❌ [Client] Response is empty JSON object')
+          return { 
+            success: false, 
+            error: `Server error (${response.status}): Received empty JSON object` 
+          }
+        }
+        
+        result = JSON.parse(responseText)
+        console.log('✅ [Client] Response parsed successfully:', result)
+        console.log('✅ [Client] Result type:', typeof result)
+        console.log('✅ [Client] Result keys:', Object.keys(result || {}))
+      } catch (parseError: any) {
+        console.error('❌ [Client] Failed to parse API response:', parseError)
+        console.error('❌ [Client] Parse error message:', parseError?.message)
+        console.error('❌ [Client] Response text was:', responseText?.substring(0, 500))
+        return { 
+          success: false, 
+          error: `Server error (${response.status}): Failed to parse response - ${parseError?.message}` 
+        }
+      }
+
+      if (!response.ok || !result?.success) {
+        console.error('❌ [Client] API returned error:')
+        console.error('   - response.ok:', response.ok)
+        console.error('   - result:', result)
+        console.error('   - result.success:', result?.success)
+        console.error('   - result.error:', result?.error)
+        console.error('   - result.debug:', result?.debug)
+        console.error('   - Full error object:', JSON.stringify(result, null, 2))
+        return { 
+          success: false, 
+          error: result?.error || result?.message || 'Failed to create coach account',
+          debug: result?.debug
+        }
+      }
+
+      return {
+        success: true,
+        coachId: result.coachId,
+        warning: result.warning,
+      }
+    } catch (error: any) {
+      console.error('Exception creating coach account:', error)
+      return { success: false, error: error.message || 'Failed to create coach account' }
     }
   }
 

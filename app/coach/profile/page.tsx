@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CoachService } from '@/lib/services/coachService'
 import type { CoachProfile } from '@/lib/types/coach'
-import { User, Save, Upload, X, Loader2 } from 'lucide-react'
+import { User, Save, Upload, X, ArrowLeft, Loader2, LogOut } from 'lucide-react'
 
 export default function CoachProfilePage() {
   const router = useRouter()
@@ -173,10 +173,9 @@ export default function CoachProfilePage() {
         email: formData.email,
         bio: formData.bio,
         specializations: formData.specializations,
-        // Hidden fields: is_available, max_clients, calendly_event_uri
-        // is_available: formData.is_available,
-        // max_clients: formData.max_clients,
-        // calendly_event_uri: formData.calendly_event_uri || undefined,
+        is_available: formData.is_available,
+        max_clients: formData.max_clients,
+        calendly_event_uri: formData.calendly_event_uri || undefined,
       })
 
       if (updated) {
@@ -194,17 +193,12 @@ export default function CoachProfilePage() {
     }
   }
 
-  // Show skeleton/loading state inline instead of full screen
-
-  // Show skeleton/loading state inline instead of full screen
-  if (!profile && loading) {
+  if (loading) {
     return (
-      <div className="p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="h-8 bg-gray-200 rounded animate-pulse mb-6"></div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <div className="h-64 bg-gray-200 rounded animate-pulse"></div>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto" />
+          <p className="mt-4 text-gray-600">Loading profile...</p>
         </div>
       </div>
     )
@@ -228,17 +222,39 @@ export default function CoachProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Page Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-6 py-6">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push('/coach')}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Edit Profile</h1>
                 <p className="text-sm text-gray-600 mt-1">Update your coach profile information</p>
               </div>
             </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut()
+                  router.push('/coach/login')
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
+        </div>
+      </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Profile Image Section */}
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-8">
@@ -403,7 +419,59 @@ export default function CoachProfilePage() {
               </div>
             </div>
 
-            {/* Settings - Hidden fields: is_available, max_clients, calendly_event_uri */}
+            {/* Settings */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Settings</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Available for New Clients
+                    </label>
+                    <p className="text-sm text-gray-500">
+                      Allow new clients to be assigned to you
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_available}
+                      onChange={(e) => handleInputChange('is_available', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Max Clients
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.max_clients}
+                    onChange={(e) => handleInputChange('max_clients', parseInt(e.target.value) || 50)}
+                    min="1"
+                    max="200"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Calendly Event URI
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.calendly_event_uri}
+                    onChange={(e) => handleInputChange('calendly_event_uri', e.target.value)}
+                    placeholder="https://calendly.com/your-event"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Optional: Link to your Calendly booking page
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Action Buttons */}
             <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
