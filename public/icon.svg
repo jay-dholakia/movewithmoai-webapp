@@ -1,6 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- White background with rounded corners -->
-  <rect width="100" height="100" fill="#ffffff" rx="20"/>
-  <!-- Lowercase "m" styled like Comfortaa font - curved, modern look -->
-  <path d="M 25 70 L 25 30 L 35 30 L 35 45 Q 35 50 38 52.5 Q 41 55 45 55 Q 47 55 48.5 54.5 Q 50 54 51 53 L 51 30 L 61 30 L 61 70 L 51 70 L 51 57 Q 50 59 48.5 60 Q 47 61 45 61 Q 38 61 34 57 Q 30 53 30 45 L 30 70 Z" fill="#2563eb"/>
+  <!-- Lowercase "m" in Comfortaa style - curved, modern, rounded -->
+  <path d="M 20 75 L 20 25 L 30 25 L 30 40 Q 30 45 33 47.5 Q 36 50 40 50 Q 42 50 43.5 49.5 Q 45 49 46 48 L 46 25 L 56 25 L 56 40 Q 56 45 59 47.5 Q 62 50 66 50 Q 68 50 69.5 49.5 Q 71 49 72 48 L 72 25 L 82 25 L 82 75 L 72 75 L 72 60 Q 71 62 69.5 63 Q 68 64 66 64 Q 59 64 55 60 Q 51 56 51 50 L 51 75 L 46 75 L 46 60 Q 45 62 43.5 63 Q 42 64 40 64 Q 33 64 29 60 Q 25 56 25 50 L 25 75 Z" fill="#2563eb"/>
 </svg>
