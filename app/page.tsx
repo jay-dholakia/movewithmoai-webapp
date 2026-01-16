@@ -107,23 +107,6 @@ function HomeContent() {
             <article className="text-center">
               <div className="mb-6 flex justify-center">
                 <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-lg">
-                  <Target
-                    className="w-8 h-8 text-white"
-                    aria-hidden="true"
-                  />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">
-                Structured Plans
-              </h3>
-              <p className="text-gray-700 leading-relaxed">
-                Personalized workout plans designed to build consistency and help you progress.
-              </p>
-            </article>
-
-            <article className="text-center">
-              <div className="mb-6 flex justify-center">
-                <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-lg">
                   <Users
                     className="w-8 h-8 text-white"
                     aria-hidden="true"
@@ -131,10 +114,27 @@ function HomeContent() {
                 </div>
               </div>
               <h3 className="text-2xl font-bold text-foreground mb-4">
-                Real Support
+                Small Accountability Groups
               </h3>
               <p className="text-gray-700 leading-relaxed">
-                Connect with certified coaches and join moais—small accountability groups—for support and motivation.
+                Stay on track with a small group that notices when you show up — and when you don't.
+              </p>
+            </article>
+
+            <article className="text-center">
+              <div className="mb-6 flex justify-center">
+                <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-lg">
+                  <Target
+                    className="w-8 h-8 text-white"
+                    aria-hidden="true"
+                  />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-foreground mb-4">
+                Simple, Structured Guidance
+              </h3>
+              <p className="text-gray-700 leading-relaxed">
+                Follow a clear plan designed to support your group's goals — without overthinking workouts.
               </p>
             </article>
 
@@ -148,10 +148,10 @@ function HomeContent() {
                 </div>
               </div>
               <h3 className="text-2xl font-bold text-foreground mb-4">
-                Shared Progress
+                Progress You Share
               </h3>
               <p className="text-gray-700 leading-relaxed">
-                Track your journey with your moai and celebrate achievements together.
+                Track effort and celebrate wins together, so progress feels collective — not solo.
               </p>
             </article>
           </div>
