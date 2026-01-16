@@ -17,7 +17,11 @@ export const metadata: Metadata = {
   description: "Stay consistent with AI coaching, human support, and shared progress.",
   generator: "v0.app",
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.ico",
   },
 }
 
