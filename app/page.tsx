@@ -1,7 +1,23 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from "next/link"
 import { ArrowRight, Users, Target, TrendingUp, Play } from "lucide-react"
 
-export default function Home() {
+function HomeContent() {
+  const router = useRouter()
+
+  useEffect(() => {
+    // Check if we have an invitation token in the URL hash (from Supabase email)
+    // If so, redirect to password setup page
+    const hash = window.location.hash
+    if (hash && (hash.includes('access_token') || hash.includes('type=invite'))) {
+      router.replace(`/coach/setup-password${hash}`)
+      return
+    }
+  }, [router])
+
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Skip to main content link for accessibility */}
