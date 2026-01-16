@@ -1158,5 +1158,298 @@ export class AdminService {
       return { daily: [], monthly: [], byStatus: {} }
     }
   }
+
+  /**
+   * Get comprehensive analytics overview
+   */
+  static async getAnalyticsOverview() {
+    try {
+      // Get all users
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, created_at, is_deleted')
+        .eq('is_deleted', false)
+
+      if (usersError) {
+        console.error('Error fetching users:', usersError)
+        throw usersError
+      }
+
+      const totalUsers = users?.length || 0
+      const userIds = users?.map(u => u.id) || []
+
+      // Get users who have set a commitment
+      const { data: commitments, error: commitmentsError } = await supabase
+        .from('weekly_commitments')
+        .select('user_id, commitment_count, completed_sessions, week_start')
+        .not('commitment_count', 'is', null)
+        .gt('commitment_count', 0)
+
+      if (commitmentsError) {
+        console.error('Error fetching commitments:', commitmentsError)
+      }
+
+      const usersWithCommitments = new Set(commitments?.map(c => c.user_id) || [])
+      const totalUsersWithCommitments = usersWithCommitments.size
+
+      // Get users who've hit their commitment (completed >= commitment)
+      const usersWhoHitCommitment = new Set<string>()
+      commitments?.forEach(c => {
+        if (c.completed_sessions >= c.commitment_count) {
+          usersWhoHitCommitment.add(c.user_id)
+        }
+      })
+      const totalUsersWhoHitCommitment = usersWhoHitCommitment.size
+
+      // Get all workout sessions for time series (we'll filter by month later)
+      const { data: allWorkouts, error: workoutsError } = await supabase
+        .from('workout_sessions')
+        .select('user_id, created_at, status')
+        .eq('status', 'completed')
+
+      // Get workout sessions for active users (users with workouts in last 30 days) for overview
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+      const recentWorkouts = allWorkouts?.filter(w => new Date(w.created_at) >= thirtyDaysAgo) || []
+
+      if (workoutsError) {
+        console.error('Error fetching workouts:', workoutsError)
+      }
+
+      // Calculate average workouts per active user
+      const activeUserWorkouts = new Map<string, number>()
+      recentWorkouts?.forEach(w => {
+        const count = activeUserWorkouts.get(w.user_id) || 0
+        activeUserWorkouts.set(w.user_id, count + 1)
+      })
+
+      const activeUserIds = Array.from(activeUserWorkouts.keys())
+      const totalWorkouts = Array.from(activeUserWorkouts.values()).reduce((sum, count) => sum + count, 0)
+      const avgWorkoutsPerActiveUser = activeUserIds.length > 0 ? totalWorkouts / activeUserIds.length : 0
+
+      // Get all Moais
+      const { data: moais, error: moaisError } = await supabase
+        .from('circles')
+        .select('id, created_at, status')
+
+      if (moaisError) {
+        console.error('Error fetching moais:', moaisError)
+      }
+
+      const totalMoais = moais?.length || 0
+      const moaiIds = moais?.map(m => m.id) || []
+
+      // Get Moai members to calculate average member size
+      const { data: moaiMembers, error: membersError } = await supabase
+        .from('circle_members')
+        .select('circle_id, user_id, status')
+        .eq('status', 'active')
+
+      if (membersError) {
+        console.error('Error fetching moai members:', membersError)
+      }
+
+      // Calculate average member size per moai
+      const moaiMemberCounts = new Map<string, number>()
+      moaiMembers?.forEach(m => {
+        const count = moaiMemberCounts.get(m.circle_id) || 0
+        moaiMemberCounts.set(m.circle_id, count + 1)
+      })
+
+      const activeMoaiIds = Array.from(moaiMemberCounts.keys())
+      const totalMembers = Array.from(moaiMemberCounts.values()).reduce((sum, count) => sum + count, 0)
+      const avgMemberSizePerMoai = activeMoaiIds.length > 0 ? totalMembers / activeMoaiIds.length : 0
+
+      // Get coach-led Moais
+      const { data: coachSubscriptions, error: coachSubsError } = await supabase
+        .from('moai_coach_subscriptions')
+        .select('moai_id, status')
+        .eq('status', 'active')
+
+      if (coachSubsError) {
+        console.error('Error fetching coach subscriptions:', coachSubsError)
+      }
+
+      const coachLedMoaiIds = new Set(coachSubscriptions?.map(s => s.moai_id).filter(Boolean) || [])
+      const totalCoachLedMoais = coachLedMoaiIds.size
+
+      // Time series data - aggregate by month
+      const monthlyData: Record<string, {
+        users: number
+        usersWithCommitments: number
+        usersWhoHitCommitment: number
+        avgWorkouts: number
+        moaisCreated: number
+        avgMemberSize: number
+        coachLedMoais: number
+      }> = {}
+
+      // Users over time
+      users?.forEach(user => {
+        const date = new Date(user.created_at)
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = {
+            users: 0,
+            usersWithCommitments: 0,
+            usersWhoHitCommitment: 0,
+            avgWorkouts: 0,
+            moaisCreated: 0,
+            avgMemberSize: 0,
+            coachLedMoais: 0,
+          }
+        }
+        monthlyData[monthKey].users += 1
+      })
+
+      // Commitments over time - calculate unique users per month
+      const commitmentUsersByMonth = new Map<string, Set<string>>()
+      const hitCommitmentUsersByMonth = new Map<string, Set<string>>()
+      
+      commitments?.forEach(commitment => {
+        const date = new Date(commitment.week_start)
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        
+        // Initialize month if needed
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = {
+            users: 0,
+            usersWithCommitments: 0,
+            usersWhoHitCommitment: 0,
+            avgWorkouts: 0,
+            moaisCreated: 0,
+            avgMemberSize: 0,
+            coachLedMoais: 0,
+          }
+        }
+        
+        // Track users with commitments
+        if (!commitmentUsersByMonth.has(monthKey)) {
+          commitmentUsersByMonth.set(monthKey, new Set())
+        }
+        commitmentUsersByMonth.get(monthKey)!.add(commitment.user_id)
+        
+        // Track users who hit commitment
+        if (commitment.completed_sessions >= commitment.commitment_count) {
+          if (!hitCommitmentUsersByMonth.has(monthKey)) {
+            hitCommitmentUsersByMonth.set(monthKey, new Set())
+          }
+          hitCommitmentUsersByMonth.get(monthKey)!.add(commitment.user_id)
+        }
+      })
+      
+      // Set the counts for each month
+      commitmentUsersByMonth.forEach((userSet, monthKey) => {
+        if (monthlyData[monthKey]) {
+          monthlyData[monthKey].usersWithCommitments = userSet.size
+        }
+      })
+      
+      hitCommitmentUsersByMonth.forEach((userSet, monthKey) => {
+        if (monthlyData[monthKey]) {
+          monthlyData[monthKey].usersWhoHitCommitment = userSet.size
+        }
+      })
+
+      // Moais over time
+      moais?.forEach(moai => {
+        const date = new Date(moai.created_at)
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = {
+            users: 0,
+            usersWithCommitments: 0,
+            usersWhoHitCommitment: 0,
+            avgWorkouts: 0,
+            moaisCreated: 0,
+            avgMemberSize: 0,
+            coachLedMoais: 0,
+          }
+        }
+        monthlyData[monthKey].moaisCreated += 1
+      })
+
+      // Calculate monthly averages for member size and workouts
+      Object.keys(monthlyData).forEach(monthKey => {
+        const monthDate = new Date(monthKey + '-01')
+        const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
+        const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0)
+
+        // Average member size for moais created in this month
+        const moaisInMonth = moais?.filter(m => {
+          const mDate = new Date(m.created_at)
+          return mDate >= monthStart && mDate <= monthEnd
+        }) || []
+
+        if (moaisInMonth.length > 0) {
+          const moaiIdsInMonth = moaisInMonth.map(m => m.id)
+          const membersInMonth = moaiMembers?.filter(m => moaiIdsInMonth.includes(m.circle_id) && m.status === 'active') || []
+          const memberCountsByMoai = new Map<string, number>()
+          membersInMonth.forEach(m => {
+            const count = memberCountsByMoai.get(m.circle_id) || 0
+            memberCountsByMoai.set(m.circle_id, count + 1)
+          })
+          const totalMembersInMonth = Array.from(memberCountsByMoai.values()).reduce((sum, count) => sum + count, 0)
+          monthlyData[monthKey].avgMemberSize = memberCountsByMoai.size > 0 ? totalMembersInMonth / memberCountsByMoai.size : 0
+        }
+
+        // Average workouts for active users in this month
+        const workoutsInMonth = allWorkouts?.filter(w => {
+          const wDate = new Date(w.created_at)
+          return wDate >= monthStart && wDate <= monthEnd
+        }) || []
+
+        const userWorkoutsInMonth = new Map<string, number>()
+        workoutsInMonth.forEach(w => {
+          const count = userWorkoutsInMonth.get(w.user_id) || 0
+          userWorkoutsInMonth.set(w.user_id, count + 1)
+        })
+
+        const activeUsersInMonth = userWorkoutsInMonth.size
+        const totalWorkoutsInMonth = Array.from(userWorkoutsInMonth.values()).reduce((sum, count) => sum + count, 0)
+        monthlyData[monthKey].avgWorkouts = activeUsersInMonth > 0 ? totalWorkoutsInMonth / activeUsersInMonth : 0
+
+        // Coach-led moais in this month
+        const coachLedInMonth = moaisInMonth.filter(m => coachLedMoaiIds.has(m.id)).length
+        monthlyData[monthKey].coachLedMoais = coachLedInMonth
+      })
+
+      // Convert to array and sort
+      const timeSeries = Object.entries(monthlyData)
+        .map(([month, data]) => ({
+          month,
+          ...data,
+        }))
+        .sort((a, b) => a.month.localeCompare(b.month))
+
+      return {
+        overview: {
+          totalUsers,
+          totalUsersWithCommitments,
+          totalUsersWhoHitCommitment,
+          avgWorkoutsPerActiveUser: Math.round(avgWorkoutsPerActiveUser * 10) / 10,
+          totalMoais,
+          avgMemberSizePerMoai: Math.round(avgMemberSizePerMoai * 10) / 10,
+          totalCoachLedMoais,
+        },
+        timeSeries,
+      }
+    } catch (error) {
+      console.error('Error fetching analytics overview:', error)
+      return {
+        overview: {
+          totalUsers: 0,
+          totalUsersWithCommitments: 0,
+          totalUsersWhoHitCommitment: 0,
+          avgWorkoutsPerActiveUser: 0,
+          totalMoais: 0,
+          avgMemberSizePerMoai: 0,
+          totalCoachLedMoais: 0,
+        },
+        timeSeries: [],
+      }
+    }
+  }
 }
 
