@@ -16,15 +16,8 @@ export const metadata: Metadata = {
   title: "Moai - Social Fitness Platform",
   description: "Stay consistent with AI coaching, human support, and shared progress.",
   generator: "v0.app",
-  icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/favicon.ico", sizes: "any" },
-    ],
-    apple: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-    ],
-  },
+  // Next.js 13+ automatically detects app/favicon.ico and app/icon.svg
+  // No need to specify icons here - it will use app/favicon.svg automatically
 }
 
 export default function RootLayout({
