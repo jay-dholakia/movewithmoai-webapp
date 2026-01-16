@@ -75,15 +75,15 @@ function HomeContent() {
           {/* Content container */}
           <div className="max-w-7xl mx-auto px-6">
             <div className="text-center space-y-8 relative">
-            <h1
-              id="hero-heading"
+              <h1
+                id="hero-heading"
                 className="text-4xl md:text-6xl font-bold text-foreground leading-tight"
-            >
-                Where Consistency Meets Community
-            </h1>
+              >
+                Move More, Together
+              </h1>
               <p className="text-xl md:text-2xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
-                Small groups that keep you consistent — because showing up is easier together.
-            </p>
+                Small accountability groups that help you show up — week after week.
+              </p>
             <div className="pt-6">
               <a
                 href="#download"
