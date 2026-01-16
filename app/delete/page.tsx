@@ -62,9 +62,6 @@ export default function DeleteAccountPage() {
             <Link href="/privacy" className="text-foreground hover:text-primary transition-colors">
               Privacy Policy
             </Link>
-            <Link href="/delete" className="text-foreground font-semibold hover:text-primary transition-colors">
-              Delete Account
-            </Link>
           </div>
         </div>
       </nav>

@@ -254,14 +254,6 @@ function HomeContent() {
                     </Link>
                   </li>
                   <li>
-                    <Link
-                      href="/delete"
-                      className="text-slate-300 hover:text-white transition-colors text-sm"
-                    >
-                      Delete Account
-                    </Link>
-                  </li>
-                  <li>
                     <a
                       href="https://www.instagram.com/_withmoai/"
                       target="_blank"

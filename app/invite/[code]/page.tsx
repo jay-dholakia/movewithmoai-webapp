@@ -89,9 +89,6 @@ function InvitePageContent() {
             <Link href="/privacy" className="text-foreground hover:text-primary transition-colors">
               Privacy Policy
             </Link>
-            <Link href="/delete" className="text-foreground hover:text-primary transition-colors">
-              Delete Account
-            </Link>
           </div>
         </div>
       </nav>
