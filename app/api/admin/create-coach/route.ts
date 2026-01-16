@@ -224,39 +224,85 @@ export async function POST(request: NextRequest) {
       .eq('role', 'admin')
       .single()
 
+    // If the first query fails or returns no data, try a fallback query
+    // This handles cases where there's a network timeout or other transient errors
+    let isAdmin = !!userData && !userError
+    let userEmail: string | null = null
+    
     if (userError || !userData) {
-      // Check what role the user actually has for debugging
+      console.warn('⚠️ [API] Initial admin query failed, trying fallback query:', {
+        error: userError?.message,
+        errorCode: userError?.code,
+      })
+      
+      // Check what role the user actually has for debugging and fallback verification
       const { data: actualUserData, error: actualUserError } = await adminClient
         .from('users')
         .select('role, email')
         .eq('id', userId)
         .single()
 
-      // Return detailed debug info in the error response
-      const debugInfo = {
-        userId,
-        userError: userError?.message,
-        userErrorCode: userError?.code,
-        userErrorDetails: userError?.details,
-        userErrorHint: userError?.hint,
-        userData,
-        actualUserRole: (actualUserData as { role?: string; email?: string } | null)?.role || null,
-        actualUserEmail: (actualUserData as { role?: string; email?: string } | null)?.email || null,
-        actualUserError: actualUserError?.message,
-        timestamp: new Date().toISOString(),
-        codeVersion: 'v2-check-2025',
+      if (!actualUserError && actualUserData) {
+        const actualRole = (actualUserData as { role?: string; email?: string })?.role
+        const actualEmail = (actualUserData as { role?: string; email?: string })?.email
+        
+        // If fallback query shows user is admin, trust it (network issue with first query)
+        if (actualRole === 'admin') {
+          console.log('✅ [API] Fallback query confirmed admin role:', { userId, email: actualEmail })
+          isAdmin = true
+          userEmail = actualEmail || null
+        } else {
+          // User exists but is not admin
+          const debugInfo = {
+            userId,
+            userError: userError?.message,
+            userErrorCode: userError?.code,
+            actualUserRole: actualRole || null,
+            actualUserEmail: actualEmail || null,
+            timestamp: new Date().toISOString(),
+            codeVersion: 'v2-check-2025',
+          }
+          
+          console.error('❌ [API] Admin check failed - user is not admin:', debugInfo)
+          
+          return NextResponse.json({ 
+            success: false, 
+            error: 'Admin access required',
+            debug: debugInfo
+          }, { status: 403 })
+        }
+      } else {
+        // Fallback query also failed - user doesn't exist or database error
+        const debugInfo = {
+          userId,
+          userError: userError?.message,
+          userErrorCode: userError?.code,
+          userErrorDetails: userError?.details,
+          actualUserError: actualUserError?.message,
+          timestamp: new Date().toISOString(),
+          codeVersion: 'v2-check-2025',
+        }
+        
+        console.error('❌ [API] Admin check failed - user not found or database error:', debugInfo)
+        
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Admin access required',
+          debug: debugInfo
+        }, { status: 403 })
       }
-      
-      console.error('❌ [API] Admin check failed:', debugInfo)
-      
+    } else {
+      userEmail = (userData as { role: string; email: string })?.email || null
+    }
+    
+    if (!isAdmin) {
       return NextResponse.json({ 
         success: false, 
-        error: 'Admin access required',
-        debug: debugInfo
+        error: 'Admin access required'
       }, { status: 403 })
     }
     
-    console.log('✅ Admin role verified for user:', { userId, email: (userData as { role: string; email: string })?.email })
+    console.log('✅ Admin role verified for user:', { userId, email: userEmail })
 
     // Check if email already exists
     const { data: existingUser } = await adminClient
@@ -274,10 +320,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('📧 [API] Sending invitation email first (this will create the auth user)...')
-    console.log('📧 [API] Invitation redirectTo:', `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/coach/login`)
+    console.log('📧 [API] Creating auth user first, then generating invitation link...')
     
-    // Use inviteUserByEmail FIRST - this creates the auth user and sends invitation
+    // First, create the auth user with inviteUserByEmail (creates user and sends email)
+    // We'll use the default email template but generate a proper link
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    const redirectTo = `${siteUrl}/coach/login`
+    
+    console.log('📧 [API] Invitation redirectTo:', redirectTo)
+    
+    // Use inviteUserByEmail to create the auth user and send the email
+    // Note: The redirectTo in inviteUserByEmail may be overridden by email template settings
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
       email,
       {
@@ -286,7 +339,7 @@ export async function POST(request: NextRequest) {
           last_name,
           user_type: 'coach',
         },
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/coach/login`,
+        redirectTo: `${siteUrl}/coach/setup-password`,
       }
     )
 
@@ -311,6 +364,11 @@ export async function POST(request: NextRequest) {
 
     const authUser = inviteData.user
     console.log('✅ [API] Invitation email sent successfully, auth user created:', authUser.id)
+    
+    // Note: The email link may still redirect incorrectly if Supabase email templates
+    // have different redirect URLs configured. To fix this, go to:
+    // Supabase Dashboard → Authentication → URL Configuration
+    // Set the Site URL and add redirect URLs to include your production domain
 
     console.log('💾 [API] Creating users and coaches records via RPC...')
     console.log('💾 [API] RPC parameters:', {

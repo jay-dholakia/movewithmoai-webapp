@@ -13,7 +13,15 @@ export default function CoachLoginPage() {
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    
+    // Check if we have an invitation token in the URL (redirect from email)
+    // If so, redirect to password setup page
+    const hash = window.location.hash
+    if (hash && (hash.includes('access_token') || hash.includes('type=invite'))) {
+      router.replace(`/coach/setup-password${hash}`)
+      return
+    }
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
