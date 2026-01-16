@@ -1415,13 +1415,165 @@ export class AdminService {
         monthlyData[monthKey].coachLedMoais = coachLedInMonth
       })
 
-      // Convert to array and sort
-      const timeSeries = Object.entries(monthlyData)
+      // Convert monthly to array and sort
+      const monthlyTimeSeries = Object.entries(monthlyData)
         .map(([month, data]) => ({
-          month,
+          period: month,
           ...data,
         }))
-        .sort((a, b) => a.month.localeCompare(b.month))
+        .sort((a, b) => a.period.localeCompare(b.period))
+
+      // Calculate weekly data
+      const weeklyData: Record<string, {
+        users: number
+        usersWithCommitments: number
+        usersWhoHitCommitment: number
+        avgWorkouts: number
+        moaisCreated: number
+        avgMemberSize: number
+        coachLedMoais: number
+      }> = {}
+
+      // Helper to get week start date
+      const getWeekStart = (date: Date) => {
+        const weekStart = new Date(date)
+        weekStart.setDate(date.getDate() - date.getDay())
+        weekStart.setHours(0, 0, 0, 0)
+        return weekStart
+      }
+
+      // Users over time by week
+      users?.forEach(user => {
+        const date = new Date(user.created_at)
+        const weekStart = getWeekStart(date)
+        const weekKey = weekStart.toISOString().split('T')[0]
+        if (!weeklyData[weekKey]) {
+          weeklyData[weekKey] = {
+            users: 0,
+            usersWithCommitments: 0,
+            usersWhoHitCommitment: 0,
+            avgWorkouts: 0,
+            moaisCreated: 0,
+            avgMemberSize: 0,
+            coachLedMoais: 0,
+          }
+        }
+        weeklyData[weekKey].users += 1
+      })
+
+      // Commitments over time by week
+      const commitmentUsersByWeek = new Map<string, Set<string>>()
+      const hitCommitmentUsersByWeek = new Map<string, Set<string>>()
+      
+      commitments?.forEach(commitment => {
+        const date = new Date(commitment.week_start)
+        const weekStart = getWeekStart(date)
+        const weekKey = weekStart.toISOString().split('T')[0]
+        
+        if (!weeklyData[weekKey]) {
+          weeklyData[weekKey] = {
+            users: 0,
+            usersWithCommitments: 0,
+            usersWhoHitCommitment: 0,
+            avgWorkouts: 0,
+            moaisCreated: 0,
+            avgMemberSize: 0,
+            coachLedMoais: 0,
+          }
+        }
+        
+        if (!commitmentUsersByWeek.has(weekKey)) {
+          commitmentUsersByWeek.set(weekKey, new Set())
+        }
+        commitmentUsersByWeek.get(weekKey)!.add(commitment.user_id)
+        
+        if (commitment.completed_sessions >= commitment.commitment_count) {
+          if (!hitCommitmentUsersByWeek.has(weekKey)) {
+            hitCommitmentUsersByWeek.set(weekKey, new Set())
+          }
+          hitCommitmentUsersByWeek.get(weekKey)!.add(commitment.user_id)
+        }
+      })
+
+      commitmentUsersByWeek.forEach((userSet, weekKey) => {
+        if (weeklyData[weekKey]) {
+          weeklyData[weekKey].usersWithCommitments = userSet.size
+        }
+      })
+
+      hitCommitmentUsersByWeek.forEach((userSet, weekKey) => {
+        if (weeklyData[weekKey]) {
+          weeklyData[weekKey].usersWhoHitCommitment = userSet.size
+        }
+      })
+
+      // Moais over time by week
+      moais?.forEach(moai => {
+        const date = new Date(moai.created_at)
+        const weekStart = getWeekStart(date)
+        const weekKey = weekStart.toISOString().split('T')[0]
+        if (!weeklyData[weekKey]) {
+          weeklyData[weekKey] = {
+            users: 0,
+            usersWithCommitments: 0,
+            usersWhoHitCommitment: 0,
+            avgWorkouts: 0,
+            moaisCreated: 0,
+            avgMemberSize: 0,
+            coachLedMoais: 0,
+          }
+        }
+        weeklyData[weekKey].moaisCreated += 1
+      })
+
+      // Calculate weekly averages
+      Object.keys(weeklyData).forEach(weekKey => {
+        const weekStart = new Date(weekKey)
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekStart.getDate() + 6)
+
+        const moaisInWeek = moais?.filter(m => {
+          const mDate = new Date(m.created_at)
+          return mDate >= weekStart && mDate <= weekEnd
+        }) || []
+
+        if (moaisInWeek.length > 0) {
+          const moaiIdsInWeek = moaisInWeek.map(m => m.id)
+          const membersInWeek = moaiMembers?.filter(m => moaiIdsInWeek.includes(m.circle_id) && m.status === 'active') || []
+          const memberCountsByMoai = new Map<string, number>()
+          membersInWeek.forEach(m => {
+            const count = memberCountsByMoai.get(m.circle_id) || 0
+            memberCountsByMoai.set(m.circle_id, count + 1)
+          })
+          const totalMembersInWeek = Array.from(memberCountsByMoai.values()).reduce((sum, count) => sum + count, 0)
+          weeklyData[weekKey].avgMemberSize = memberCountsByMoai.size > 0 ? totalMembersInWeek / memberCountsByMoai.size : 0
+        }
+
+        const workoutsInWeek = allWorkouts?.filter(w => {
+          const wDate = new Date(w.created_at)
+          return wDate >= weekStart && wDate <= weekEnd
+        }) || []
+
+        const userWorkoutsInWeek = new Map<string, number>()
+        workoutsInWeek.forEach(w => {
+          const count = userWorkoutsInWeek.get(w.user_id) || 0
+          userWorkoutsInWeek.set(w.user_id, count + 1)
+        })
+
+        const activeUsersInWeek = userWorkoutsInWeek.size
+        const totalWorkoutsInWeek = Array.from(userWorkoutsInWeek.values()).reduce((sum, count) => sum + count, 0)
+        weeklyData[weekKey].avgWorkouts = activeUsersInWeek > 0 ? totalWorkoutsInWeek / activeUsersInWeek : 0
+
+        const coachLedInWeek = moaisInWeek.filter(m => coachLedMoaiIds.has(m.id)).length
+        weeklyData[weekKey].coachLedMoais = coachLedInWeek
+      })
+
+      const weeklyTimeSeries = Object.entries(weeklyData)
+        .map(([week, data]) => ({
+          period: week,
+          ...data,
+        }))
+        .sort((a, b) => a.period.localeCompare(b.period))
 
       return {
         overview: {
@@ -1433,7 +1585,8 @@ export class AdminService {
           avgMemberSizePerMoai: Math.round(avgMemberSizePerMoai * 10) / 10,
           totalCoachLedMoais,
         },
-        timeSeries,
+        weekly: weeklyTimeSeries,
+        monthly: monthlyTimeSeries,
       }
     } catch (error) {
       console.error('Error fetching analytics overview:', error)
@@ -1447,8 +1600,57 @@ export class AdminService {
           avgMemberSizePerMoai: 0,
           totalCoachLedMoais: 0,
         },
-        timeSeries: [],
+        weekly: [],
+        monthly: [],
       }
+    }
+  }
+
+  /**
+   * Get user location data for world heatmap
+   */
+  static async getUserLocations() {
+    try {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('id, country, city, created_at')
+        .eq('is_deleted', false)
+        .not('country', 'is', null)
+
+      if (error) {
+        console.error('Error fetching user locations:', error)
+        return []
+      }
+
+      // Aggregate by country
+      const countryCounts = new Map<string, number>()
+      const countryDetails: Record<string, { count: number; cities: Set<string> }> = {}
+
+      users?.forEach(user => {
+        if (user.country) {
+          const country = user.country.trim()
+          countryCounts.set(country, (countryCounts.get(country) || 0) + 1)
+          
+          if (!countryDetails[country]) {
+            countryDetails[country] = { count: 0, cities: new Set() }
+          }
+          countryDetails[country].count += 1
+          if (user.city) {
+            countryDetails[country].cities.add(user.city.trim())
+          }
+        }
+      })
+
+      // Convert to array format
+      return Object.entries(countryDetails).map(([country, data]) => ({
+        country,
+        userCount: data.count,
+        cityCount: data.cities.size,
+        cities: Array.from(data.cities).slice(0, 10), // Top 10 cities
+      })).sort((a, b) => b.userCount - a.userCount)
+    } catch (error) {
+      console.error('Error fetching user locations:', error)
+      return []
     }
   }
 }
