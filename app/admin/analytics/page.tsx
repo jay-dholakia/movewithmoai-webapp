@@ -5,6 +5,10 @@ import { AdminService } from '@/lib/services/adminService'
 import { ArrowLeft, Users, Target, TrendingUp, UsersRound, UserCheck, Dumbbell, Network, Globe } from 'lucide-react'
 import Link from 'next/link'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts'
+import dynamic from 'next/dynamic'
+
+// Dynamically import WorldMap to avoid SSR issues
+const WorldMap = dynamic(() => import('./WorldMap'), { ssr: false })
 
 export default function AnalyticsOverviewPage() {
   const [data, setData] = useState<any>(null)
@@ -92,8 +96,6 @@ export default function AnalyticsOverviewPage() {
     'Cumulative Moais': moaiChartData.slice(0, i + 1).reduce((sum: number, item: any) => sum + item['Moais Created'], 0),
   }))
 
-  // Get max user count for heatmap intensity
-  const maxUserCount = locations.length > 0 ? Math.max(...locations.map((l: any) => l.userCount)) : 1
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8">
@@ -290,7 +292,7 @@ export default function AnalyticsOverviewPage() {
         </ResponsiveContainer>
       </div>
 
-      {/* World Heatmap */}
+      {/* World Map */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <Globe className="h-5 w-5 text-gray-600 mr-2" />
@@ -299,53 +301,8 @@ export default function AnalyticsOverviewPage() {
           </h2>
         </div>
         {locations.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-            {locations.map((location: any, index: number) => {
-              const intensity = maxUserCount > 0 ? location.userCount / maxUserCount : 0
-              const bgIntensity = Math.max(0.1, intensity)
-              return (
-                <div
-                  key={location.country}
-                  className="p-4 border rounded-lg hover:shadow-md transition-shadow"
-                  style={{
-                    backgroundColor: `rgba(59, 130, 246, ${bgIntensity * 0.2})`,
-                    borderColor: `rgba(59, 130, 246, ${bgIntensity * 0.5})`,
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{location.country}</h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {location.userCount} {location.userCount === 1 ? 'user' : 'users'}
-                      </p>
-                      {location.cityCount > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {location.cityCount} {location.cityCount === 1 ? 'city' : 'cities'}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
-                        style={{
-                          backgroundColor: `rgba(59, 130, 246, ${Math.min(1, intensity * 0.8 + 0.2)})`,
-                        }}
-                      >
-                        {location.userCount}
-                      </div>
-                    </div>
-                  </div>
-                  {location.cities && location.cities.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-xs text-gray-500">
-                        Top cities: {location.cities.slice(0, 3).join(', ')}
-                        {location.cities.length > 3 && ` +${location.cities.length - 3} more`}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+          <div className="w-full" style={{ height: '500px' }}>
+            <WorldMap locations={locations} />
           </div>
         ) : (
           <p className="text-gray-500 text-center py-8">No location data available</p>
