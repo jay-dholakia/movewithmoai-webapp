@@ -134,7 +134,7 @@ function HomeContent() {
                 Simple, Structured Guidance
               </h3>
               <p className="text-gray-700 leading-relaxed">
-                Follow a clear plan designed to support your group's goals — without overthinking workouts.
+                Straightforward plans that help your group succeed — without the complexity.
               </p>
             </article>
 
@@ -151,7 +151,7 @@ function HomeContent() {
                 Progress You Share
               </h3>
               <p className="text-gray-700 leading-relaxed">
-                Track effort and celebrate wins together, so progress feels collective — not solo.
+                Your wins become the group's wins — progress feels bigger when it's shared.
               </p>
             </article>
           </div>
