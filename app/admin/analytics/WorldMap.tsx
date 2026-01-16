@@ -240,11 +240,15 @@ export default function WorldMap({ locations }: WorldMapProps) {
                     userCount: location.userCount,
                   })
                   setLoadingUsers(true)
+                  setCountryUsers([]) // Clear previous results
                   try {
+                    console.log('Fetching users for country:', location.country)
                     const users = await AdminService.getUsersByCountry(location.country)
+                    console.log('Fetched users:', users.length)
                     setCountryUsers(users)
                   } catch (error) {
                     console.error('Error fetching users:', error)
+                    console.error('Error details:', JSON.stringify(error, null, 2))
                     setCountryUsers([])
                   } finally {
                     setLoadingUsers(false)

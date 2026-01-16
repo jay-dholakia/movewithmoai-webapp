@@ -1611,15 +1611,44 @@ export class AdminService {
    */
   static async getUsersByCountry(country: string) {
     try {
-      const { data: users, error } = await supabase
+      // Try exact match first
+      let { data: users, error } = await supabase
         .from('users')
         .select('id, email, first_name, last_name, username, city, created_at')
         .eq('is_deleted', false)
         .eq('country', country)
         .order('created_at', { ascending: false })
 
+      // If no results and error, try case-insensitive search
+      if ((error || !users || users.length === 0) && country) {
+        // Get all users and filter client-side (fallback if RLS blocks the query)
+        const { data: allUsers, error: allError } = await supabase
+          .from('users')
+          .select('id, email, first_name, last_name, username, city, created_at, country')
+          .eq('is_deleted', false)
+          .not('country', 'is', null)
+          .order('created_at', { ascending: false })
+
+        if (!allError && allUsers) {
+          // Filter by country (case-insensitive)
+          users = allUsers.filter(
+            (u) => u.country && u.country.trim().toLowerCase() === country.trim().toLowerCase()
+          )
+          error = null
+        } else if (allError) {
+          error = allError
+        }
+      }
+
       if (error) {
         console.error('Error fetching users by country:', error)
+        console.error('Country searched:', country)
+        console.error('Error details:', JSON.stringify(error, null, 2))
+        return []
+      }
+
+      if (!users) {
+        console.warn('No users returned for country:', country)
         return []
       }
 
