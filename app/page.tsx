@@ -79,7 +79,7 @@ function HomeContent() {
                 id="hero-heading"
                 className="text-4xl md:text-6xl font-bold text-foreground leading-tight"
               >
-                Structure. Support. Consistency. Community.
+                Where Consistency meets Community.
               </h1>
               <p className="text-xl md:text-2xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
                 Personalized plans, accountability groups, and expert coaches that help you build lasting habits.
