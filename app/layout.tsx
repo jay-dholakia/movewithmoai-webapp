@@ -29,17 +29,31 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Unregister any old service workers */}
+        {/* Unregister any old service workers and clear cache immediately */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                  for(let registration of registrations) {
-                    registration.unregister();
-                  }
-                });
-              }
+              (function() {
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) {
+                      registration.unregister().then(function(success) {
+                        if (success) {
+                          console.log('Service worker unregistered successfully');
+                          // Clear cache after unregister
+                          if ('caches' in window) {
+                            caches.keys().then(function(names) {
+                              for (let name of names) {
+                                caches.delete(name);
+                              }
+                            });
+                          }
+                        }
+                      });
+                    }
+                  });
+                }
+              })();
             `,
           }}
         />
