@@ -79,7 +79,7 @@ function HomeContent() {
                 id="hero-heading"
                 className="text-4xl md:text-6xl font-bold text-foreground leading-tight"
               >
-                Move More, Together
+                Move More, Together.
               </h1>
               <p className="text-xl md:text-2xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
                 Small accountability groups that help you show up — week after week.
