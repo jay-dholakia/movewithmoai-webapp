@@ -7,12 +7,15 @@ declare module 'react-simple-maps' {
     rotate?: [number, number, number]
   }
 
+  export type Projection = 'geoMercator' | 'geoEqualEarth' | 'geoOrthographic' | 'geoStereographic' | 'geoEquirectangular' | 'geoNaturalEarth1' | 'geoAzimuthalEqualArea' | 'geoAzimuthalEquidistant' | 'geoConicConformal' | 'geoConicEqualArea' | 'geoConicEquidistant' | 'geoCylindricalEqualArea' | 'geoMollweide' | 'geoSinusoidal' | 'geoTransverseMercator'
+
   export interface Geography {
     rsmKey: string
     properties: any
   }
 
   export interface ComposableMapProps {
+    projection?: Projection
     projectionConfig?: ProjectionConfig
     className?: string
     style?: React.CSSProperties

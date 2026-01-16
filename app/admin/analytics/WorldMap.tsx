@@ -173,6 +173,7 @@ export default function WorldMap({ locations }: WorldMapProps) {
   return (
     <div className="relative w-full h-full" ref={mapRef}>
       <ComposableMap
+        projection="geoEquirectangular"
         projectionConfig={{
           scale: 147,
           center: [0, 20],
