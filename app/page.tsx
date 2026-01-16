@@ -297,3 +297,7 @@ function HomeContent() {
     </div>
   )
 }
+
+export default function Home() {
+  return <HomeContent />
+}
