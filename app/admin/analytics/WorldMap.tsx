@@ -2,6 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps'
+import { X, Users, Mail, Calendar, MapPin, Dumbbell } from 'lucide-react'
+import { AdminService } from '@/lib/services/adminService'
 
 // Comprehensive country name to coordinates mapping
 // Using ISO 3166-1 country names and common variations
@@ -155,6 +157,12 @@ export default function WorldMap({ locations }: WorldMapProps) {
   } | null>(null)
   const mapRef = useRef<HTMLDivElement>(null)
   const [showUnmapped, setShowUnmapped] = useState(false)
+  const [selectedCountry, setSelectedCountry] = useState<{
+    country: string
+    userCount: number
+  } | null>(null)
+  const [countryUsers, setCountryUsers] = useState<any[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
 
   // Filter locations that have coordinates
   const locationsWithCoords = locations
@@ -226,11 +234,21 @@ export default function WorldMap({ locations }: WorldMapProps) {
                   }
                 }}
                 onMouseLeave={() => setTooltipContent(null)}
-                onClick={() => {
-                  const cityList = location.cities.length > 0 
-                    ? `\n\nTop cities: ${location.cities.slice(0, 5).join(', ')}${location.cities.length > 5 ? ` +${location.cities.length - 5} more` : ''}`
-                    : ''
-                  alert(`${location.country}\n${location.userCount} ${location.userCount === 1 ? 'user' : 'users'}${cityList}`)
+                onClick={async () => {
+                  setSelectedCountry({
+                    country: location.country,
+                    userCount: location.userCount,
+                  })
+                  setLoadingUsers(true)
+                  try {
+                    const users = await AdminService.getUsersByCountry(location.country)
+                    setCountryUsers(users)
+                  } catch (error) {
+                    console.error('Error fetching users:', error)
+                    setCountryUsers([])
+                  } finally {
+                    setLoadingUsers(false)
+                  }
                 }}
                 style={{ cursor: 'pointer' }}
               >
@@ -299,6 +317,97 @@ export default function WorldMap({ locations }: WorldMapProps) {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Users Modal */}
+      {selectedCountry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  {selectedCountry.country}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {selectedCountry.userCount} {selectedCountry.userCount === 1 ? 'user' : 'users'}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedCountry(null)
+                  setCountryUsers([])
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingUsers ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="ml-3 text-gray-600">Loading users...</p>
+                </div>
+              ) : countryUsers.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  No users found for this country
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {countryUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-gray-900">
+                              {user.first_name || user.last_name
+                                ? `${user.first_name || ''} ${user.last_name || ''}`.trim()
+                                : user.username || 'Unknown User'}
+                            </h3>
+                            {user.username && (
+                              <span className="text-sm text-gray-500">@{user.username}</span>
+                            )}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
+                            {user.email && (
+                              <div className="flex items-center gap-1">
+                                <Mail className="h-4 w-4" />
+                                <span>{user.email}</span>
+                              </div>
+                            )}
+                            {user.city && (
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-4 w-4" />
+                                <span>{user.city}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                Joined {new Date(user.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {user.total_workouts !== undefined && (
+                              <div className="flex items-center gap-1">
+                                <Dumbbell className="h-4 w-4" />
+                                <span>{user.total_workouts} workouts</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

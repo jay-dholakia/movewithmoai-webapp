@@ -1607,6 +1607,52 @@ export class AdminService {
   }
 
   /**
+   * Get users by country
+   */
+  static async getUsersByCountry(country: string) {
+    try {
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('id, email, first_name, last_name, username, city, created_at')
+        .eq('is_deleted', false)
+        .eq('country', country)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching users by country:', error)
+        return []
+      }
+
+      // Get workout counts for each user
+      const usersWithStats = await Promise.all(
+        (users || []).map(async (user) => {
+          let workoutCount = 0
+          try {
+            const { count } = await supabase
+              .from('workout_sessions')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', user.id)
+              .eq('status', 'completed')
+            workoutCount = count || 0
+          } catch (error) {
+            console.warn(`Could not fetch workout count for user ${user.id}:`, error)
+          }
+
+          return {
+            ...user,
+            total_workouts: workoutCount,
+          }
+        })
+      )
+
+      return usersWithStats
+    } catch (error) {
+      console.error('Error fetching users by country:', error)
+      return []
+    }
+  }
+
+  /**
    * Get user location data for world heatmap
    */
   static async getUserLocations() {
