@@ -87,10 +87,11 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
               contentType = 'video/webm' // Default
             }
             
-            // Check if the blob type is JSON - Storage API might be wrapping the data
-            const firstBytes = new Uint8Array(arrayBuffer.slice(0, Math.min(20, arrayBuffer.byteLength)))
+            // Check if the blob type is JSON or if data is wrapped in multipart/form-data
+            const firstBytes = new Uint8Array(arrayBuffer.slice(0, Math.min(50, arrayBuffer.byteLength)))
             const firstBytesText = String.fromCharCode(...firstBytes)
             const looksLikeJSON = firstBytesText.trim().startsWith('{') || firstBytesText.trim().startsWith('[')
+            const looksLikeMultipart = firstBytesText.includes('--') && firstBytesText.includes('WebKitFormBoundary')
             
             console.log("Storage API download success:", {
               blobSize: blobData.size,
@@ -98,12 +99,16 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
               arrayBufferSize: arrayBuffer.byteLength,
               determinedContentType: contentType,
               firstBytes: Array.from(firstBytes.slice(0, 10)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '),
-              looksLikeJSON
+              looksLikeJSON,
+              looksLikeMultipart,
+              firstBytesText: firstBytesText.substring(0, 30)
             })
             
-            // If blob type is JSON or data looks like JSON, try to parse it
-            // Some Supabase Storage setups return JSON-wrapped data
-            if ((blobData.type === 'application/json' || looksLikeJSON) && arrayBuffer.byteLength > 100) {
+            // If data is wrapped in multipart/form-data, extract the actual video
+            if (looksLikeMultipart) {
+              console.log("⚠️ Detected multipart/form-data in Storage API response - extracting video data...")
+              isFromStorageAPI = false // Allow multipart extraction code below to run
+            } else if ((blobData.type === 'application/json' || looksLikeJSON) && arrayBuffer.byteLength > 100) {
               try {
                 const text = new TextDecoder().decode(arrayBuffer)
                 const jsonData = JSON.parse(text)
@@ -164,14 +169,10 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
         // Validate and create blob from array buffer
         let uint8Array = new Uint8Array(arrayBuffer)
         
-        // Only check for multipart if we didn't use Storage API (Storage API should return raw binary)
+        // ALWAYS check for multipart/form-data - even Storage API can return multipart if files were uploaded incorrectly
         // Check if response is multipart/form-data (starts with boundary markers)
-        let isMultipart = false
-        let firstBytesText = ''
-        if (!isFromStorageAPI) {
-          firstBytesText = String.fromCharCode(...uint8Array.slice(0, Math.min(50, uint8Array.length)))
-          isMultipart = firstBytesText.includes('--') && firstBytesText.includes('WebKitFormBoundary')
-        }
+        const firstBytesText = String.fromCharCode(...uint8Array.slice(0, Math.min(50, uint8Array.length)))
+        const isMultipart = firstBytesText.includes('--') && (firstBytesText.includes('WebKitFormBoundary') || firstBytesText.includes('form-data'))
         
         if (isMultipart) {
           console.log("Detected multipart/form-data response, extracting video data...")
