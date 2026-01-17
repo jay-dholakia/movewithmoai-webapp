@@ -35,122 +35,38 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
     
     const loadVideo = async () => {
       try {
-        // Try using Supabase Storage download if it's a Supabase URL
-        // Otherwise fall back to regular fetch
-        let arrayBuffer: ArrayBuffer
-        let contentType = 'video/webm'
+        // Use regular fetch for all URLs - public URLs should work directly
+        // If the file is stored correctly, this will be raw binary video data
+        const response = await fetch(src, {
+          method: 'GET',
+          headers: { 
+            'Accept': 'video/*,application/octet-stream,*/*',
+          },
+          cache: 'no-cache'
+        })
         
-        let isFromStorageAPI = false
-        
-        if (src.includes('supabase.co/storage')) {
-          // Extract bucket and path from URL
-          // URL format: https://xxx.supabase.co/storage/v1/object/public/bucket/path
-          const urlMatch = src.match(/storage\/v1\/object\/public\/([^\/]+)\/(.+)/)
-          
-          if (urlMatch) {
-            const bucket = urlMatch[1]
-            const filePath = urlMatch[2]
-            
-            console.log("Using Supabase Storage API download:", { bucket, filePath })
-            
-            // Use Storage API download() method which should return raw binary
-            const { data: blobData, error: downloadError } = await supabase.storage
-              .from(bucket)
-              .download(filePath)
-            
-            if (downloadError) {
-              console.error("Storage API download failed:", downloadError)
-              setError(`Failed to load video: ${downloadError.message}`)
-              setLoading(false)
-              return
-            }
-            
-            if (!blobData) {
-              setError('Video file not found')
-              setLoading(false)
-              return
-            }
-            
-            // Convert Blob to ArrayBuffer - Storage API should return raw binary
-            arrayBuffer = await blobData.arrayBuffer()
-            isFromStorageAPI = true
-            
-            // Determine content type from file extension (don't trust blobData.type)
-            const fileExt = src.split('.').pop()?.toLowerCase()
-            if (fileExt === 'mp4') {
-              contentType = 'video/mp4'
-            } else if (fileExt === 'webm') {
-              contentType = 'video/webm'
-            } else if (fileExt === 'mov') {
-              contentType = 'video/quicktime'
-            } else {
-              contentType = 'video/webm' // Default
-            }
-            
-            // Check if the blob type is JSON or if data is wrapped in multipart/form-data
-            const firstBytes = new Uint8Array(arrayBuffer.slice(0, Math.min(50, arrayBuffer.byteLength)))
-            const firstBytesText = String.fromCharCode(...firstBytes)
-            const looksLikeJSON = firstBytesText.trim().startsWith('{') || firstBytesText.trim().startsWith('[')
-            const looksLikeMultipart = firstBytesText.includes('--') && firstBytesText.includes('WebKitFormBoundary')
-            
-            console.log("Storage API download success:", {
-              blobSize: blobData.size,
-              blobType: blobData.type,
-              arrayBufferSize: arrayBuffer.byteLength,
-              determinedContentType: contentType,
-              firstBytes: Array.from(firstBytes.slice(0, 10)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '),
-              looksLikeJSON,
-              looksLikeMultipart,
-              firstBytesText: firstBytesText.substring(0, 30)
-            })
-            
-            // If data is wrapped in multipart/form-data, extract the actual video
-            if (looksLikeMultipart) {
-              console.log("⚠️ Detected multipart/form-data in Storage API response - extracting video data...")
-              isFromStorageAPI = false // Allow multipart extraction code below to run
-            } else if ((blobData.type === 'application/json' || looksLikeJSON) && arrayBuffer.byteLength > 100) {
-              try {
-                const text = new TextDecoder().decode(arrayBuffer)
-                const jsonData = JSON.parse(text)
-                
-                // Check if JSON contains base64-encoded data or other video data
-                if (jsonData.data || jsonData.content || jsonData.file) {
-                  console.warn("Storage API returned JSON-wrapped data, but video should be raw binary")
-                  // Continue anyway - maybe it's actually raw binary despite JSON type
-                }
-              } catch (e) {
-                // Not valid JSON, which is good - means it's likely raw binary
-                console.log("Data is not valid JSON, treating as raw binary (good)")
-              }
-            }
-          } else {
-            // Fallback to direct fetch if URL parsing fails
-            console.log("Could not parse Supabase URL, using direct fetch:", src)
-            const response = await fetch(src, {
-              method: 'GET',
-              headers: { 'Accept': 'video/*,application/octet-stream,*/*' },
-              cache: 'no-cache'
-            })
-            
-            if (!response.ok) {
-              setError(`Failed to load video: ${response.statusText}`)
-              setLoading(false)
-              return
-            }
-            
-            contentType = response.headers.get('content-type') || contentType
-            arrayBuffer = await response.arrayBuffer()
-          }
-          // Continue with validation and blob creation below
-        } else {
-          // Not a Supabase URL, use regular fetch
-          const response = await fetch(src)
-          if (!response.ok) {
-            throw new Error(`Failed to fetch: ${response.statusText}`)
-          }
-          contentType = response.headers.get('content-type') || contentType
-          arrayBuffer = await response.arrayBuffer()
+        if (!response.ok) {
+          setError(`Failed to load video: ${response.statusText}`)
+          setLoading(false)
+          return
         }
+        
+        // Get content type from response headers
+        let contentType = response.headers.get('content-type') || 'video/webm'
+        
+        // If content type is wrong, determine from file extension
+        if (!contentType.startsWith('video/')) {
+          const fileExt = src.split('.').pop()?.toLowerCase()
+          if (fileExt === 'mp4') {
+            contentType = 'video/mp4'
+          } else if (fileExt === 'webm') {
+            contentType = 'video/webm'
+          } else if (fileExt === 'mov') {
+            contentType = 'video/quicktime'
+          }
+        }
+        
+        const arrayBuffer = await response.arrayBuffer()
         
         console.log("Video fetch test:", {
           url: src,
@@ -167,14 +83,17 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
         }
 
         // Validate and create blob from array buffer
-        let uint8Array = new Uint8Array(arrayBuffer)
+        const uint8Array = new Uint8Array(arrayBuffer)
         
-        // ALWAYS check for multipart/form-data - even Storage API can return multipart if files were uploaded incorrectly
-        // Check if response is multipart/form-data (starts with boundary markers)
+        // Check for multipart/form-data - if files were stored incorrectly, we'll need to extract the actual video
         const firstBytesText = String.fromCharCode(...uint8Array.slice(0, Math.min(50, uint8Array.length)))
         const isMultipart = firstBytesText.includes('--') && (firstBytesText.includes('WebKitFormBoundary') || firstBytesText.includes('form-data'))
         
+        // Note: If videos are stored incorrectly as multipart, they won't play. New uploads should be correct.
         if (isMultipart) {
+          console.warn("⚠️ Video file appears to be stored as multipart/form-data. This file may not play correctly. Re-upload the video to fix this.")
+          // For now, we'll try to play it anyway - but it likely won't work
+          // The issue is that the file was uploaded incorrectly - new uploads should work fine
           console.log("⚠️ Detected multipart/form-data response, extracting video data...")
           
           // Parse multipart response to extract the actual video file
@@ -410,13 +329,11 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
         const first20BytesHex = Array.from(uint8Array.slice(0, Math.min(20, uint8Array.length)))
           .map(b => '0x' + b.toString(16).padStart(2, '0'))
           .join(' ')
-        const first20BytesText = String.fromCharCode(...uint8Array.slice(0, Math.min(20, uint8Array.length)))
         
-        console.log("First bytes of downloaded data:", {
-          hex: first20BytesHex,
-          text: first20BytesText.substring(0, 20),
-          isFromStorageAPI,
-          arrayBufferSize: arrayBuffer.byteLength
+        console.log("Video data downloaded:", {
+          size: arrayBuffer.byteLength,
+          contentType,
+          firstBytesHex
         })
         
         // Check for valid video file signatures
