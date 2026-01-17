@@ -60,7 +60,8 @@ export default function CoachDashboard() {
       const profile = await CoachService.getCoachProfileByUserId(session.user.id)
       if (!profile) {
         console.log('No coach profile found for user:', session.user.id)
-        window.location.href = '/'
+        // Redirect to login page instead of home - user needs to log in as a coach
+        window.location.href = '/coach/login'
         return
       }
 
