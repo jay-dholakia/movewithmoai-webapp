@@ -175,17 +175,36 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
         const isMultipart = firstBytesText.includes('--') && (firstBytesText.includes('WebKitFormBoundary') || firstBytesText.includes('form-data'))
         
         if (isMultipart) {
-          console.log("Detected multipart/form-data response, extracting video data...")
+          console.log("⚠️ Detected multipart/form-data response, extracting video data...")
           
           // Parse multipart response to extract the actual video file
-          // Find the boundary
-          const boundaryMatch = firstBytesText.match(/--([^\r\n]+)/)
+          // Find the boundary - try multiple patterns
+          const boundaryMatch = firstBytesText.match(/--([^\r\n\s]+)/)
+          let boundary: string | null = null
+          let boundaryBytes: Uint8Array | null = null
+          
           if (boundaryMatch) {
-            const boundary = '--' + boundaryMatch[1]
-            
-            // Search for boundary in binary data (don't convert to text - it corrupts binary)
-            const boundaryBytes = new TextEncoder().encode(boundary)
+            boundary = '--' + boundaryMatch[1]
+            boundaryBytes = new TextEncoder().encode(boundary)
+          } else {
+            // Fallback: try to find boundary pattern manually
+            console.warn("Could not extract boundary from regex, trying manual search")
+            const dashDashIndex = firstBytesText.indexOf('--')
+            if (dashDashIndex !== -1) {
+              // Find where boundary ends (CRLF or space)
+              let boundaryEnd = firstBytesText.indexOf('\r\n', dashDashIndex)
+              if (boundaryEnd === -1) boundaryEnd = firstBytesText.indexOf('\n', dashDashIndex)
+              if (boundaryEnd === -1) boundaryEnd = firstBytesText.indexOf(' ', dashDashIndex)
+              if (boundaryEnd === -1) boundaryEnd = dashDashIndex + 50 // fallback
+              
+              boundary = firstBytesText.substring(dashDashIndex, boundaryEnd).trim()
+              boundaryBytes = new TextEncoder().encode(boundary)
+            }
+          }
+          
+          if (boundary && boundaryBytes) {
             const crlfBytes = new Uint8Array([0x0D, 0x0A, 0x0D, 0x0A]) // \r\n\r\n
+            const crlfSingleBytes = new Uint8Array([0x0D, 0x0A]) // \r\n
             
             // Find first boundary position in binary
             let boundaryPos = -1
@@ -204,9 +223,12 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
             }
             
             if (boundaryPos !== -1) {
+              console.log(`Found first boundary at position: ${boundaryPos}`)
+              
               // Find next boundary (data is between boundaries)
               let nextBoundaryPos = -1
-              for (let i = boundaryPos + boundaryBytes.length; i <= arrayBuffer.byteLength - boundaryBytes.length; i++) {
+              const searchStart = boundaryPos + boundaryBytes.length
+              for (let i = searchStart; i <= arrayBuffer.byteLength - boundaryBytes.length; i++) {
                 let match = true
                 for (let j = 0; j < boundaryBytes.length; j++) {
                   if (uint8Array[i + j] !== boundaryBytes[j]) {
@@ -220,43 +242,96 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
                 }
               }
               
-              if (nextBoundaryPos !== -1) {
-                // Find double CRLF after first boundary (end of headers, start of data)
-                let dataStartIndex = -1
-                for (let i = boundaryPos + boundaryBytes.length; i <= nextBoundaryPos - crlfBytes.length; i++) {
+              if (nextBoundaryPos === -1) {
+                // No second boundary found - try using end of file
+                nextBoundaryPos = arrayBuffer.byteLength
+                console.log("No second boundary found, using end of file")
+              }
+              
+              // Find double CRLF after first boundary (end of headers, start of data)
+              let dataStartIndex = -1
+              for (let i = boundaryPos + boundaryBytes.length; i < nextBoundaryPos - crlfBytes.length; i++) {
+                let match = true
+                for (let j = 0; j < crlfBytes.length; j++) {
+                  if (uint8Array[i + j] !== crlfBytes[j]) {
+                    match = false
+                    break
+                  }
+                }
+                if (match) {
+                  dataStartIndex = i + crlfBytes.length
+                  break
+                }
+              }
+              
+              // If double CRLF not found, try single CRLF
+              if (dataStartIndex === -1) {
+                for (let i = boundaryPos + boundaryBytes.length; i < nextBoundaryPos - crlfSingleBytes.length; i++) {
                   let match = true
-                  for (let j = 0; j < crlfBytes.length; j++) {
-                    if (uint8Array[i + j] !== crlfBytes[j]) {
+                  for (let j = 0; j < crlfSingleBytes.length; j++) {
+                    if (uint8Array[i + j] !== crlfSingleBytes[j]) {
                       match = false
                       break
                     }
                   }
                   if (match) {
-                    dataStartIndex = i + crlfBytes.length
+                    // Skip potential Content-Type or other headers
+                    const afterCrlf = i + crlfSingleBytes.length
+                    const nextCrlf = firstBytesText.indexOf('\r\n', afterCrlf)
+                    if (nextCrlf !== -1) {
+                      dataStartIndex = nextCrlf + crlfSingleBytes.length
+                    } else {
+                      dataStartIndex = afterCrlf
+                    }
                     break
                   }
                 }
-                
-                if (dataStartIndex !== -1) {
-                  // Remove trailing CRLF before next boundary
-                  let dataEndIndex = nextBoundaryPos
-                  if (dataEndIndex >= 2 && uint8Array[dataEndIndex - 2] === 0x0D && uint8Array[dataEndIndex - 1] === 0x0A) {
-                    dataEndIndex -= 2
-                  }
-                  
-                  // Extract binary video data
-                  const videoDataArrayBuffer = arrayBuffer.slice(dataStartIndex, dataEndIndex)
-                  arrayBuffer = videoDataArrayBuffer
-                  uint8Array = new Uint8Array(arrayBuffer)
-                  
-                  console.log("✅ Extracted video data from multipart response:", {
-                    originalSize: arrayBuffer.byteLength,
-                    extractedSize: videoDataArrayBuffer.byteLength,
-                    firstBytes: Array.from(uint8Array.slice(0, 4)).map(b => '0x' + b.toString(16)).join(' ')
-                  })
-                }
               }
+              
+              if (dataStartIndex !== -1 && dataStartIndex < nextBoundaryPos) {
+                // Remove trailing CRLF before next boundary
+                let dataEndIndex = nextBoundaryPos
+                if (dataEndIndex >= 2 && uint8Array[dataEndIndex - 2] === 0x0D && uint8Array[dataEndIndex - 1] === 0x0A) {
+                  dataEndIndex -= 2
+                }
+                
+                // Extract binary video data
+                const originalSize = arrayBuffer.byteLength
+                const videoDataArrayBuffer = arrayBuffer.slice(dataStartIndex, dataEndIndex)
+                arrayBuffer = videoDataArrayBuffer
+                uint8Array = new Uint8Array(arrayBuffer)
+                
+                console.log("✅ Extracted video data from multipart response:", {
+                  originalSize,
+                  extractedSize: videoDataArrayBuffer.byteLength,
+                  dataStartIndex,
+                  dataEndIndex,
+                  boundaryPos,
+                  nextBoundaryPos,
+                  firstBytes: Array.from(uint8Array.slice(0, 10)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')
+                })
+              } else {
+                console.error("❌ Failed to extract video from multipart - could not find data start/end", {
+                  boundaryPos,
+                  nextBoundaryPos,
+                  dataStartIndex,
+                  arrayBufferSize: arrayBuffer.byteLength
+                })
+                setError('Failed to extract video data from multipart response')
+                setLoading(false)
+                return
+              }
+            } else {
+              console.error("❌ Failed to find boundary in multipart data")
+              setError('Failed to parse multipart video data')
+              setLoading(false)
+              return
             }
+          } else {
+            console.error("❌ Could not determine multipart boundary")
+            setError('Failed to parse multipart video data - boundary not found')
+            setLoading(false)
+            return
           }
         }
         
@@ -418,16 +493,29 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
       onError={(e) => {
         const videoEl = e.currentTarget;
         const err = videoEl.error;
-        console.error("Video element error:", {
+        
+        // Build error object with fallbacks
+        const errorInfo: any = {
           src: videoUrl,
-          errorCode: err?.code,
-          errorMessage: err?.message,
+          originalSrc: src,
+          errorExists: !!err,
           networkState: videoEl.networkState,
           readyState: videoEl.readyState,
           videoWidth: videoEl.videoWidth,
           videoHeight: videoEl.videoHeight,
-          duration: videoEl.duration
-        });
+          duration: videoEl.duration,
+          blobUrlType: videoUrl.startsWith('blob:') ? 'blob' : 'direct'
+        };
+        
+        if (err) {
+          errorInfo.errorCode = err.code;
+          errorInfo.errorMessage = err.message;
+          errorInfo.mediaErrorType = err.constructor?.name || 'MediaError';
+        } else {
+          errorInfo.note = 'Video error occurred but MediaError object is null/undefined';
+        }
+        
+        console.error("Video element error:", errorInfo);
         
         // Try to get more detailed error info
         let errorMsg = 'Unknown error'
@@ -440,15 +528,19 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
               errorMsg = 'Network error loading video'
               break
             case MediaError.MEDIA_ERR_DECODE:
-              errorMsg = 'Video decode error - file may be corrupted or format not supported'
+              errorMsg = 'Video decode error - file may be corrupted or format not supported. The video file may be stored incorrectly (multipart/form-data instead of raw binary).'
               break
             case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
               errorMsg = 'Video format not supported by browser'
               break
+            default:
+              errorMsg = `Media error code: ${err.code}`
           }
+        } else {
+          errorMsg = 'Video failed to load (no error details available) - file may be corrupted or in wrong format'
         }
         
-        setError(`Video error: ${errorMsg} (Code: ${err?.code || 'unknown'})`);
+        setError(`Video error: ${errorMsg} ${err ? `(Code: ${err.code})` : ''}`);
       }}
       onLoadStart={() => {
         console.log("Video loading:", videoUrl);
