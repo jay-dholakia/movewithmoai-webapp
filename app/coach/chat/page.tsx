@@ -122,7 +122,7 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
         console.log("Video data downloaded:", {
           size: arrayBuffer.byteLength,
           contentType,
-          firstBytesHex
+          firstBytesHex: first20BytesHex
         })
         
         // Check for valid video file signatures
