@@ -158,9 +158,22 @@ export class ChatService {
         fileSize: file.size
       });
       
+      // Convert File to ArrayBuffer to avoid multipart/form-data wrapping
+      // Supabase's .upload() with File objects may wrap them in multipart
+      const arrayBuffer = await file.arrayBuffer();
+      const blob = new Blob([arrayBuffer], { type: contentType });
+      
+      console.log("Uploading as Blob with content type:", {
+        fileName: file.name,
+        blobType: blob.type,
+        blobSize: blob.size,
+        contentType
+      });
+      
+      // Upload as Blob instead of File to avoid multipart wrapping
       const { data, error } = await supabase.storage
         .from('coach-chat-media')
-        .upload(filePath, file, {
+        .upload(filePath, blob, {
           cacheControl: '3600',
           upsert: false,
           contentType: contentType, // Explicitly set content type - critical for video playback
