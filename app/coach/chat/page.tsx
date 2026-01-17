@@ -248,9 +248,13 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
                 console.log("No second boundary found, using end of file")
               }
               
-              // Find double CRLF after first boundary (end of headers, start of data)
+              // Find the double CRLF that marks end of headers and start of binary data
+              // We need to search for \r\n\r\n AFTER the boundary and headers
               let dataStartIndex = -1
-              for (let i = boundaryPos + boundaryBytes.length; i < nextBoundaryPos - crlfBytes.length; i++) {
+              const searchStart = boundaryPos + boundaryBytes.length
+              
+              // Look for double CRLF (\r\n\r\n) - this marks end of headers
+              for (let i = searchStart; i < nextBoundaryPos - crlfBytes.length; i++) {
                 let match = true
                 for (let j = 0; j < crlfBytes.length; j++) {
                   if (uint8Array[i + j] !== crlfBytes[j]) {
@@ -260,13 +264,16 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
                 }
                 if (match) {
                   dataStartIndex = i + crlfBytes.length
+                  console.log(`Found double CRLF at position ${i}, data starts at ${dataStartIndex}`)
                   break
                 }
               }
               
-              // If double CRLF not found, try single CRLF
+              // If double CRLF not found, try single CRLF and look for end of header block
               if (dataStartIndex === -1) {
-                for (let i = boundaryPos + boundaryBytes.length; i < nextBoundaryPos - crlfSingleBytes.length; i++) {
+                // Find all single CRLF positions after boundary
+                const crlfPositions: number[] = []
+                for (let i = searchStart; i < nextBoundaryPos - crlfSingleBytes.length; i++) {
                   let match = true
                   for (let j = 0; j < crlfSingleBytes.length; j++) {
                     if (uint8Array[i + j] !== crlfSingleBytes[j]) {
@@ -275,24 +282,69 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
                     }
                   }
                   if (match) {
-                    // Skip potential Content-Type or other headers
-                    const afterCrlf = i + crlfSingleBytes.length
-                    const nextCrlf = firstBytesText.indexOf('\r\n', afterCrlf)
-                    if (nextCrlf !== -1) {
-                      dataStartIndex = nextCrlf + crlfSingleBytes.length
-                    } else {
-                      dataStartIndex = afterCrlf
+                    crlfPositions.push(i)
+                  }
+                }
+                
+                // Headers typically end with a blank line (two consecutive CRLFs or CRLF followed by non-header data)
+                // Look for a pattern where we have CRLF followed by non-ASCII or video-like data
+                for (let i = 0; i < crlfPositions.length - 1; i++) {
+                  const crlfPos = crlfPositions[i]
+                  const nextCrlfPos = crlfPositions[i + 1]
+                  const afterCrlf = crlfPos + crlfSingleBytes.length
+                  
+                  // If there's a significant gap between CRLFs, it might be header end
+                  // Or if the byte after CRLF is not printable ASCII (likely binary video data)
+                  if (nextCrlfPos - afterCrlf > 100 || (afterCrlf < nextBoundaryPos && uint8Array[afterCrlf] < 0x20 && uint8Array[afterCrlf] !== 0x0D && uint8Array[afterCrlf] !== 0x0A)) {
+                    // This might be binary data - verify it's not just another header
+                    let isLikelyBinary = false
+                    for (let j = afterCrlf; j < Math.min(afterCrlf + 10, nextBoundaryPos); j++) {
+                      const byte = uint8Array[j]
+                      // Binary video data won't be printable ASCII in first few bytes
+                      if (byte < 0x20 && byte !== 0x0D && byte !== 0x0A) {
+                        isLikelyBinary = true
+                        break
+                      }
+                      // Check for WebM signature (0x1A 0x45 0xDF 0xA3) or similar
+                      if (j === afterCrlf && (byte === 0x1A || byte === 0x00)) {
+                        isLikelyBinary = true
+                        break
+                      }
                     }
-                    break
+                    
+                    if (isLikelyBinary) {
+                      dataStartIndex = afterCrlf
+                      console.log(`Found likely binary data start at position ${dataStartIndex} (after single CRLF)`)
+                      break
+                    }
+                  }
+                }
+                
+                // Last resort: if we have multiple CRLFs, data likely starts after the last header line
+                if (dataStartIndex === -1 && crlfPositions.length >= 2) {
+                  // Skip to after the last CRLF that's likely the end of headers
+                  const potentialStart = crlfPositions[crlfPositions.length - 1] + crlfSingleBytes.length
+                  if (potentialStart < nextBoundaryPos - 100) {
+                    dataStartIndex = potentialStart
+                    console.log(`Using last CRLF position for data start: ${dataStartIndex}`)
                   }
                 }
               }
               
               if (dataStartIndex !== -1 && dataStartIndex < nextBoundaryPos) {
-                // Remove trailing CRLF before next boundary
+                // Remove trailing CRLF before next boundary (if present)
                 let dataEndIndex = nextBoundaryPos
                 if (dataEndIndex >= 2 && uint8Array[dataEndIndex - 2] === 0x0D && uint8Array[dataEndIndex - 1] === 0x0A) {
                   dataEndIndex -= 2
+                }
+                
+                // Validate extracted size is reasonable (should be much larger than 4 bytes)
+                const extractedSize = dataEndIndex - dataStartIndex
+                if (extractedSize < 100) {
+                  console.error(`❌ Extracted size too small (${extractedSize} bytes), likely wrong section`)
+                  setError(`Failed to extract video: extracted data too small (${extractedSize} bytes)`)
+                  setLoading(false)
+                  return
                 }
                 
                 // Extract binary video data
@@ -308,7 +360,8 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
                   dataEndIndex,
                   boundaryPos,
                   nextBoundaryPos,
-                  firstBytes: Array.from(uint8Array.slice(0, 10)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' ')
+                  firstBytes: Array.from(uint8Array.slice(0, 10)).map(b => '0x' + b.toString(16).padStart(2, '0')).join(' '),
+                  firstBytesText: String.fromCharCode(...uint8Array.slice(0, Math.min(20, uint8Array.length)))
                 })
               } else {
                 console.error("❌ Failed to extract video from multipart - could not find data start/end", {
