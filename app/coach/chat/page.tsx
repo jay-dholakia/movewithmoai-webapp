@@ -227,8 +227,8 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
               
               // Find next boundary (data is between boundaries)
               let nextBoundaryPos = -1
-              const searchStart = boundaryPos + boundaryBytes.length
-              for (let i = searchStart; i <= arrayBuffer.byteLength - boundaryBytes.length; i++) {
+              const boundarySearchStart = boundaryPos + boundaryBytes.length
+              for (let i = boundarySearchStart; i <= arrayBuffer.byteLength - boundaryBytes.length; i++) {
                 let match = true
                 for (let j = 0; j < boundaryBytes.length; j++) {
                   if (uint8Array[i + j] !== boundaryBytes[j]) {
@@ -251,10 +251,10 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
               // Find the double CRLF that marks end of headers and start of binary data
               // We need to search for \r\n\r\n AFTER the boundary and headers
               let dataStartIndex = -1
-              const searchStart = boundaryPos + boundaryBytes.length
+              const headerSearchStart = boundaryPos + boundaryBytes.length
               
               // Look for double CRLF (\r\n\r\n) - this marks end of headers
-              for (let i = searchStart; i < nextBoundaryPos - crlfBytes.length; i++) {
+              for (let i = headerSearchStart; i < nextBoundaryPos - crlfBytes.length; i++) {
                 let match = true
                 for (let j = 0; j < crlfBytes.length; j++) {
                   if (uint8Array[i + j] !== crlfBytes[j]) {
@@ -273,7 +273,7 @@ function VideoPlayer({ src, messageId }: { src: string; messageId: string }) {
               if (dataStartIndex === -1) {
                 // Find all single CRLF positions after boundary
                 const crlfPositions: number[] = []
-                for (let i = searchStart; i < nextBoundaryPos - crlfSingleBytes.length; i++) {
+                for (let i = headerSearchStart; i < nextBoundaryPos - crlfSingleBytes.length; i++) {
                   let match = true
                   for (let j = 0; j < crlfSingleBytes.length; j++) {
                     if (uint8Array[i + j] !== crlfSingleBytes[j]) {
