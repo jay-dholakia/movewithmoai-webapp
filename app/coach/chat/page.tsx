@@ -882,11 +882,27 @@ export default function ChatPage() {
       })
 
       // Determine file extension and type based on the blob's mimeType
-      const isMP4 = recordedVideo.type.includes('mp4')
-      const extension = isMP4 ? 'mp4' : 'webm'
-      const mimeType = isMP4 ? 'video/mp4' : 'video/webm'
+      // Check actual blob type, but also verify it's valid
+      const blobType = recordedVideo.type || ''
+      const isMP4 = blobType.includes('mp4') && blobType.includes('video')
+      const isWebM = blobType.includes('webm') && blobType.includes('video')
       
-      // Create a File object from the blob
+      // Default to webm if type is unclear, but prioritize detected type if valid
+      const extension = isMP4 ? 'mp4' : 'webm'
+      let mimeType = isMP4 ? 'video/mp4' : 'video/webm'
+      
+      // Ensure mimeType is correct - never use application/json or generic types
+      if (!blobType.includes('video') || blobType === 'application/json' || blobType === 'application/octet-stream') {
+        // Force correct video mime type based on extension
+        mimeType = extension === 'mp4' ? 'video/mp4' : 'video/webm'
+        console.warn('Recorded video blob had invalid type, forcing correct mime type:', {
+          originalBlobType: blobType,
+          forcedMimeType: mimeType,
+          extension
+        })
+      }
+      
+      // Create a File object from the blob with explicit correct type
       const file = new File([recordedVideo], `recording-${Date.now()}.${extension}`, { type: mimeType })
       
       console.log('File created for upload:', {

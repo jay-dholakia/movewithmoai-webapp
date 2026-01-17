@@ -113,17 +113,40 @@ export class ChatService {
 
       // Upload file to Supabase Storage - using coach-chat-media bucket
       // Ensure correct content type is set - this is critical for video playback
+      // IMPORTANT: Always prioritize file extension over file.type to avoid JSON mime type issues
       let contentType = file.type;
-      if (!contentType) {
-        // Fallback content types if file.type is not set
-        if (isImage) {
+      
+      // For videos, always check file extension first (file.type can be wrong/empty)
+      if (isVideo) {
+        if (fileExt === 'webm') {
+          contentType = 'video/webm';
+        } else if (fileExt === 'mp4') {
+          contentType = 'video/mp4';
+        } else if (fileExt === 'mov') {
+          contentType = 'video/quicktime';
+        } else {
+          contentType = file.type || 'video/webm'; // Fallback to file.type or default to webm
+        }
+      } else if (isImage) {
+        // For images, check extension if file.type is missing or generic
+        if (!contentType || contentType === 'image/*') {
           contentType = fileExt === 'jpg' || fileExt === 'jpeg' ? 'image/jpeg' : 
                        fileExt === 'png' ? 'image/png' : 
-                       fileExt === 'gif' ? 'image/gif' : 'image/*';
-        } else if (isVideo) {
-          contentType = fileExt === 'webm' ? 'video/webm' :
-                       fileExt === 'mp4' ? 'video/mp4' :
-                       fileExt === 'mov' ? 'video/quicktime' : 'video/*';
+                       fileExt === 'gif' ? 'image/gif' : 
+                       fileExt === 'webp' ? 'image/webp' : 
+                       (contentType || 'image/*');
+        }
+      }
+      
+      // Final safety check - reject generic or incorrect types
+      if (contentType === 'application/json' || contentType === 'application/octet-stream') {
+        // Force correct type based on extension for known video/image formats
+        if (isVideo) {
+          contentType = fileExt === 'webm' ? 'video/webm' : fileExt === 'mp4' ? 'video/mp4' : 'video/webm';
+        } else if (isImage) {
+          contentType = fileExt === 'jpg' || fileExt === 'jpeg' ? 'image/jpeg' : 
+                       fileExt === 'png' ? 'image/png' : 
+                       fileExt === 'gif' ? 'image/gif' : 'image/jpeg';
         }
       }
       
