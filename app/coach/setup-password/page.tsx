@@ -7,6 +7,7 @@ import Link from 'next/link'
 function SetupPasswordContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -29,6 +30,21 @@ function SetupPasswordContent() {
     setLoading(true)
     setError(null)
 
+    // Validate username
+    const trimmedUsername = username.trim()
+    if (!trimmedUsername) {
+      setError('Username is required')
+      setLoading(false)
+      return
+    }
+
+    if (trimmedUsername.length < 8 || trimmedUsername.length > 20) {
+      setError('Username must be between 8 and 20 characters')
+      setLoading(false)
+      return
+    }
+
+    // Validate password
     if (password.length < 8) {
       setError('Password must be at least 8 characters long')
       setLoading(false)
@@ -68,6 +84,9 @@ function SetupPasswordContent() {
         refresh_token: '', // Will be provided by Supabase if needed
       })
 
+      // Get the current user ID
+      let userId: string | null = null
+      
       if (sessionError || !sessionData.session) {
         // Try alternative method: verify the token first
         // The invitation link should have already verified the user
@@ -80,6 +99,8 @@ function SetupPasswordContent() {
           return
         }
 
+        userId = userData.user.id
+
         // Update password directly
         const { error: updateError } = await supabase.auth.updateUser({
           password: password,
@@ -91,6 +112,8 @@ function SetupPasswordContent() {
           return
         }
       } else {
+        userId = sessionData.session.user.id
+        
         // Session was set successfully, now update password
         const { error: updateError } = await supabase.auth.updateUser({
           password: password,
@@ -98,6 +121,43 @@ function SetupPasswordContent() {
 
         if (updateError) {
           setError(updateError.message || 'Failed to set password')
+          setLoading(false)
+          return
+        }
+      }
+
+      // Check if username is already taken
+      if (userId) {
+        const { data: existingUser, error: checkError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('username', trimmedUsername)
+          .neq('id', userId)
+          .single()
+
+        if (checkError && checkError.code !== 'PGRST116') {
+          // PGRST116 is "not found" which is what we want
+          console.error('Error checking username:', checkError)
+          setError('Failed to check username availability')
+          setLoading(false)
+          return
+        }
+
+        if (existingUser) {
+          setError('Username is already taken. Please choose a different username.')
+          setLoading(false)
+          return
+        }
+
+        // Update username in users table
+        const { error: usernameError } = await supabase
+          .from('users')
+          .update({ username: trimmedUsername })
+          .eq('id', userId)
+
+        if (usernameError) {
+          console.error('Error updating username:', usernameError)
+          setError('Failed to set username. Please try again.')
           setLoading(false)
           return
         }
@@ -149,10 +209,10 @@ function SetupPasswordContent() {
             </h1>
           </div>
           <h2 className="text-2xl font-semibold text-slate-800">
-            Set Your Password
+            Set Up Your Account
           </h2>
           <p className="mt-2 text-sm text-slate-600">
-            Please create a password for your coach account
+            Please create a username and password for your coach account
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handlePasswordSetup}>
@@ -167,6 +227,24 @@ function SetupPasswordContent() {
           )}
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
+              <label htmlFor="username" className="sr-only">
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
+                required
+                minLength={8}
+                maxLength={20}
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-t-md focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-[#1e3a8a] focus:z-10 sm:text-sm bg-white"
+                placeholder="Username (8-20 characters)"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div>
               <label htmlFor="password" className="sr-only">
                 Password
               </label>
@@ -177,7 +255,7 @@ function SetupPasswordContent() {
                 autoComplete="new-password"
                 required
                 minLength={8}
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-t-md focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-[#1e3a8a] focus:z-10 sm:text-sm bg-white"
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-[#1e3a8a] focus:z-10 sm:text-sm bg-white"
                 placeholder="Password (min 8 characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -208,7 +286,7 @@ function SetupPasswordContent() {
               disabled={loading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-[#1e3a8a] hover:bg-[#1e40af] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
             >
-              {loading ? 'Setting up password...' : 'Set Password'}
+              {loading ? 'Setting up account...' : 'Set Up Account'}
             </button>
           </div>
           
