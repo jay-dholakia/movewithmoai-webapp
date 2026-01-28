@@ -516,15 +516,15 @@ export default function MoaiDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowChat(!showChat)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <MessageSquare className="h-5 w-5" />
-                Chat
-              </button>
-            </div>
+            <button
+              onClick={() => setShowChat(!showChat)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <MessageSquare className="h-5 w-5" />
+              Chat
+            </button>
           </div>
+        </div>
         </div>
       </div>
 
@@ -1779,7 +1779,7 @@ export default function MoaiDetailPage() {
             <div
               key={message.id}
                     className={`flex items-end gap-2 mb-1 ${message.is_coach ? 'justify-end' : 'justify-start'}`}
-                  >
+            >
                     {/* Avatar for received messages */}
                     {!message.is_coach && (
                       <div className="w-8 h-8 flex-shrink-0">
@@ -1789,7 +1789,7 @@ export default function MoaiDetailPage() {
                     src={message.sender_profile_picture_url}
                     alt={message.sender_name || 'User'}
                               className="h-8 w-8 rounded-full object-cover"
-                            />
+                  />
                           ) : (
                             <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
                               <span className="text-xs font-medium text-gray-600">
@@ -1821,7 +1821,7 @@ export default function MoaiDetailPage() {
                             ? '18px 18px 4px 18px' 
                             : '18px 18px 18px 4px'
                         }}
-                      >
+                    >
                         <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
                           {message.message}
                         </p>

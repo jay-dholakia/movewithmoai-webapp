@@ -103,22 +103,8 @@ export default function CoachLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100"></div>
-      
-      {/* Animated floating circles - above background but below content */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
-        {/* Test: Make circles VERY visible to debug */}
-        <div className="absolute top-20 left-10 w-64 h-64 bg-blue-400 rounded-full opacity-60 blur-xl animate-float-1"></div>
-        <div className="absolute top-40 right-20 w-96 h-96 bg-indigo-400 rounded-full opacity-50 blur-xl animate-float-2"></div>
-        <div className="absolute bottom-20 left-1/4 w-80 h-80 bg-purple-300 rounded-full opacity-60 blur-xl animate-float-3"></div>
-        <div className="absolute bottom-40 right-1/3 w-72 h-72 bg-blue-500 rounded-full opacity-50 blur-xl animate-float-4"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-indigo-300 rounded-full opacity-40 blur-xl animate-float-5"></div>
-        <div className="absolute top-10 right-1/4 w-56 h-56 bg-pink-300 rounded-full opacity-50 blur-xl animate-float-6"></div>
-      </div>
-      
-      <div className="max-w-md w-full space-y-8 relative z-10">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           {/* Logo */}
           <div className="mb-8">

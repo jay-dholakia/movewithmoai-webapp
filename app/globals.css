@@ -195,31 +195,6 @@
     clip: auto;
     white-space: normal;
   }
-  
-  /* Floating circle animations */
-  .animate-float-1 {
-    animation: float-1 20s ease-in-out infinite;
-  }
-  
-  .animate-float-2 {
-    animation: float-2 25s ease-in-out infinite;
-  }
-  
-  .animate-float-3 {
-    animation: float-3 18s ease-in-out infinite;
-  }
-  
-  .animate-float-4 {
-    animation: float-4 22s ease-in-out infinite;
-  }
-  
-  .animate-float-5 {
-    animation: float-5 30s ease-in-out infinite;
-  }
-  
-  .animate-float-6 {
-    animation: float-6 24s ease-in-out infinite;
-  }
 }
 
 /* Gradient backgrounds */
@@ -314,78 +289,5 @@
   }
   66% {
     transform: translate(-20px, 20px) scale(0.9);
-  }
-}
-
-/* Floating circle animations for login page */
-@keyframes float-1 {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  33% {
-    transform: translate(30px, -50px) rotate(120deg);
-  }
-  66% {
-    transform: translate(-20px, 20px) rotate(240deg);
-  }
-}
-
-@keyframes float-2 {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  25% {
-    transform: translate(-40px, 30px) rotate(90deg);
-  }
-  50% {
-    transform: translate(20px, -40px) rotate(180deg);
-  }
-  75% {
-    transform: translate(30px, 20px) rotate(270deg);
-  }
-}
-
-@keyframes float-3 {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  50% {
-    transform: translate(50px, -30px) rotate(180deg);
-  }
-}
-
-@keyframes float-4 {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  33% {
-    transform: translate(-30px, 40px) rotate(120deg);
-  }
-  66% {
-    transform: translate(40px, -20px) rotate(240deg);
-  }
-}
-
-@keyframes float-5 {
-  0%, 100% {
-    transform: translate(-50%, -50%) scale(1) rotate(0deg);
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.1) rotate(180deg);
-  }
-}
-
-@keyframes float-6 {
-  0%, 100% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-  25% {
-    transform: translate(25px, -35px) rotate(90deg);
-  }
-  50% {
-    transform: translate(-25px, 25px) rotate(180deg);
-  }
-  75% {
-    transform: translate(35px, 15px) rotate(270deg);
   }
 }
