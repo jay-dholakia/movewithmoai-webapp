@@ -103,9 +103,12 @@ export default function CoachLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Animated floating circles */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100"></div>
+      
+      {/* Animated floating circles - above background but below content */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-20 left-10 w-64 h-64 bg-blue-200 rounded-full opacity-30 blur-2xl animate-float-1"></div>
         <div className="absolute top-40 right-20 w-96 h-96 bg-indigo-200 rounded-full opacity-25 blur-2xl animate-float-2"></div>
         <div className="absolute bottom-20 left-1/4 w-80 h-80 bg-slate-200 rounded-full opacity-30 blur-2xl animate-float-3"></div>
