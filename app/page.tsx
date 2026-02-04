@@ -69,12 +69,12 @@ function HomeContent() {
             <div className="space-y-8">
               <h1
                 id="hero-heading"
-                className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight tracking-tight font-display"
+                className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight tracking-tight font-heading"
               >
                 Make Consistency a Shared Ritual
               </h1>
               <p className="text-xl md:text-2xl text-gray-700 leading-relaxed max-w-3xl font-light">
-                Join small accountability groups where your commitment matters. With peer support and expert guidance, build a routine that sticks — together.
+                Join small accountability groups where showing up matters. With peer support and expert guidance, build a routine that sticks — together.
               </p>
               <div className="pt-4">
                 <a
@@ -101,7 +101,7 @@ function HomeContent() {
                 Peer Support
               </h3>
               <p className="text-lg text-gray-700 leading-relaxed">
-                Join small accountability groups where your consistency matters. When you show up, your group notices. When you don't, they're there to help you get back on track. This isn't about competition — it's about mutual support and shared commitment.
+                Join small accountability groups (called Moai's) where your consistency matters. When you show up, your group notices. When you don't, they're there to help you get back on track. This isn't about competition — it's about mutual support and shared commitment.
               </p>
             </article>
 
@@ -110,7 +110,7 @@ function HomeContent() {
                 Expert Guidance
               </h3>
               <p className="text-lg text-gray-700 leading-relaxed">
-                Access certified fitness coaches who design programs tailored to your needs. Get personalized feedback on form, recovery strategies, and ongoing support to help you build sustainable habits and avoid injury.
+                Work with certified fitness coaches who support your journey. With a focus on strength training, coaches provide personalized feedback on form, recovery strategies, and ongoing guidance to help you build sustainable habits and progress safely.
               </p>
             </article>
 
