@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from "next/link"
-import { ArrowRight, Users, Target, TrendingUp, Play } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 function HomeContent() {
   const router = useRouter()
@@ -61,37 +61,29 @@ function HomeContent() {
       <main id="main-content" className="scroll-smooth">
         {/* Hero Section */}
         <section
-          className="relative py-20 md:py-32 isolate"
+          className="relative py-24 md:py-32"
           aria-labelledby="hero-heading"
         >
-          {/* Animated background - full width */}
-          <div className="absolute inset-0 hero-animated-bg" style={{ zIndex: -1 }} />
-          
-          {/* Animated blobs - full width */}
-          <div className="hero-blob hero-blob-1" style={{ zIndex: -1 }} aria-hidden="true" />
-          <div className="hero-blob hero-blob-2" style={{ zIndex: -1 }} aria-hidden="true" />
-          <div className="hero-blob hero-blob-3" style={{ zIndex: -1 }} aria-hidden="true" />
-          
           {/* Content container */}
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center space-y-8 relative">
+          <div className="max-w-4xl mx-auto px-6">
+            <div className="space-y-8">
               <h1
                 id="hero-heading"
-                className="text-4xl md:text-6xl font-bold text-foreground leading-tight"
+                className="text-5xl md:text-6xl lg:text-7xl font-bold text-foreground leading-tight tracking-tight font-display"
               >
-                Move More, Together.
+                Make Consistency a Shared Ritual
               </h1>
-              <p className="text-xl md:text-2xl text-gray-700 max-w-3xl mx-auto leading-relaxed">
-                Small accountability groups that help you show up — week after week.
+              <p className="text-xl md:text-2xl text-gray-700 leading-relaxed max-w-3xl font-light">
+                Join small accountability groups where your commitment matters. With peer support and expert guidance, build a routine that sticks — together.
               </p>
-            <div className="pt-6">
-              <a
-                href="#download"
-                  className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-white rounded-xl font-semibold hover:opacity-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 shadow-crisp-lg hover:shadow-crisp-xl transform hover:-translate-y-0.5"
-              >
-                Get Started
-                <ArrowRight className="w-5 h-5" aria-hidden="true" />
-              </a>
+              <div className="pt-4">
+                <a
+                  href="#download"
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-white rounded-lg font-medium hover:opacity-90 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                >
+                  Get Started
+                  <ArrowRight className="w-5 h-5" aria-hidden="true" />
+                </a>
               </div>
             </div>
           </div>
@@ -100,58 +92,34 @@ function HomeContent() {
         {/* Features Section */}
         <section
           id="features"
-          className="max-w-7xl mx-auto px-6 py-20 md:py-32"
+          className="max-w-4xl mx-auto px-6 py-20 md:py-32"
           aria-labelledby="features-heading"
         >
-          <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
-            <article className="text-center">
-              <div className="mb-6 flex justify-center">
-                <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-lg">
-                  <Users
-                    className="w-8 h-8 text-white"
-                    aria-hidden="true"
-                  />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">
-                Small Accountability Groups
+          <div className="space-y-16">
+            <article>
+              <h3 className="text-3xl font-semibold text-foreground mb-4 font-heading">
+                Peer Support
               </h3>
-              <p className="text-gray-700 leading-relaxed">
-                Stay on track with a small group that notices when you show up — and when you don't.
+              <p className="text-lg text-gray-700 leading-relaxed">
+                Join small accountability groups where your consistency matters. When you show up, your group notices. When you don't, they're there to help you get back on track. This isn't about competition — it's about mutual support and shared commitment.
               </p>
             </article>
 
-            <article className="text-center">
-              <div className="mb-6 flex justify-center">
-                <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-lg">
-                  <Target
-                    className="w-8 h-8 text-white"
-                    aria-hidden="true"
-                  />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">
-                Simple, Structured Guidance
+            <article>
+              <h3 className="text-3xl font-semibold text-foreground mb-4 font-heading">
+                Expert Guidance
               </h3>
-              <p className="text-gray-700 leading-relaxed">
-                Straightforward plans that help your group succeed — without the complexity.
+              <p className="text-lg text-gray-700 leading-relaxed">
+                Access certified fitness coaches who design programs tailored to your needs. Get personalized feedback on form, recovery strategies, and ongoing support to help you build sustainable habits and avoid injury.
               </p>
             </article>
 
-            <article className="text-center">
-              <div className="mb-6 flex justify-center">
-                <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-lg">
-                  <TrendingUp
-                    className="w-8 h-8 text-white"
-                    aria-hidden="true"
-                  />
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-foreground mb-4">
-                Progress You Share
+            <article>
+              <h3 className="text-3xl font-semibold text-foreground mb-4 font-heading">
+                Shared Progress
               </h3>
-              <p className="text-gray-700 leading-relaxed">
-                Your wins become the group's wins — progress feels bigger when it's shared.
+              <p className="text-lg text-gray-700 leading-relaxed">
+                Track your progress alongside your group. Your achievements become collective wins, and your consistency inspires others. When progress is shared, accountability becomes natural and motivation becomes sustainable.
               </p>
             </article>
           </div>
@@ -160,39 +128,42 @@ function HomeContent() {
         {/* CTA / Download Section */}
         <section
           id="download"
-          className="max-w-7xl mx-auto px-6 py-20 md:py-32"
+          className="max-w-4xl mx-auto px-6 py-20 md:py-32"
           aria-labelledby="download-heading"
         >
-          <div className="text-center">
+          <div className="space-y-8">
             <h2
               id="download-heading"
-              className="text-4xl md:text-5xl font-bold text-foreground mb-6"
+              className="text-4xl md:text-5xl font-bold text-foreground font-heading"
             >
               Get Started Today
             </h2>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center max-w-2xl mx-auto mt-12">
+            <p className="text-lg text-gray-700 leading-relaxed">
+              Download the app and start building your accountability group. Find your people, set your commitments, and create the consistency you've been looking for.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-6 pt-4">
             <a
               href="https://apps.apple.com/us/app/moai/id6749557946"
               target="_blank"
               rel="noopener noreferrer"
-                className="flex items-center justify-center px-8 py-4 bg-black text-white rounded-xl hover:opacity-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2 shadow-crisp-lg hover:shadow-crisp-xl transform hover:-translate-y-0.5"
+              className="flex items-center justify-center px-8 py-4 bg-black text-white rounded-lg hover:opacity-90 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-black focus:ring-offset-2"
               aria-label="Download Moai on the App Store"
             >
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                </svg>
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+              </svg>
             </a>
 
             <a
               href="https://play.google.com/store/apps/details?id=com.jaydholakia.movewithmoai"
               target="_blank"
               rel="noopener noreferrer"
-                className="flex items-center justify-center px-8 py-4 bg-[#3ddc84] text-black rounded-xl hover:opacity-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#3ddc84] focus:ring-offset-2 shadow-crisp-lg hover:shadow-crisp-xl transform hover:-translate-y-0.5"
+              className="flex items-center justify-center px-8 py-4 bg-[#3ddc84] text-black rounded-lg hover:opacity-90 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-[#3ddc84] focus:ring-offset-2"
               aria-label="Get Moai on Google Play"
             >
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
-                </svg>
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z"/>
+              </svg>
             </a>
             </div>
           </div>

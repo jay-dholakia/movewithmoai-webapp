@@ -106,98 +106,92 @@ export default function TermsOfUseContent() {
       <section id="payments" className="space-y-4">
         <h2 className="text-2xl font-bold">5. Payments, Subscriptions & Billing</h2>
 
-        <h3 className="text-lg font-semibold">5.1 Subscription Tiers</h3>
-        <p className="text-foreground">Moai offers the following subscription tiers:</p>
+        <h3 className="text-lg font-semibold">5.1 Free Access</h3>
+        <p className="text-foreground">The Services are provided free of charge to all users. All users have access to:</p>
+        <ul className="space-y-2 list-disc list-inside text-foreground">
+          <li>Unlimited chat with Mili (AI coach)</li>
+          <li>Unlimited Village members (1-on-1 connections)</li>
+          <li>Moai creation and participation (subject to Moai capacity limits)</li>
+          <li>All workout features (view, start, complete workouts)</li>
+          <li>Community feed access</li>
+          <li>Personal stats and progress tracking</li>
+        </ul>
 
-        <div className="pl-4 space-y-4">
-          <div>
-            <h4 className="font-semibold text-foreground">5.1.1 Free Tier</h4>
-            <p className="text-foreground font-medium">Includes:</p>
-            <ul className="space-y-2 list-disc list-inside text-foreground">
-              <li>Unlimited chat with Mili (AI coach)</li>
-              <li>Unlimited Village members (1-on-1 connections)</li>
-              <li>Access to 1 Moai (circle) forever</li>
-              <li>All workout features (view, start, complete workouts)</li>
-              <li>Community feed access</li>
-              <li>Personal stats and progress tracking</li>
-            </ul>
-            <p className="text-foreground font-medium mt-3">Limitations:</p>
-            <ul className="space-y-2 list-disc list-inside text-foreground">
-              <li>Limited to 1 Moai creation</li>
-              <li>Workout swaps are not available (upgrade prompts shown)</li>
-              <li>Fitness Coach chat access is not available</li>
-              <li>Priority Moai IRL access is not available</li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-foreground">5.1.2 Moai Premium ($14.99/month)</h4>
-            <p className="text-foreground font-medium">Includes all Free Tier features, plus:</p>
-            <ul className="space-y-2 list-disc list-inside text-foreground">
-              <li>Unlimited Moai creation</li>
-              <li>Workout swaps (bodyweight library + manual entry)</li>
-              <li>Priority access to Moai IRL (when available)</li>
-            </ul>
-            <p className="text-foreground">
-              <strong>Does not include:</strong> Fitness Coach chat access
-            </p>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-foreground">5.1.3 Moai Coach ($80/month)</h4>
-            <p className="text-foreground font-medium">Includes all Moai Premium features, plus:</p>
-            <ul className="space-y-2 list-disc list-inside text-foreground">
-              <li>1-on-1 Coach Chat with certified fitness coach</li>
-              <li>Personalized form analysis & feedback</li>
-              <li>Recovery strategies and rest guidance</li>
-              <li>Asynchronous support throughout the week</li>
-              <li>Optional video check-ins via Calendly</li>
-            </ul>
-          </div>
-        </div>
-
-        <h3 className="text-lg font-semibold mt-6">5.2 Billing and Payment</h3>
+        <h3 className="text-lg font-semibold mt-6">5.2 Moai Coach Subscription</h3>
         <p className="text-foreground">
-          Some features—such as Moai Premium and Moai Coach subscriptions—require a paid subscription or recurring
-          membership.
+          Moai offers an optional Moai Coach Subscription that provides access to a certified fitness coach for your Moai (group of 2-8 people).
+        </p>
+
+        <h4 className="font-semibold text-foreground mt-4">5.2.1 Subscription Details</h4>
+        <ul className="space-y-2 list-disc list-inside text-foreground">
+          <li><strong>Price:</strong> $199/month per Moai</li>
+          <li><strong>Billing:</strong> Monthly recurring subscription</li>
+          <li><strong>Payer:</strong> One member of the Moai (the "sponsor" or "payer") is responsible for payment</li>
+          <li><strong>Access:</strong> All active members of the Moai receive access to the coach, regardless of who pays</li>
+          <li><strong>Capacity:</strong> Each Moai can have 2-8 members</li>
+        </ul>
+
+        <h4 className="font-semibold text-foreground mt-4">5.2.2 What's Included</h4>
+        <p className="text-foreground font-medium">The Moai Coach Subscription includes:</p>
+        <ul className="space-y-2 list-disc list-inside text-foreground">
+          <li>1-on-1 Coach Chat access for all Moai members with a certified fitness coach</li>
+          <li>Personalized form analysis & feedback</li>
+          <li>Recovery strategies and rest guidance</li>
+          <li>Asynchronous support throughout the week</li>
+          <li>Optional video check-ins via Calendly</li>
+          <li>Coach participation in Moai group chats for motivation and guidance</li>
+        </ul>
+
+        <h4 className="font-semibold text-foreground mt-4">5.2.3 Subscription Management</h4>
+        <ul className="space-y-2 list-disc list-inside text-foreground">
+          <li>The payer is responsible for managing the subscription (payment, cancellation, etc.)</li>
+          <li>Only the payer can cancel or modify the subscription</li>
+          <li>If the payer leaves the Moai, they remain responsible for payment until the subscription is cancelled or transferred to another member</li>
+          <li>All Moai members will lose coach access if the subscription is cancelled or payment fails</li>
+        </ul>
+
+        <h3 className="text-lg font-semibold mt-6">5.3 Billing and Payment</h3>
+        <p className="text-foreground">
+          The Moai Coach Subscription requires a paid subscription.
         </p>
         <p className="text-foreground">
-          By purchasing a subscription, you authorize Moai (and third-party processors such as Stripe, Apple App Store,
+          By purchasing a Moai Coach Subscription, you (as the payer) authorize Moai (and third-party processors such as Stripe, Apple App Store,
           or Google Play Store) to charge your payment method for recurring fees until canceled.
         </p>
         <p className="text-foreground font-semibold">You understand:</p>
         <ul className="space-y-3 list-disc list-inside text-foreground">
-          <li>Subscription fees are billed on a recurring monthly basis</li>
+          <li>Subscription fees are billed on a recurring monthly basis ($199/month)</li>
           <li>Payment is processed through your selected payment method</li>
           <li>You are responsible for ensuring your payment information is accurate and up to date</li>
           <li>All prices are in USD unless otherwise stated</li>
           <li>Prices may vary by region due to currency conversion and local taxes</li>
+          <li>You are paying on behalf of your Moai, and all Moai members will benefit from the subscription</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6">5.3 Auto-Renewal</h3>
+        <h3 className="text-lg font-semibold mt-6">5.4 Auto-Renewal</h3>
         <p className="text-foreground">
-          Subscription fees renew automatically unless canceled before the renewal date.
+          The Moai Coach Subscription renews automatically unless canceled before the renewal date.
         </p>
-        <p className="text-foreground">You will be charged the subscription fee on your renewal date.</p>
+        <p className="text-foreground">You will be charged $199 on your renewal date each month.</p>
         <p className="text-foreground">
           To avoid being charged, you must cancel your subscription at least 24 hours before the end of the current
           billing period. Cancellation can be done through your account settings or through the App Store/Play Store
           subscription management.
         </p>
 
-        <h3 className="text-lg font-semibold mt-6">5.4 Cancellation</h3>
+        <h3 className="text-lg font-semibold mt-6">5.5 Cancellation</h3>
         <p className="text-foreground">
-          You may cancel your subscription at any time through your account settings or through the platform used for
+          You (as the payer) may cancel the Moai Coach Subscription at any time through your account settings or through the platform used for
           purchase (e.g., Apple App Store, Google Play Store).
         </p>
         <ul className="space-y-3 list-disc list-inside text-foreground">
           <li>Cancellation takes effect at the end of your current billing period</li>
-          <li>You will retain access to all premium features until the end of your paid period</li>
+          <li>All Moai members will retain access to coach features until the end of your paid period</li>
           <li>No refunds will be provided for the current billing period after cancellation</li>
-          <li>Upon cancellation, your account will revert to the Free Tier at the end of the billing period</li>
+          <li>Upon cancellation, all Moai members will lose access to coach features at the end of the billing period</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6">5.5 Refunds</h3>
+        <h3 className="text-lg font-semibold mt-6">5.6 Refunds</h3>
         <p className="text-foreground">
           Refunds follow the policies of the platform used for purchase (e.g., Apple App Store, Google Play Store) or
           Moai's internal policy if purchased directly through Stripe.
@@ -214,28 +208,24 @@ export default function TermsOfUseContent() {
           .
         </p>
 
-        <h3 className="text-lg font-semibold mt-6">5.6 Subscription Changes</h3>
-        <p className="text-foreground">
-          You may upgrade or downgrade your subscription at any time through your account settings.
-        </p>
+        <h3 className="text-lg font-semibold mt-6">5.7 Subscription Changes</h3>
         <ul className="space-y-3 list-disc list-inside text-foreground">
-          <li>
-            Upgrades take effect immediately, and you will be charged a prorated amount for the remainder of the billing
-            period
-          </li>
-          <li>Downgrades take effect at the end of your current billing period</li>
-          <li>When downgrading, you will retain access to premium features until the end of your paid period</li>
+          <li>You may cancel your Moai Coach Subscription at any time (see Section 5.5)</li>
+          <li>You may switch coaches for your Moai subscription through your account settings</li>
+          <li>If you leave a Moai that has an active subscription you are paying for, you remain responsible for payment until you cancel the subscription</li>
+          <li>If the payer leaves a Moai, the subscription may be transferred to another member if agreed upon by the Moai members</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6">5.7 Feature Access</h3>
+        <h3 className="text-lg font-semibold mt-6">5.8 Feature Access</h3>
         <ul className="space-y-3 list-disc list-inside text-foreground">
-          <li>Subscription features are tied to your account and cannot be transferred</li>
-          <li>Access to premium features requires an active, paid subscription</li>
-          <li>We reserve the right to modify, add, or remove features from any subscription tier</li>
+          <li>Moai Coach Subscription features are tied to the Moai and cannot be transferred to individual users</li>
+          <li>Access to coach features requires an active, paid subscription for the Moai</li>
+          <li>All active members of a Moai with an active subscription receive coach access</li>
+          <li>We reserve the right to modify, add, or remove features from the subscription</li>
           <li>Significant changes to subscription features will be communicated to affected users</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6">5.8 Pricing Changes</h3>
+        <h3 className="text-lg font-semibold mt-6">5.9 Pricing Changes</h3>
         <p className="text-foreground">Pricing may change with prior notice.</p>
         <ul className="space-y-3 list-disc list-inside text-foreground">
           <li>Price changes will not affect your current billing period</li>
@@ -243,7 +233,7 @@ export default function TermsOfUseContent() {
           <li>Continued use of the service after a price change constitutes acceptance of the new price</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6">5.9 Promotions and Trials</h3>
+        <h3 className="text-lg font-semibold mt-6">5.10 Promotions and Trials</h3>
         <p className="text-foreground">Moai may offer discounts, trials, or promotions that are subject to change.</p>
         <ul className="space-y-3 list-disc list-inside text-foreground">
           <li>
@@ -253,18 +243,34 @@ export default function TermsOfUseContent() {
           <li>Promotional pricing may be limited-time offers and may not be available to all users</li>
         </ul>
 
-        <h3 className="text-lg font-semibold mt-6">5.10 Subscription Termination</h3>
+        <h3 className="text-lg font-semibold mt-6">5.11 Subscription Termination</h3>
         <p className="text-foreground">
-          We reserve the right to suspend or terminate your subscription if you violate these Terms. Violations may
-          result in immediate termination without refund.
+          We reserve the right to suspend or terminate a Moai Coach Subscription if:
+        </p>
+        <ul className="space-y-2 list-disc list-inside text-foreground">
+          <li>The payer violates these Terms</li>
+          <li>Payment fails and is not resolved</li>
+          <li>The Moai violates community standards or these Terms</li>
+          <li>Required for legal, regulatory, or security reasons</li>
+        </ul>
+        <p className="text-foreground mt-3">
+          Violations may result in immediate termination without refund.
         </p>
         <p className="text-foreground">
           We may also suspend or terminate subscriptions for any reason, with or without notice.
         </p>
         <p className="text-foreground">
-          Upon termination, your account will revert to the Free Tier. You are responsible for managing your
+          Upon termination, all Moai members will lose access to coach features. You are responsible for managing your
           subscription settings.
         </p>
+
+        <h3 className="text-lg font-semibold mt-6">5.12 Payment Responsibility</h3>
+        <ul className="space-y-3 list-disc list-inside text-foreground">
+          <li>The payer is solely responsible for all charges associated with the Moai Coach Subscription</li>
+          <li>Moai is not responsible for disputes between Moai members regarding payment or subscription management</li>
+          <li>If payment fails, all Moai members will lose access to coach features until payment is restored</li>
+          <li>The payer may not seek reimbursement from other Moai members through Moai; any such arrangements are between Moai members</li>
+        </ul>
       </section>
 
       {/* Section 6 */}
