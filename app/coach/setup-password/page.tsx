@@ -18,9 +18,11 @@ function SetupPasswordContent() {
   useEffect(() => {
     setMounted(true)
     
-    // Check if we have the token in the URL hash (Supabase sends it as a hash fragment)
+    // Check if we have a token in the URL (hash or query - Supabase uses both formats)
     const hash = window.location.hash
-    if (!hash && !searchParams.get('token')) {
+    const hasHashToken = hash && (hash.includes('access_token') || hash.includes('token_hash') || hash.includes('type=invite'))
+    const hasQueryToken = searchParams.get('token') || searchParams.get('token_hash')
+    if (!hasHashToken && !hasQueryToken) {
       setError('Invalid or missing invitation link. Please check your email.')
     }
   }, [searchParams])
@@ -60,48 +62,59 @@ function SetupPasswordContent() {
     try {
       const { supabase } = await import('@/lib/supabase')
       
-      // Extract token from URL hash or query params
+      // Extract token from URL - Supabase uses different formats:
+      // 1. Implicit flow: hash fragment #access_token=xxx&type=invite
+      // 2. PKCE flow: query params ?token_hash=xxx&type=invite
       const hash = window.location.hash
-      let token: string | null = null
-      
-      if (hash) {
-        // Supabase sends token in hash like: #access_token=xxx&type=invite
-        const params = new URLSearchParams(hash.substring(1))
-        token = params.get('access_token') || params.get('token')
-      } else {
-        token = searchParams.get('token')
-      }
+      const hashParams = hash ? new URLSearchParams(hash.substring(1)) : null
+      const tokenHash = hashParams?.get('token_hash') ?? searchParams.get('token_hash')
+      const accessToken = hashParams?.get('access_token') ?? hashParams?.get('token') ?? searchParams.get('token')
 
-      if (!token) {
-        setError('Invalid invitation link. Please check your email for the correct link.')
-        setLoading(false)
-        return
-      }
-
-      // Set the session using the token
-      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-        access_token: token,
-        refresh_token: '', // Will be provided by Supabase if needed
-      })
-
-      // Get the current user ID
       let userId: string | null = null
-      
-      if (sessionError || !sessionData.session) {
-        // Try alternative method: verify the token first
-        // The invitation link should have already verified the user
-        // We just need to update the password
-        const { data: userData } = await supabase.auth.getUser()
-        
-        if (!userData.user) {
-          setError('Invalid or expired invitation link. Please request a new invitation.')
+
+      if (tokenHash) {
+        // PKCE flow: use verifyOtp with token_hash
+        const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: 'invite',
+        })
+
+        if (verifyError || !verifyData.session) {
+          setError(verifyError?.message || 'Invalid or expired invitation link. Please request a new invitation.')
           setLoading(false)
           return
         }
 
-        userId = userData.user.id
+        userId = verifyData.session.user.id
 
-        // Update password directly
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: password,
+        })
+
+        if (updateError) {
+          setError(updateError.message || 'Failed to set password. The invitation link may have expired.')
+          setLoading(false)
+          return
+        }
+      } else if (accessToken) {
+        // Implicit flow: use setSession with access_token
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: hashParams?.get('refresh_token') ?? '',
+        })
+
+        if (sessionError || !sessionData.session) {
+          const { data: userData } = await supabase.auth.getUser()
+          if (!userData.user) {
+            setError('Invalid or expired invitation link. Please request a new invitation.')
+            setLoading(false)
+            return
+          }
+          userId = userData.user.id
+        } else {
+          userId = sessionData.session.user.id
+        }
+
         const { error: updateError } = await supabase.auth.updateUser({
           password: password,
         })
@@ -112,18 +125,9 @@ function SetupPasswordContent() {
           return
         }
       } else {
-        userId = sessionData.session.user.id
-        
-        // Session was set successfully, now update password
-        const { error: updateError } = await supabase.auth.updateUser({
-          password: password,
-        })
-
-        if (updateError) {
-          setError(updateError.message || 'Failed to set password')
-          setLoading(false)
-          return
-        }
+        setError('Invalid invitation link. Please check your email for the correct link.')
+        setLoading(false)
+        return
       }
 
       // Check if username is already taken

@@ -15,10 +15,12 @@ export default function CoachLoginPage() {
     setMounted(true)
     
     // Check if we have an invitation token in the URL (redirect from email)
-    // If so, redirect to password setup page
+    // Supports both implicit flow (hash) and PKCE flow (query params)
     const hash = window.location.hash
-    if (hash && (hash.includes('access_token') || hash.includes('type=invite'))) {
-      router.replace(`/coach/setup-password${hash}`)
+    const hasHashToken = hash && (hash.includes('access_token') || hash.includes('token_hash') || hash.includes('type=invite'))
+    const hasQueryToken = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('token_hash')
+    if (hasHashToken || hasQueryToken) {
+      router.replace(`/coach/setup-password${window.location.search}${hash}`)
       return
     }
   }, [router])
