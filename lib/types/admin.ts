@@ -51,6 +51,10 @@ export interface AdminCoach {
   profile_image_url: string | null
 }
 
+export interface AdminCoachWithStatus extends AdminCoach {
+  signup_confirmed: boolean
+}
+
 export interface AdminMoai {
   id: string
   name: string

@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { AdminService } from '@/lib/services/adminService'
-import type { AdminCoach } from '@/lib/types/admin'
-import { Users, CheckCircle, XCircle, Edit2, UserPlus } from 'lucide-react'
+import type { AdminCoachWithStatus } from '@/lib/types/admin'
+import { Users, CheckCircle, XCircle, Edit2, UserPlus, Mail, Clock } from 'lucide-react'
 import CreateCoachModal from './CreateCoachModal'
 
 export default function AdminCoachesPage() {
-  const [coaches, setCoaches] = useState<AdminCoach[]>([])
+  const [coaches, setCoaches] = useState<AdminCoachWithStatus[]>([])
+  const [resendingFor, setResendingFor] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingCoach, setEditingCoach] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -23,12 +24,30 @@ export default function AdminCoachesPage() {
 
   const loadCoaches = async () => {
     try {
-      const coachesData = await AdminService.getAllCoaches()
+      const coachesData = await AdminService.getCoachesWithStatus()
       setCoaches(coachesData)
     } catch (error) {
       console.error('Error loading coaches:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResendInvite = async (coach: AdminCoachWithStatus) => {
+    if (resendingFor) return
+    setResendingFor(coach.email)
+    try {
+      const result = await AdminService.resendCoachInvite(coach.email)
+      if (result.success && result.inviteLink) {
+        await navigator.clipboard.writeText(result.inviteLink)
+        alert('Invite link copied to clipboard! Send it to the coach. Links expire in 24 hours.')
+      } else {
+        alert(result.error || 'Failed to generate invite link')
+      }
+    } catch (error) {
+      alert('Failed to generate invite link')
+    } finally {
+      setResendingFor(null)
     }
   }
 
@@ -65,7 +84,7 @@ export default function AdminCoachesPage() {
     }
   }
 
-  const startEditing = (coach: AdminCoach) => {
+  const startEditing = (coach: AdminCoachWithStatus) => {
     setEditingCoach(coach.id)
     setEditForm({
       is_available: coach.is_available,
@@ -112,7 +131,7 @@ export default function AdminCoachesPage() {
       />
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 mb-8">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-4 mb-8">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -150,6 +169,19 @@ export default function AdminCoachesPage() {
             </div>
           </div>
         </div>
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <Clock className="h-8 w-8 text-amber-500" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500">Pending Signup</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {coaches.filter((c) => !c.signup_confirmed).length}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Coaches Table */}
@@ -176,15 +208,26 @@ export default function AdminCoachesPage() {
                       )}
                     </div>
                     <div className="ml-4">
-                      <div className="flex items-center">
+                      <div className="flex items-center flex-wrap gap-2">
                         <p className="text-sm font-medium text-gray-900">{coach.name}</p>
                         {coach.is_available ? (
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Available
                           </span>
                         ) : (
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                             Unavailable
+                          </span>
+                        )}
+                        {coach.signup_confirmed ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <CheckCircle className="h-3 w-3" />
+                            Confirmed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            <Clock className="h-3 w-3" />
+                            Pending
                           </span>
                         )}
                       </div>
@@ -235,6 +278,17 @@ export default function AdminCoachesPage() {
                       </div>
                     ) : (
                       <div className="flex items-center space-x-2">
+                        {!coach.signup_confirmed && (
+                          <button
+                            onClick={() => handleResendInvite(coach)}
+                            disabled={!!resendingFor}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
+                            title="Generate new invite link and copy to clipboard"
+                          >
+                            <Mail className="h-4 w-4" />
+                            {resendingFor === coach.email ? 'Copying...' : 'Resend Invite'}
+                          </button>
+                        )}
                         <button
                           onClick={() => handleToggleAvailability(coach.id, coach.is_available)}
                           className={`px-3 py-1 rounded text-sm ${

@@ -3,6 +3,7 @@ import type {
   AdminStats,
   AdminUser,
   AdminCoach,
+  AdminCoachWithStatus,
   AdminMoai,
   LoginActivity,
 } from '../types/admin'
@@ -376,6 +377,55 @@ export class AdminService {
     } catch (error) {
       console.error('Error fetching coaches:', error)
       return []
+    }
+  }
+
+  /**
+   * Get coaches with signup confirmation status (uses API with service role)
+   */
+  static async getCoachesWithStatus(): Promise<AdminCoachWithStatus[]> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return []
+
+      const response = await fetch('/api/admin/coaches-with-status', {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      })
+      if (!response.ok) return []
+
+      const { coaches } = await response.json()
+      return coaches || []
+    } catch (error) {
+      console.error('Error fetching coaches with status:', error)
+      return []
+    }
+  }
+
+  /**
+   * Resend invite link for a coach (returns link to copy, does not send email)
+   */
+  static async resendCoachInvite(email: string): Promise<{ success: boolean; inviteLink?: string; error?: string }> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return { success: false, error: 'Not authenticated' }
+
+      const response = await fetch('/api/admin/resend-coach-invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ email }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result.success) {
+        return { success: false, error: result.error || 'Failed to generate invite link' }
+      }
+      return { success: true, inviteLink: result.inviteLink }
+    } catch (error) {
+      console.error('Error resending coach invite:', error)
+      return { success: false, error: 'Failed to generate invite link' }
     }
   }
 
