@@ -1,183 +1,216 @@
-'use client'
+"use client";
 
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 function SetupPasswordContent() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-    
+    setMounted(true);
+
     // Check if we have a token in the URL (hash or query - Supabase uses both formats)
-    const hash = window.location.hash
-    const hasHashToken = hash && (hash.includes('access_token') || hash.includes('token_hash') || hash.includes('type=invite'))
-    const hasQueryToken = searchParams.get('token') || searchParams.get('token_hash')
+    const hash = window.location.hash;
+    const hasHashToken =
+      hash &&
+      (hash.includes("access_token") ||
+        hash.includes("token_hash") ||
+        hash.includes("type=invite"));
+    const hasQueryToken =
+      searchParams.get("token") || searchParams.get("token_hash");
     if (!hasHashToken && !hasQueryToken) {
-      setError('Invalid or missing invitation link. Please check your email.')
+      setError("Invalid or missing invitation link. Please check your email.");
     }
-  }, [searchParams])
+  }, [searchParams]);
 
   const handlePasswordSetup = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     // Validate username
-    const trimmedUsername = username.trim()
+    const trimmedUsername = username.trim();
     if (!trimmedUsername) {
-      setError('Username is required')
-      setLoading(false)
-      return
+      setError("Username is required");
+      setLoading(false);
+      return;
     }
 
     if (trimmedUsername.length < 8 || trimmedUsername.length > 20) {
-      setError('Username must be between 8 and 20 characters')
-      setLoading(false)
-      return
+      setError("Username must be between 8 and 20 characters");
+      setLoading(false);
+      return;
     }
 
     // Validate password
     if (password.length < 8) {
-      setError('Password must be at least 8 characters long')
-      setLoading(false)
-      return
+      setError("Password must be at least 8 characters long");
+      setLoading(false);
+      return;
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      setLoading(false)
-      return
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
     }
 
     try {
-      const { supabase } = await import('@/lib/supabase')
-      
+      const { supabase } = await import("@/lib/supabase");
+
       // Extract token from URL - Supabase uses different formats:
       // 1. Implicit flow: hash fragment #access_token=xxx&type=invite
       // 2. PKCE flow: query params ?token_hash=xxx&type=invite
-      const hash = window.location.hash
-      const hashParams = hash ? new URLSearchParams(hash.substring(1)) : null
-      const tokenHash = hashParams?.get('token_hash') ?? searchParams.get('token_hash')
-      const accessToken = hashParams?.get('access_token') ?? hashParams?.get('token') ?? searchParams.get('token')
+      const hash = window.location.hash;
+      const hashParams = hash ? new URLSearchParams(hash.substring(1)) : null;
+      const tokenHash =
+        hashParams?.get("token_hash") ?? searchParams.get("token_hash");
+      const accessToken =
+        hashParams?.get("access_token") ??
+        hashParams?.get("token") ??
+        searchParams.get("token");
 
-      let userId: string | null = null
+      let userId: string | null = null;
 
       if (tokenHash) {
         // PKCE flow: use verifyOtp with token_hash
-        const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: 'invite',
-        })
+        const { data: verifyData, error: verifyError } =
+          await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: "invite",
+          });
 
         if (verifyError || !verifyData.session) {
-          setError(verifyError?.message || 'Invalid or expired invitation link. Please request a new invitation.')
-          setLoading(false)
-          return
+          setError(
+            verifyError?.message ||
+              "Invalid or expired invitation link. Please request a new invitation.",
+          );
+          setLoading(false);
+          return;
         }
 
-        userId = verifyData.session.user.id
+        userId = verifyData.session.user.id;
 
         const { error: updateError } = await supabase.auth.updateUser({
           password: password,
-        })
+        });
 
         if (updateError) {
-          setError(updateError.message || 'Failed to set password. The invitation link may have expired.')
-          setLoading(false)
-          return
+          if (updateError.code === "same_password") {
+            setSuccess(true);
+            setTimeout(() => router.push("/coach"), 2000);
+            return;
+          }
+          setError(
+            updateError.message ||
+              "Failed to set password. The invitation link may have expired.",
+          );
+          setLoading(false);
+          return;
         }
       } else if (accessToken) {
         // Implicit flow: use setSession with access_token
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: hashParams?.get('refresh_token') ?? '',
-        })
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: hashParams?.get("refresh_token") ?? "",
+          });
 
         if (sessionError || !sessionData.session) {
-          const { data: userData } = await supabase.auth.getUser()
+          const { data: userData } = await supabase.auth.getUser();
           if (!userData.user) {
-            setError('Invalid or expired invitation link. Please request a new invitation.')
-            setLoading(false)
-            return
+            setError(
+              "Invalid or expired invitation link. Please request a new invitation.",
+            );
+            setLoading(false);
+            return;
           }
-          userId = userData.user.id
+          userId = userData.user.id;
         } else {
-          userId = sessionData.session.user.id
+          userId = sessionData.session.user.id;
         }
 
         const { error: updateError } = await supabase.auth.updateUser({
           password: password,
-        })
+        });
 
         if (updateError) {
-          setError(updateError.message || 'Failed to set password. The invitation link may have expired.')
-          setLoading(false)
-          return
+          setError(
+            updateError.message ||
+              "Failed to set password. The invitation link may have expired.",
+          );
+          setLoading(false);
+          return;
         }
       } else {
-        setError('Invalid invitation link. Please check your email for the correct link.')
-        setLoading(false)
-        return
+        setError(
+          "Invalid invitation link. Please check your email for the correct link.",
+        );
+        setLoading(false);
+        return;
       }
 
       // Check if username is already taken
       if (userId) {
         const { data: existingUser, error: checkError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('username', trimmedUsername)
-          .neq('id', userId)
-          .single()
+          .from("users")
+          .select("id")
+          .eq("username", trimmedUsername)
+          .neq("id", userId)
+          .maybeSingle();
 
-        if (checkError && checkError.code !== 'PGRST116') {
+        if (checkError && checkError.code !== "PGRST116") {
           // PGRST116 is "not found" which is what we want
-          console.error('Error checking username:', checkError)
-          setError('Failed to check username availability')
-          setLoading(false)
-          return
+          console.error("Error checking username:", checkError);
+          setError("Failed to check username availability");
+          setLoading(false);
+          return;
         }
 
         if (existingUser) {
-          setError('Username is already taken. Please choose a different username.')
-          setLoading(false)
-          return
+          setError(
+            "Username is already taken. Please choose a different username.",
+          );
+          setLoading(false);
+          return;
         }
 
         // Update username in users table
         const { error: usernameError } = await supabase
-          .from('users')
+          .from("users")
           .update({ username: trimmedUsername })
-          .eq('id', userId)
+          .eq("id", userId);
 
         if (usernameError) {
-          console.error('Error updating username:', usernameError)
-          setError('Failed to set username. Please try again.')
-          setLoading(false)
-          return
+          console.error("Error updating username:", usernameError);
+          setError("Failed to set username. Please try again.");
+          setLoading(false);
+          return;
         }
       }
 
-      setSuccess(true)
+      setSuccess(true);
       // Redirect to coach dashboard after a short delay
       setTimeout(() => {
-        router.push('/coach')
-      }, 2000)
+        router.push("/coach");
+      }, 2000);
     } catch (err: any) {
-      console.error('Password setup error:', err)
-      setError(err.message || 'An error occurred while setting up your password')
-      setLoading(false)
+      console.error("Password setup error:", err);
+      setError(
+        err.message || "An error occurred while setting up your password",
+      );
+      setLoading(false);
     }
-  }
+  };
 
   if (!mounted) {
     return (
@@ -187,7 +220,7 @@ function SetupPasswordContent() {
           <p className="mt-4 text-slate-600">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (success) {
@@ -195,12 +228,14 @@ function SetupPasswordContent() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8 text-center">
           <div className="rounded-md bg-green-50 border border-green-200 p-6">
-            <h2 className="text-2xl font-semibold text-green-800 mb-2">Password Set Successfully!</h2>
+            <h2 className="text-2xl font-semibold text-green-800 mb-2">
+              Password Set Successfully!
+            </h2>
             <p className="text-green-700">Redirecting to your dashboard...</p>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -290,32 +325,37 @@ function SetupPasswordContent() {
               disabled={loading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-[#1e3a8a] hover:bg-[#1e40af] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
             >
-              {loading ? 'Setting up account...' : 'Set Up Account'}
+              {loading ? "Setting up account..." : "Set Up Account"}
             </button>
           </div>
-          
+
           <div className="text-center">
-            <Link href="/coach/login" className="text-sm text-[#1e3a8a] hover:text-[#1e40af]">
+            <Link
+              href="/coach/login"
+              className="text-sm text-[#1e3a8a] hover:text-[#1e40af]"
+            >
               Already have a password? Sign in
             </Link>
           </div>
         </form>
       </div>
     </div>
-  )
+  );
 }
 
 export default function SetupPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a8a] mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1e3a8a] mx-auto"></div>
+            <p className="mt-4 text-slate-600">Loading...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <SetupPasswordContent />
     </Suspense>
-  )
+  );
 }
