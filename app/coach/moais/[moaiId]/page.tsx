@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { useEffect, useState, useMemo, useRef } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { CoachService } from '@/lib/services/coachService'
-import { ChatService } from '@/lib/services/chatService'
+import { useEffect, useState, useMemo, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { CoachService } from "@/lib/services/coachService";
+import { ChatService } from "@/lib/services/chatService";
 import type {
   MoaiDetail,
   CoachProfile,
@@ -15,9 +15,9 @@ import type {
   ExercisePerformance,
   WorkoutInPlan,
   PersonalBest,
-} from '@/lib/types/coach'
-import type { MoaiChatMessage, MoaiChat } from '@/lib/services/chatService'
-import Link from 'next/link'
+} from "@/lib/types/coach";
+import type { MoaiChatMessage, MoaiChat } from "@/lib/services/chatService";
+import Link from "next/link";
 import {
   ArrowLeft,
   MessageSquare,
@@ -35,46 +35,45 @@ import {
   Dumbbell,
   BarChart3,
   LogOut,
-} from 'lucide-react'
+} from "lucide-react";
 
 interface TrendAnalysis {
-  completionRateTrend: 'up' | 'down' | 'stable'
-  completionRateChange: number
-  memberEngagementTrend: 'up' | 'down' | 'stable'
-  memberEngagementChange: number
+  completionRateTrend: "up" | "down" | "stable";
+  completionRateChange: number;
+  memberEngagementTrend: "up" | "down" | "stable";
+  memberEngagementChange: number;
   recentWeeks: Array<{
-    week_start: string
-    completion_rate: number
-    member_count: number
-  }>
+    week_start: string;
+    completion_rate: number;
+    member_count: number;
+  }>;
 }
 
-
 export default function MoaiDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const moaiId = params.moaiId as string
+  const params = useParams();
+  const router = useRouter();
+  const moaiId = params.moaiId as string;
 
-  const [moaiDetail, setMoaiDetail] = useState<MoaiDetail | null>(null)
-  const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [showChat, setShowChat] = useState(false)
-  const [chatMessages, setChatMessages] = useState<MoaiChatMessage[]>([])
-  const [moaiChat, setMoaiChat] = useState<MoaiChat | null>(null)
-  const [chatInputText, setChatInputText] = useState('')
-  const [sendingMessage, setSendingMessage] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [moaiDetail, setMoaiDetail] = useState<MoaiDetail | null>(null);
+  const [coachProfile, setCoachProfile] = useState<CoachProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState<MoaiChatMessage[]>([]);
+  const [moaiChat, setMoaiChat] = useState<MoaiChat | null>(null);
+  const [chatInputText, setChatInputText] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [selectedMember, setSelectedMember] = useState<{
-    userId: string
-    member: MoaiMemberMetrics
-  } | null>(null)
+    userId: string;
+    member: MoaiMemberMetrics;
+  } | null>(null);
   const [memberDetails, setMemberDetails] = useState<{
-    metrics: ClientMetrics | null
-    commitmentHistory: CommitmentHistory[]
-    workoutHistory: WorkoutHistory[]
-    exercisePerformance: ExercisePerformance[]
-    weeklyWorkouts: WorkoutInPlan[]
-    loading: boolean
+    metrics: ClientMetrics | null;
+    commitmentHistory: CommitmentHistory[];
+    workoutHistory: WorkoutHistory[];
+    exercisePerformance: ExercisePerformance[];
+    weeklyWorkouts: WorkoutInPlan[];
+    loading: boolean;
   }>({
     metrics: null,
     commitmentHistory: [],
@@ -82,90 +81,145 @@ export default function MoaiDetailPage() {
     exercisePerformance: [],
     weeklyWorkouts: [],
     loading: false,
-  })
-  const [activeMemberTab, setActiveMemberTab] = useState<'workouts' | 'progression' | 'program'>('workouts')
+  });
+  const [activeMemberTab, setActiveMemberTab] = useState<
+    "workouts" | "progression" | "program"
+  >("workouts");
   const [selectedWorkout, setSelectedWorkout] = useState<{
-    sessionId: string
-    workout: WorkoutHistory
-  } | null>(null)
+    sessionId: string;
+    workout: WorkoutHistory;
+  } | null>(null);
   const [workoutDetails, setWorkoutDetails] = useState<{
-    session: WorkoutHistory | null
+    session: WorkoutHistory | null;
     exercises: Array<{
-      exercise_name: string
+      exercise_name: string;
       sets: Array<{
-        id: string
-        set_number: number
-        weight_lbs: number | null
-        reps: number | null
-        is_completed: boolean
-      }>
-    }>
-  } | null>(null)
-  const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
-  const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null)
+        id: string;
+        set_number: number;
+        weight_lbs: number | null;
+        reps: number | null;
+        is_completed: boolean;
+      }>;
+    }>;
+  } | null>(null);
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(
+    null,
+  );
   const [workoutTemplateDetails, setWorkoutTemplateDetails] = useState<{
-    workoutId: string
+    workoutId: string;
     exercises: Array<{
-      exercise_name: string
+      exercise_name: string;
       sets: Array<{
-        set_number: number
-        target_reps: number | null
-        target_weight_lbs: number | null
-      }>
-    }>
-  } | null>(null)
-  const [workoutPersonalBests, setWorkoutPersonalBests] = useState<Map<string, PersonalBest>>(new Map())
+        set_number: number;
+        target_reps: number | null;
+        target_weight_lbs: number | null;
+      }>;
+    }>;
+  } | null>(null);
+  const [workoutPersonalBests, setWorkoutPersonalBests] = useState<
+    Map<string, PersonalBest>
+  >(new Map());
+  const [focuses, setFocuses] = useState<{ id: string; name: string }[]>([]);
+  const [updatingFocus, setUpdatingFocus] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [memberFocuses, setMemberFocuses] = useState<Record<string, string>>(
+    {},
+  );
+
+  const handleFocusChange = async (userId: string, focusId: string) => {
+    setUpdatingFocus((prev) => ({ ...prev, [userId]: true }));
+    const { error } = await supabase
+      .from("users")
+      .update({ focus: focusId })
+      .eq("id", userId);
+    if (!error) setMemberFocuses((prev) => ({ ...prev, [userId]: focusId }));
+    setUpdatingFocus((prev) => ({ ...prev, [userId]: false }));
+  };
 
   useEffect(() => {
-    loadMoaiDetail()
-  }, [moaiId])
+    loadMoaiDetail();
+  }, [moaiId]);
 
   const loadMoaiDetail = async () => {
     try {
-      setLoading(true)
+      setLoading(true);
       const {
         data: { session },
         error: sessionError,
-      } = await supabase.auth.getSession()
+      } = await supabase.auth.getSession();
 
       if (sessionError || !session) {
-        console.error('Session error:', sessionError)
-        router.push('/coach/login')
-        return
+        console.error("Session error:", sessionError);
+        router.push("/coach/login");
+        return;
       }
 
       // Get coach profile
-      const profile = await CoachService.getCoachProfileByUserId(session.user.id)
+      const profile = await CoachService.getCoachProfileByUserId(
+        session.user.id,
+      );
+
       if (!profile) {
-        console.error('No coach profile found for user:', session.user.id)
-        router.push('/')
-        return
+        console.error("No coach profile found for user:", session.user.id);
+        router.push("/");
+        return;
       }
 
-      setCoachProfile(profile)
+      setCoachProfile(profile);
 
       // Get Moai detail
-      console.log('Fetching Moai detail for:', { moaiId, coachId: profile.id })
-      const detail = await CoachService.getMoaiDetail(moaiId, profile.id)
+      console.log("Fetching Moai detail for:", { moaiId, coachId: profile.id });
+      const detail = await CoachService.getMoaiDetail(moaiId, profile.id);
       if (!detail) {
-        console.error('Moai detail not found or access denied')
-        router.push('/coach/moais')
-        return
+        console.error("Moai detail not found or access denied");
+        router.push("/coach/moais");
+        return;
       }
 
-      console.log('Moai detail loaded successfully:', detail)
-      setMoaiDetail(detail)
+      console.log("Moai detail loaded successfully:", detail);
+      setMoaiDetail(detail);
+
+      const { data: focusData } = await supabase
+        .from("workout_focus")
+        .select("id, name")
+        .order("name");
+      setFocuses(focusData || []);
+
+      if (detail.members?.length > 0) {
+        const memberIds = detail.members.map((m: any) => m.user_id);
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("id, focus")
+          .in("id", memberIds);
+
+        const focusMap: Record<string, string> = {};
+        if (usersData) {
+          usersData.forEach((u: any) => {
+            if (u.focus && focusData) {
+              const matchById = focusData.find((f: any) => f.id === u.focus);
+              const matchByName = focusData.find(
+                (f: any) => f.name === u.focus,
+              );
+              const match = matchById || matchByName;
+              if (match) focusMap[u.id] = match.id;
+            }
+          });
+        }
+        setMemberFocuses(focusMap);
+      }
     } catch (error) {
-      console.error('Error loading Moai detail:', error)
-      setMoaiDetail(null)
+      console.error("Error loading Moai detail:", error);
+      setMoaiDetail(null);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Load member details when modal opens
   const loadMemberDetails = async (userId: string) => {
-    if (!coachProfile) return
+    if (!coachProfile) return;
 
     setMemberDetails({
       metrics: null,
@@ -174,38 +228,43 @@ export default function MoaiDetailPage() {
       exercisePerformance: [],
       weeklyWorkouts: [],
       loading: true,
-    })
+    });
 
     try {
       // Get current week start for weekly workouts (Monday)
-      const currentWeekStart = new Date()
-      const dayOfWeek = currentWeekStart.getDay() // 0 = Sunday, 1 = Monday, etc.
-      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-      currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday)
-      currentWeekStart.setHours(0, 0, 0, 0) // Set to start of day
-      
+      const currentWeekStart = new Date();
+      const dayOfWeek = currentWeekStart.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      currentWeekStart.setDate(currentWeekStart.getDate() - daysToMonday);
+      currentWeekStart.setHours(0, 0, 0, 0); // Set to start of day
+
       // Format as YYYY-MM-DD in local time (not UTC)
-      const year = currentWeekStart.getFullYear()
-      const month = String(currentWeekStart.getMonth() + 1).padStart(2, '0')
-      const day = String(currentWeekStart.getDate()).padStart(2, '0')
-      const weekStartStr = `${year}-${month}-${day}`
+      const year = currentWeekStart.getFullYear();
+      const month = String(currentWeekStart.getMonth() + 1).padStart(2, "0");
+      const day = String(currentWeekStart.getDate()).padStart(2, "0");
+      const weekStartStr = `${year}-${month}-${day}`;
 
       // Fetch all data, but handle errors gracefully since Moai members might not be direct clients
-      const [metricsResult, commitmentHistoryResult, workoutHistoryResult, exercisePerformanceResult, weeklyWorkoutsResult] =
-        await Promise.allSettled([
-          CoachService.getClientMetrics(userId, coachProfile.id),
-          CoachService.getClientCommitmentHistory(userId, coachProfile.id),
-          CoachService.getClientWorkoutHistory(userId, coachProfile.id, 20),
-          CoachService.getClientExercisePerformance(userId),
-          CoachService.getWeeklyAssignedWorkouts(userId, weekStartStr),
-        ])
+      const [
+        metricsResult,
+        commitmentHistoryResult,
+        workoutHistoryResult,
+        exercisePerformanceResult,
+        weeklyWorkoutsResult,
+      ] = await Promise.allSettled([
+        CoachService.getClientMetrics(userId, coachProfile.id),
+        CoachService.getClientCommitmentHistory(userId, coachProfile.id),
+        CoachService.getClientWorkoutHistory(userId, coachProfile.id, 20),
+        CoachService.getClientExercisePerformance(userId),
+        CoachService.getWeeklyAssignedWorkouts(userId, weekStartStr),
+      ]);
 
       let metrics =
-        metricsResult.status === 'fulfilled' ? metricsResult.value : null
+        metricsResult.status === "fulfilled" ? metricsResult.value : null;
 
       // If metrics is null (member not a direct client), create metrics from selectedMember.member data
       if (!metrics && selectedMember && selectedMember.member) {
-        const member = selectedMember.member
+        const member = selectedMember.member;
         metrics = {
           user_id: member.user_id,
           email: member.email,
@@ -234,41 +293,56 @@ export default function MoaiDetailPage() {
           last_note_updated_at: null,
           notes_count: 0,
           pending_video_reviews: 0,
-        }
+        };
       }
 
       const commitmentHistory =
-        commitmentHistoryResult.status === 'fulfilled'
+        commitmentHistoryResult.status === "fulfilled"
           ? commitmentHistoryResult.value || []
-          : []
+          : [];
       const workoutHistory =
-        workoutHistoryResult.status === 'fulfilled'
+        workoutHistoryResult.status === "fulfilled"
           ? workoutHistoryResult.value || []
-          : []
+          : [];
       const exercisePerformance =
-        exercisePerformanceResult.status === 'fulfilled'
+        exercisePerformanceResult.status === "fulfilled"
           ? exercisePerformanceResult.value || []
-          : []
+          : [];
       const weeklyWorkouts =
-        weeklyWorkoutsResult.status === 'fulfilled'
+        weeklyWorkoutsResult.status === "fulfilled"
           ? weeklyWorkoutsResult.value || []
-          : []
+          : [];
 
       // Log errors but don't fail completely
-      if (metricsResult.status === 'rejected') {
-        console.warn('Could not fetch client metrics (member may not be a direct client):', metricsResult.reason)
+      if (metricsResult.status === "rejected") {
+        console.warn(
+          "Could not fetch client metrics (member may not be a direct client):",
+          metricsResult.reason,
+        );
       }
-      if (commitmentHistoryResult.status === 'rejected') {
-        console.warn('Error fetching commitment history:', commitmentHistoryResult.reason)
+      if (commitmentHistoryResult.status === "rejected") {
+        console.warn(
+          "Error fetching commitment history:",
+          commitmentHistoryResult.reason,
+        );
       }
-      if (workoutHistoryResult.status === 'rejected') {
-        console.warn('Error fetching workout history:', workoutHistoryResult.reason)
+      if (workoutHistoryResult.status === "rejected") {
+        console.warn(
+          "Error fetching workout history:",
+          workoutHistoryResult.reason,
+        );
       }
-      if (exercisePerformanceResult.status === 'rejected') {
-        console.warn('Error fetching exercise performance:', exercisePerformanceResult.reason)
+      if (exercisePerformanceResult.status === "rejected") {
+        console.warn(
+          "Error fetching exercise performance:",
+          exercisePerformanceResult.reason,
+        );
       }
-      if (weeklyWorkoutsResult.status === 'rejected') {
-        console.warn('Error fetching weekly workouts:', weeklyWorkoutsResult.reason)
+      if (weeklyWorkoutsResult.status === "rejected") {
+        console.warn(
+          "Error fetching weekly workouts:",
+          weeklyWorkoutsResult.reason,
+        );
       }
 
       setMemberDetails({
@@ -278,9 +352,9 @@ export default function MoaiDetailPage() {
         exercisePerformance,
         weeklyWorkouts,
         loading: false,
-      })
+      });
     } catch (error) {
-      console.error('Error loading member details:', error)
+      console.error("Error loading member details:", error);
       setMemberDetails({
         metrics: null,
         commitmentHistory: [],
@@ -288,81 +362,85 @@ export default function MoaiDetailPage() {
         exercisePerformance: [],
         weeklyWorkouts: [],
         loading: false,
-      })
+      });
     }
-  }
+  };
 
   // Load workout details
   const loadWorkoutDetails = async (sessionId: string) => {
-    const details = await CoachService.getWorkoutSessionDetails(sessionId)
-    setWorkoutDetails(details)
-  }
+    const details = await CoachService.getWorkoutSessionDetails(sessionId);
+    setWorkoutDetails(details);
+  };
 
   // Handle workout click
   const handleWorkoutClick = async (workout: WorkoutHistory) => {
-    setSelectedWorkout({ sessionId: workout.session_id, workout })
-    await loadWorkoutDetails(workout.session_id)
-  }
+    setSelectedWorkout({ sessionId: workout.session_id, workout });
+    await loadWorkoutDetails(workout.session_id);
+  };
 
   // Handle weekly workout expansion
   const handleWeeklyWorkoutClick = async (workout: WorkoutInPlan) => {
     if (expandedWorkoutId === workout.workout_id) {
       // Collapse
-      setExpandedWorkoutId(null)
-      setWorkoutTemplateDetails(null)
-      setWorkoutPersonalBests(new Map())
+      setExpandedWorkoutId(null);
+      setWorkoutTemplateDetails(null);
+      setWorkoutPersonalBests(new Map());
     } else {
       // Expand
-      setExpandedWorkoutId(workout.workout_id)
-      
+      setExpandedWorkoutId(workout.workout_id);
+
       // Fetch workout template details
-      const templateDetails = await CoachService.getWorkoutTemplateDetails(workout.workout_id)
+      const templateDetails = await CoachService.getWorkoutTemplateDetails(
+        workout.workout_id,
+      );
       if (templateDetails) {
         setWorkoutTemplateDetails({
           workoutId: templateDetails.workout_id,
           exercises: templateDetails.exercises,
-        })
+        });
       }
 
       // Fetch personal bests for the user
       if (selectedMember) {
-        const personalBests = await CoachService.getUserPersonalBests(selectedMember.userId)
-        const pbMap = new Map<string, PersonalBest>()
+        const personalBests = await CoachService.getUserPersonalBests(
+          selectedMember.userId,
+        );
+        const pbMap = new Map<string, PersonalBest>();
         personalBests.forEach((pb) => {
-          pbMap.set(pb.exercise_name, pb)
-        })
-        setWorkoutPersonalBests(pbMap)
+          pbMap.set(pb.exercise_name, pb);
+        });
+        setWorkoutPersonalBests(pbMap);
       }
     }
-  }
+  };
 
   // Handle exercise click - navigate to progression tab
   const handleExerciseClick = (exerciseName: string) => {
-    setSelectedExercise(exerciseName)
-    setActiveMemberTab('progression')
-    setSelectedWorkout(null) // Close workout detail if open
-  }
+    setSelectedExercise(exerciseName);
+    setActiveMemberTab("progression");
+    setSelectedWorkout(null); // Close workout detail if open
+  };
 
   // Load chat when chat panel is opened
   useEffect(() => {
-    if (!showChat || !moaiDetail || !coachProfile?.user_id) return
+    if (!showChat || !moaiDetail || !coachProfile?.user_id) return;
 
-    let unsubscribe: (() => void) | null = null
+    let unsubscribe: (() => void) | null = null;
 
     const loadChat = async () => {
       try {
-        const chat = await ChatService.getMoaiChat(moaiId)
+        const chat = await ChatService.getMoaiChat(moaiId);
         if (!chat) {
-          console.error('Moai chat not found')
-          return
+          console.error("Moai chat not found");
+          return;
         }
 
-        setMoaiChat(chat)
+        setMoaiChat(chat);
         const messages = await ChatService.getMoaiChatMessages(
           chat.id,
-          moaiDetail.coach_subscription_started_at
-        )
-        setChatMessages(messages)
+          moaiDetail.coach_subscription_started_at,
+        );
+        setChatMessages(messages);
 
         // Subscribe to new messages
         unsubscribe = ChatService.subscribeToMoaiChatMessages(
@@ -371,86 +449,108 @@ export default function MoaiDetailPage() {
           (newMessage) => {
             setChatMessages((prev) => {
               if (prev.some((m) => m.id === newMessage.id)) {
-                return prev
+                return prev;
               }
-              return [...prev, newMessage]
-            })
-          }
-        )
+              return [...prev, newMessage];
+            });
+          },
+        );
       } catch (error) {
-        console.error('Error loading chat:', error)
+        console.error("Error loading chat:", error);
       }
-    }
+    };
 
-    loadChat()
+    loadChat();
 
     return () => {
       if (unsubscribe) {
-        unsubscribe()
+        unsubscribe();
       }
-    }
-  }, [showChat, moaiId, moaiDetail, coachProfile?.user_id])
+    };
+  }, [showChat, moaiId, moaiDetail, coachProfile?.user_id]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
     if (showChat && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [chatMessages, showChat])
+  }, [chatMessages, showChat]);
 
   const handleSendMessage = async () => {
-    if (!chatInputText.trim() || !moaiChat || !coachProfile?.user_id || sendingMessage) return
+    if (
+      !chatInputText.trim() ||
+      !moaiChat ||
+      !coachProfile?.user_id ||
+      sendingMessage
+    )
+      return;
 
-    setSendingMessage(true)
+    setSendingMessage(true);
     try {
       const newMessage = await ChatService.sendMoaiChatMessage(
         moaiChat.id,
         coachProfile.user_id,
-        chatInputText.trim()
-      )
+        chatInputText.trim(),
+      );
       if (newMessage) {
-        setChatMessages((prev) => [...prev, newMessage])
-        setChatInputText('')
+        setChatMessages((prev) => [...prev, newMessage]);
+        setChatInputText("");
       }
     } catch (error) {
-      console.error('Error sending message:', error)
+      console.error("Error sending message:", error);
     } finally {
-      setSendingMessage(false)
+      setSendingMessage(false);
     }
-  }
+  };
 
   // Handle member card click
   const handleMemberClick = (member: MoaiMemberMetrics) => {
-    setSelectedMember({ userId: member.user_id, member })
-    loadMemberDetails(member.user_id)
-  }
+    setSelectedMember({ userId: member.user_id, member });
+    loadMemberDetails(member.user_id);
+  };
 
   // Calculate week-over-week trends
   const trendAnalysis = useMemo((): TrendAnalysis | null => {
-    if (!moaiDetail || moaiDetail.moai_commitment_history.length < 2) return null
+    if (!moaiDetail || moaiDetail.moai_commitment_history.length < 2)
+      return null;
 
     const history = [...moaiDetail.moai_commitment_history]
-      .sort((a, b) => new Date(a.week_start).getTime() - new Date(b.week_start).getTime())
-      .slice(-8) // Last 8 weeks for trend analysis
+      .sort(
+        (a, b) =>
+          new Date(a.week_start).getTime() - new Date(b.week_start).getTime(),
+      )
+      .slice(-8); // Last 8 weeks for trend analysis
 
-    if (history.length < 2) return null
+    if (history.length < 2) return null;
 
-    const recent = history.slice(-4) // Last 4 weeks
-    const previous = history.slice(-8, -4) // Previous 4 weeks
+    const recent = history.slice(-4); // Last 4 weeks
+    const previous = history.slice(-8, -4); // Previous 4 weeks
 
-    const recentAvg = recent.reduce((sum, w) => sum + w.completion_rate, 0) / recent.length
-    const previousAvg = previous.reduce((sum, w) => sum + w.completion_rate, 0) / previous.length
+    const recentAvg =
+      recent.reduce((sum, w) => sum + w.completion_rate, 0) / recent.length;
+    const previousAvg =
+      previous.reduce((sum, w) => sum + w.completion_rate, 0) / previous.length;
 
-    const completionRateChange = recentAvg - previousAvg
-    const completionRateTrend: 'up' | 'down' | 'stable' =
-      completionRateChange > 5 ? 'up' : completionRateChange < -5 ? 'down' : 'stable'
+    const completionRateChange = recentAvg - previousAvg;
+    const completionRateTrend: "up" | "down" | "stable" =
+      completionRateChange > 5
+        ? "up"
+        : completionRateChange < -5
+          ? "down"
+          : "stable";
 
-    const recentMemberAvg = recent.reduce((sum, w) => sum + w.member_count, 0) / recent.length
-    const previousMemberAvg = previous.reduce((sum, w) => sum + w.member_count, 0) / previous.length
+    const recentMemberAvg =
+      recent.reduce((sum, w) => sum + w.member_count, 0) / recent.length;
+    const previousMemberAvg =
+      previous.reduce((sum, w) => sum + w.member_count, 0) / previous.length;
 
-    const memberEngagementChange = recentMemberAvg - previousMemberAvg
-    const memberEngagementTrend: 'up' | 'down' | 'stable' =
-      memberEngagementChange > 0.5 ? 'up' : memberEngagementChange < -0.5 ? 'down' : 'stable'
+    const memberEngagementChange = recentMemberAvg - previousMemberAvg;
+    const memberEngagementTrend: "up" | "down" | "stable" =
+      memberEngagementChange > 0.5
+        ? "up"
+        : memberEngagementChange < -0.5
+          ? "down"
+          : "stable";
 
     return {
       completionRateTrend,
@@ -462,9 +562,8 @@ export default function MoaiDetailPage() {
         completion_rate: w.completion_rate,
         member_count: w.member_count,
       })),
-    }
-  }, [moaiDetail])
-
+    };
+  }, [moaiDetail]);
 
   if (loading) {
     return (
@@ -474,29 +573,32 @@ export default function MoaiDetailPage() {
           <p className="mt-4 text-gray-600">Loading Moai details...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (!moaiDetail) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-600">Moai not found or you don't have access</p>
-        <Link href="/coach/moais" className="mt-4 text-blue-600 hover:text-blue-800">
+        <Link
+          href="/coach/moais"
+          className="mt-4 text-blue-600 hover:text-blue-800"
+        >
           Back to Moais
         </Link>
       </div>
-    )
+    );
   }
 
   const formatDate = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-')
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-    return date.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      year: 'numeric',
-    })
-  }
+    const [year, month, day] = dateStr.split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    return date.toLocaleDateString("en-US", {
+      month: "2-digit",
+      day: "2-digit",
+      year: "numeric",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
@@ -505,33 +607,41 @@ export default function MoaiDetailPage() {
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/coach/moais" className="text-gray-500 hover:text-gray-700">
+              <Link
+                href="/coach/moais"
+                className="text-gray-500 hover:text-gray-700"
+              >
                 <ArrowLeft className="h-5 w-5" />
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{moaiDetail.name}</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {moaiDetail.name}
+                </h1>
                 <p className="text-sm text-gray-600 mt-1">
-                  {moaiDetail.member_count} members • {moaiDetail.status} • {moaiDetail.weeks_active} weeks active
+                  {moaiDetail.member_count} members • {moaiDetail.status} •{" "}
+                  {moaiDetail.weeks_active} weeks active
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-            <button
-              onClick={() => setShowChat(!showChat)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <MessageSquare className="h-5 w-5" />
-              Chat
-            </button>
+              <button
+                onClick={() => setShowChat(!showChat)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <MessageSquare className="h-5 w-5" />
+                Chat
+              </button>
+            </div>
           </div>
-        </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className={`max-w-7xl mx-auto px-6 py-6 transition-all duration-300 ${
-        showChat ? 'md:mr-96' : ''
-      }`}>
+      <div
+        className={`max-w-7xl mx-auto px-6 py-6 transition-all duration-300 ${
+          showChat ? "md:mr-96" : ""
+        }`}
+      >
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -540,38 +650,46 @@ export default function MoaiDetailPage() {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Commitment %</p>
+                    <p className="text-sm font-medium text-gray-600">
+                      Commitment %
+                    </p>
                     <p className="text-2xl font-bold text-gray-900 mt-1">
                       {(() => {
                         // Calculate total commitments met / total commitments set
-                        const totalCommitment = moaiDetail.moai_commitment_history?.reduce(
-                          (sum, week) => sum + (week.total_commitment || 0),
-                          0
-                        ) || 0
-                        const totalCompleted = moaiDetail.moai_commitment_history?.reduce(
-                          (sum, week) => sum + (week.total_completed || 0),
-                          0
-                        ) || 0
-                        const commitmentPercent = totalCommitment > 0 
-                          ? (totalCompleted / totalCommitment) * 100 
-                          : 0
-                        return commitmentPercent.toFixed(1)
-                      })()}%
+                        const totalCommitment =
+                          moaiDetail.moai_commitment_history?.reduce(
+                            (sum, week) => sum + (week.total_commitment || 0),
+                            0,
+                          ) || 0;
+                        const totalCompleted =
+                          moaiDetail.moai_commitment_history?.reduce(
+                            (sum, week) => sum + (week.total_completed || 0),
+                            0,
+                          ) || 0;
+                        const commitmentPercent =
+                          totalCommitment > 0
+                            ? (totalCompleted / totalCommitment) * 100
+                            : 0;
+                        return commitmentPercent.toFixed(1);
+                      })()}
+                      %
                     </p>
                     {trendAnalysis && (
                       <div className="flex items-center gap-1 mt-2">
-                        {trendAnalysis.completionRateTrend === 'up' ? (
+                        {trendAnalysis.completionRateTrend === "up" ? (
                           <>
                             <ArrowUpRight className="h-4 w-4 text-green-600" />
                             <span className="text-sm text-green-600">
-                              +{trendAnalysis.completionRateChange.toFixed(1)}% vs previous period
+                              +{trendAnalysis.completionRateChange.toFixed(1)}%
+                              vs previous period
                             </span>
                           </>
-                        ) : trendAnalysis.completionRateTrend === 'down' ? (
+                        ) : trendAnalysis.completionRateTrend === "down" ? (
                           <>
                             <ArrowDownRight className="h-4 w-4 text-red-600" />
                             <span className="text-sm text-red-600">
-                              -{trendAnalysis.completionRateChange.toFixed(1)}% vs previous period
+                              -{trendAnalysis.completionRateChange.toFixed(1)}%
+                              vs previous period
                             </span>
                           </>
                         ) : (
@@ -587,12 +705,15 @@ export default function MoaiDetailPage() {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Total Workouts</p>
+                    <p className="text-sm font-medium text-gray-600">
+                      Total Workouts
+                    </p>
                     <p className="text-2xl font-bold text-gray-900 mt-1">
                       {moaiDetail.moai_workout_stats?.total_workouts || 0}
                     </p>
                     <p className="text-sm text-gray-500 mt-1">
-                      {moaiDetail.moai_workout_stats?.completed_workouts || 0} completed
+                      {moaiDetail.moai_workout_stats?.completed_workouts || 0}{" "}
+                      completed
                     </p>
                   </div>
                   <Target className="h-8 w-8 text-orange-600" />
@@ -602,19 +723,23 @@ export default function MoaiDetailPage() {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">Active Members</p>
+                    <p className="text-sm font-medium text-gray-600">
+                      Active Members
+                    </p>
                     <p className="text-2xl font-bold text-gray-900 mt-1">
                       {moaiDetail.member_count}
                     </p>
                     {trendAnalysis && (
                       <div className="flex items-center gap-1 mt-2">
-                        {trendAnalysis.memberEngagementTrend === 'up' ? (
+                        {trendAnalysis.memberEngagementTrend === "up" ? (
                           <span className="text-sm text-green-600">
-                            +{trendAnalysis.memberEngagementChange.toFixed(1)} avg members
+                            +{trendAnalysis.memberEngagementChange.toFixed(1)}{" "}
+                            avg members
                           </span>
-                        ) : trendAnalysis.memberEngagementTrend === 'down' ? (
+                        ) : trendAnalysis.memberEngagementTrend === "down" ? (
                           <span className="text-sm text-red-600">
-                            -{trendAnalysis.memberEngagementChange.toFixed(1)} avg members
+                            -{trendAnalysis.memberEngagementChange.toFixed(1)}{" "}
+                            avg members
                           </span>
                         ) : (
                           <span className="text-sm text-gray-500">Stable</span>
@@ -628,33 +753,37 @@ export default function MoaiDetailPage() {
             </div>
 
             {/* Member Performance Overview */}
-              <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Member Performance</h2>
-                  </div>
+            <div className="bg-white rounded-lg shadow">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Member Performance
+                </h2>
+              </div>
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {moaiDetail.members?.map((member) => {
                     const memberName =
                       member.first_name && member.last_name
                         ? `${member.first_name} ${member.last_name}`
-                        : member.first_name || member.username || 'Member'
+                        : member.first_name || member.username || "Member";
 
-                    const isStruggling = member.current_week_completion_rate < 50
-                    const isHighPerformer = member.overall_completion_rate >= 85
+                    const isStruggling =
+                      member.current_week_completion_rate < 50;
+                    const isHighPerformer =
+                      member.overall_completion_rate >= 85;
                     const isInconsistent =
                       member.current_week_completion_rate > 80 &&
-                      member.overall_completion_rate < 70
+                      member.overall_completion_rate < 70;
 
                     return (
                       <button
                         key={member.user_id}
                         onClick={() => handleMemberClick(member)}
                         className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
-                    >
-                      <div className="flex items-start justify-between">
+                      >
+                        <div className="flex items-start justify-between">
                           <div className="flex items-center gap-3 flex-1">
-                            <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
                               {member.profile_picture_url ? (
                                 <img
                                   src={member.profile_picture_url}
@@ -663,44 +792,51 @@ export default function MoaiDetailPage() {
                                 />
                               ) : (
                                 <span className="text-gray-600 font-medium">
-                                  {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
-                            </span>
+                                  {(
+                                    member.first_name?.[0] ||
+                                    member.username?.[0] ||
+                                    "M"
+                                  ).toUpperCase()}
+                                </span>
                               )}
-                          </div>
+                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <p className="text-sm font-semibold text-gray-900 truncate">
                                   {memberName}
-                          </p>
+                                </p>
                                 {isStruggling && (
-                                  <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0" />
+                                  <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
                                 )}
                                 {isHighPerformer && (
-                                  <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                  <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
                                 )}
                                 {isInconsistent && (
-                                  <Activity className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                                  <Activity className="h-4 w-4 text-yellow-600 shrink-0" />
+                                )}
+                              </div>
+                              {member.username && (
+                                <p className="text-xs text-gray-500">
+                                  @{member.username}
+                                </p>
                               )}
                             </div>
-                              {member.username && (
-                                <p className="text-xs text-gray-500">@{member.username}</p>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </div>
                         <div className="mt-3 grid grid-cols-2 gap-3">
                           <div>
                             <p className="text-xs text-gray-500">This Week</p>
                             <p className="text-sm font-semibold text-gray-900">
-                              {member.current_week_completed}/{member.current_week_commitment}
+                              {member.current_week_completed}/
+                              {member.current_week_commitment}
                             </p>
                             <p
                               className={`text-xs ${
                                 member.current_week_completion_rate >= 80
-                                  ? 'text-green-600'
+                                  ? "text-green-600"
                                   : member.current_week_completion_rate >= 60
-                                  ? 'text-yellow-600'
-                                  : 'text-red-600'
+                                    ? "text-yellow-600"
+                                    : "text-red-600"
                               }`}
                             >
                               {member.current_week_completion_rate.toFixed(0)}%
@@ -716,8 +852,93 @@ export default function MoaiDetailPage() {
                             </p>
                           </div>
                         </div>
-                    </button>
-                    )
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow mt-6">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Member Focus
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Assign a fitness focus to each member
+                  </p>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="space-y-3">
+                  {moaiDetail.members?.map((member) => {
+                    const memberName =
+                      member.first_name && member.last_name
+                        ? `${member.first_name} ${member.last_name}`
+                        : member.first_name || member.username || "Member";
+                    const currentFocus = memberFocuses[member.user_id] || "";
+                    const isUpdating = updatingFocus[member.user_id];
+
+                    return (
+                      <div
+                        key={member.user_id}
+                        className="flex items-center gap-4 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        {/* Avatar */}
+                        <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {member.profile_picture_url ? (
+                            <img
+                              src={member.profile_picture_url}
+                              alt={memberName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-gray-600 font-medium text-sm">
+                              {(
+                                member.first_name?.[0] ||
+                                member.username?.[0] ||
+                                "M"
+                              ).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Name */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {memberName}
+                          </p>
+                          {member.username && (
+                            <p className="text-xs text-gray-500">
+                              @{member.username}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Focus Selector */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {isUpdating && (
+                            <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                          )}
+                          <select
+                            value={currentFocus}
+                            disabled={isUpdating}
+                            onChange={(e) =>
+                              handleFocusChange(member.user_id, e.target.value)
+                            }
+                            className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:opacity-50 disabled:cursor-not-allowed min-w-[160px]"
+                          >
+                            <option value="">No Focus</option>
+                            {focuses.map((focus) => (
+                              <option key={focus.id} value={focus.id}>
+                                {focus.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    );
                   })}
                 </div>
               </div>
@@ -727,18 +948,23 @@ export default function MoaiDetailPage() {
             {trendAnalysis && trendAnalysis.recentWeeks.length > 0 && (
               <div className="bg-white rounded-lg shadow">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">Recent Performance Trend</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Recent Performance Trend
+                  </h2>
                   <p className="text-sm text-gray-500 mt-1">Last 4 weeks</p>
                 </div>
                 <div className="p-6">
                   <div className="space-y-4">
                     {trendAnalysis.recentWeeks.map((week, idx) => {
-                      const prevWeek = trendAnalysis.recentWeeks[idx - 1]
+                      const prevWeek = trendAnalysis.recentWeeks[idx - 1];
                       const change = prevWeek
                         ? week.completion_rate - prevWeek.completion_rate
-                        : 0
+                        : 0;
                       return (
-                        <div key={week.week_start} className="flex items-center gap-4">
+                        <div
+                          key={week.week_start}
+                          className="flex items-center gap-4"
+                        >
                           <div className="w-24 text-sm text-gray-600">
                             {formatDate(week.week_start)}
                           </div>
@@ -751,10 +977,10 @@ export default function MoaiDetailPage() {
                                 <span
                                   className={`text-xs flex items-center gap-1 ${
                                     change > 0
-                                      ? 'text-green-600'
+                                      ? "text-green-600"
                                       : change < 0
-                                      ? 'text-red-600'
-                                      : 'text-gray-500'
+                                        ? "text-red-600"
+                                        : "text-gray-500"
                                   }`}
                                 >
                                   {change > 0 ? (
@@ -762,7 +988,9 @@ export default function MoaiDetailPage() {
                                   ) : change < 0 ? (
                                     <ArrowDownRight className="h-3 w-3" />
                                   ) : null}
-                                  {change !== 0 ? Math.abs(change).toFixed(1) + '%' : 'No change'}
+                                  {change !== 0
+                                    ? Math.abs(change).toFixed(1) + "%"
+                                    : "No change"}
                                 </span>
                               )}
                             </div>
@@ -770,12 +998,14 @@ export default function MoaiDetailPage() {
                               <div
                                 className={`h-2 rounded-full ${
                                   week.completion_rate >= 80
-                                    ? 'bg-green-600'
+                                    ? "bg-green-600"
                                     : week.completion_rate >= 60
-                                    ? 'bg-yellow-500'
-                                    : 'bg-red-500'
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500"
                                 }`}
-                                style={{ width: `${Math.min(week.completion_rate, 100)}%` }}
+                                style={{
+                                  width: `${Math.min(week.completion_rate, 100)}%`,
+                                }}
                               />
                             </div>
                           </div>
@@ -783,7 +1013,7 @@ export default function MoaiDetailPage() {
                             {week.member_count} members
                           </div>
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 </div>
@@ -795,39 +1025,58 @@ export default function MoaiDetailPage() {
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-blue-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">Member Engagement Dashboard</h2>
-              </div>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Member Engagement Dashboard
+                  </h2>
+                </div>
               </div>
               <div className="p-6 space-y-6">
                 {/* Engagement Scores */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">Engagement Scores</h3>
+                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                    Engagement Scores
+                  </h3>
                   <div className="space-y-2">
-                  {moaiDetail.members?.map((member) => {
-                    const memberName =
-                      member.first_name && member.last_name
-                        ? `${member.first_name} ${member.last_name}`
-                        : member.first_name || member.username || 'Member'
+                    {moaiDetail.members?.map((member) => {
+                      const memberName =
+                        member.first_name && member.last_name
+                          ? `${member.first_name} ${member.last_name}`
+                          : member.first_name || member.username || "Member";
 
                       // Calculate engagement score (0-100)
                       // Factors: current week completion, overall completion, consistency, commitment set
-                      const hasCommitment = member.current_week_commitment > 0
-                      const currentWeekScore = member.current_week_completion_rate
-                      const overallScore = member.overall_completion_rate
-                      const consistencyScore = member.total_commitment_weeks > 0 
-                        ? Math.min(100, (member.total_workouts / (member.total_commitment_weeks * 3)) * 100)
-                        : 0
-                      
-                      const engagementScore = Math.round(
-                        (currentWeekScore * 0.4) + 
-                        (overallScore * 0.4) + 
-                        (consistencyScore * 0.2)
-                      )
-                      
-                      const engagementLevel = engagementScore >= 80 ? 'high' : engagementScore >= 60 ? 'medium' : 'low'
+                      const hasCommitment = member.current_week_commitment > 0;
+                      const currentWeekScore =
+                        member.current_week_completion_rate;
+                      const overallScore = member.overall_completion_rate;
+                      const consistencyScore =
+                        member.total_commitment_weeks > 0
+                          ? Math.min(
+                              100,
+                              (member.total_workouts /
+                                (member.total_commitment_weeks * 3)) *
+                                100,
+                            )
+                          : 0;
 
-                    return (
-                        <div key={member.user_id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                      const engagementScore = Math.round(
+                        currentWeekScore * 0.4 +
+                          overallScore * 0.4 +
+                          consistencyScore * 0.2,
+                      );
+
+                      const engagementLevel =
+                        engagementScore >= 80
+                          ? "high"
+                          : engagementScore >= 60
+                            ? "medium"
+                            : "low";
+
+                      return (
+                        <div
+                          key={member.user_id}
+                          className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
+                        >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                               {member.profile_picture_url ? (
@@ -838,33 +1087,51 @@ export default function MoaiDetailPage() {
                                 />
                               ) : (
                                 <span className="text-gray-600 font-medium text-sm">
-                                  {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
+                                  {(
+                                    member.first_name?.[0] ||
+                                    member.username?.[0] ||
+                                    "M"
+                                  ).toUpperCase()}
                                 </span>
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">{memberName}</p>
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {memberName}
+                              </p>
                               {member.username && (
-                                <p className="text-xs text-gray-500">@{member.username}</p>
+                                <p className="text-xs text-gray-500">
+                                  @{member.username}
+                                </p>
                               )}
                             </div>
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="w-32">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-gray-600">Score</span>
-                                <span className={`text-sm font-semibold ${
-                                  engagementLevel === 'high' ? 'text-green-600' :
-                                  engagementLevel === 'medium' ? 'text-yellow-600' : 'text-red-600'
-                                }`}>
+                                <span className="text-xs text-gray-600">
+                                  Score
+                                </span>
+                                <span
+                                  className={`text-sm font-semibold ${
+                                    engagementLevel === "high"
+                                      ? "text-green-600"
+                                      : engagementLevel === "medium"
+                                        ? "text-yellow-600"
+                                        : "text-red-600"
+                                  }`}
+                                >
                                   {engagementScore}
                                 </span>
-                        </div>
+                              </div>
                               <div className="w-full bg-gray-200 rounded-full h-2">
                                 <div
                                   className={`h-2 rounded-full ${
-                                    engagementLevel === 'high' ? 'bg-green-600' :
-                                    engagementLevel === 'medium' ? 'bg-yellow-500' : 'bg-red-500'
+                                    engagementLevel === "high"
+                                      ? "bg-green-600"
+                                      : engagementLevel === "medium"
+                                        ? "bg-yellow-500"
+                                        : "bg-red-500"
                                   }`}
                                   style={{ width: `${engagementScore}%` }}
                                 />
@@ -877,21 +1144,26 @@ export default function MoaiDetailPage() {
                             )}
                           </div>
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 </div>
 
                 {/* At-Risk Members */}
                 {(() => {
-                  const atRiskMembers = moaiDetail.members?.filter((member) => {
-                    const noCommitment = member.current_week_commitment === 0
-                    const lowCompletion = member.current_week_completion_rate < 50 && member.current_week_commitment > 0
-                    const declining = member.overall_completion_rate < 60 && member.total_commitment_weeks >= 3
-                    return noCommitment || lowCompletion || declining
-                  }) || []
+                  const atRiskMembers =
+                    moaiDetail.members?.filter((member) => {
+                      const noCommitment = member.current_week_commitment === 0;
+                      const lowCompletion =
+                        member.current_week_completion_rate < 50 &&
+                        member.current_week_commitment > 0;
+                      const declining =
+                        member.overall_completion_rate < 60 &&
+                        member.total_commitment_weeks >= 3;
+                      return noCommitment || lowCompletion || declining;
+                    }) || [];
 
-                  if (atRiskMembers.length === 0) return null
+                  if (atRiskMembers.length === 0) return null;
 
                   return (
                     <div className="border-t border-gray-200 pt-4">
@@ -904,15 +1176,24 @@ export default function MoaiDetailPage() {
                           const memberName =
                             member.first_name && member.last_name
                               ? `${member.first_name} ${member.last_name}`
-                              : member.first_name || member.username || 'Member'
-                          
-                          const reasons = []
-                          if (member.current_week_commitment === 0) reasons.push('No commitment set')
-                          if (member.current_week_completion_rate < 50 && member.current_week_commitment > 0) {
-                            reasons.push('Low completion this week')
+                              : member.first_name ||
+                                member.username ||
+                                "Member";
+
+                          const reasons = [];
+                          if (member.current_week_commitment === 0)
+                            reasons.push("No commitment set");
+                          if (
+                            member.current_week_completion_rate < 50 &&
+                            member.current_week_commitment > 0
+                          ) {
+                            reasons.push("Low completion this week");
                           }
-                          if (member.overall_completion_rate < 60 && member.total_commitment_weeks >= 3) {
-                            reasons.push('Declining performance')
+                          if (
+                            member.overall_completion_rate < 60 &&
+                            member.total_commitment_weeks >= 3
+                          ) {
+                            reasons.push("Declining performance");
                           }
 
                           return (
@@ -930,27 +1211,35 @@ export default function MoaiDetailPage() {
                                     />
                                   ) : (
                                     <span className="text-gray-600 font-medium text-xs">
-                                      {(member.first_name?.[0] || member.username?.[0] || 'M').toUpperCase()}
+                                      {(
+                                        member.first_name?.[0] ||
+                                        member.username?.[0] ||
+                                        "M"
+                                      ).toUpperCase()}
                                     </span>
                                   )}
-                          </div>
-                          <div>
-                                  <p className="text-sm font-medium text-gray-900">{memberName}</p>
-                                  <p className="text-xs text-gray-600">{reasons.join(', ')}</p>
-                          </div>
-                        </div>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {memberName}
+                                  </p>
+                                  <p className="text-xs text-gray-600">
+                                    {reasons.join(", ")}
+                                  </p>
+                                </div>
+                              </div>
                               <button
                                 onClick={() => handleMemberClick(member)}
                                 className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                               >
                                 View Details
-                      </button>
+                              </button>
                             </div>
-                    )
-                  })}
-                </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  )
+                  );
                 })()}
               </div>
             </div>
@@ -967,11 +1256,12 @@ export default function MoaiDetailPage() {
                           <img
                             src={selectedMember.member.profile_picture_url}
                             alt={
-                              selectedMember.member.first_name && selectedMember.member.last_name
+                              selectedMember.member.first_name &&
+                              selectedMember.member.last_name
                                 ? `${selectedMember.member.first_name} ${selectedMember.member.last_name}`
                                 : selectedMember.member.first_name ||
                                   selectedMember.member.username ||
-                                  'Member'
+                                  "Member"
                             }
                             className="h-full w-full object-cover"
                           />
@@ -980,21 +1270,24 @@ export default function MoaiDetailPage() {
                             {(
                               selectedMember.member.first_name?.[0] ||
                               selectedMember.member.username?.[0] ||
-                              'M'
+                              "M"
                             ).toUpperCase()}
                           </span>
                         )}
                       </div>
                       <div>
                         <h2 className="text-xl font-semibold text-gray-900">
-                          {selectedMember.member.first_name && selectedMember.member.last_name
+                          {selectedMember.member.first_name &&
+                          selectedMember.member.last_name
                             ? `${selectedMember.member.first_name} ${selectedMember.member.last_name}`
                             : selectedMember.member.first_name ||
                               selectedMember.member.username ||
-                              'Member'}
+                              "Member"}
                         </h2>
                         {selectedMember.member.username && (
-                          <p className="text-sm text-gray-500">@{selectedMember.member.username}</p>
+                          <p className="text-sm text-gray-500">
+                            @{selectedMember.member.username}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -1007,7 +1300,7 @@ export default function MoaiDetailPage() {
                       </Link>
                       <button
                         onClick={() => {
-                          setSelectedMember(null)
+                          setSelectedMember(null);
                           setMemberDetails({
                             metrics: null,
                             commitmentHistory: [],
@@ -1015,10 +1308,10 @@ export default function MoaiDetailPage() {
                             exercisePerformance: [],
                             weeklyWorkouts: [],
                             loading: false,
-                          })
-                          setActiveMemberTab('workouts')
-                          setSelectedWorkout(null)
-                          setSelectedExercise(null)
+                          });
+                          setActiveMemberTab("workouts");
+                          setSelectedWorkout(null);
+                          setSelectedExercise(null);
                         }}
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                       >
@@ -1033,7 +1326,9 @@ export default function MoaiDetailPage() {
                       <div className="flex items-center justify-center py-12">
                         <div className="text-center">
                           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                          <p className="mt-4 text-gray-600">Loading member details...</p>
+                          <p className="mt-4 text-gray-600">
+                            Loading member details...
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -1043,39 +1338,39 @@ export default function MoaiDetailPage() {
                           <nav className="flex space-x-8">
                             <button
                               onClick={() => {
-                                setActiveMemberTab('workouts')
-                                setSelectedWorkout(null)
+                                setActiveMemberTab("workouts");
+                                setSelectedWorkout(null);
                               }}
                               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                                activeMemberTab === 'workouts'
-                                  ? 'border-blue-500 text-blue-600'
-                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                activeMemberTab === "workouts"
+                                  ? "border-blue-500 text-blue-600"
+                                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                               }`}
                             >
                               Workouts
                             </button>
                             <button
                               onClick={() => {
-                                setActiveMemberTab('progression')
-                                setSelectedWorkout(null)
+                                setActiveMemberTab("progression");
+                                setSelectedWorkout(null);
                               }}
                               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                                activeMemberTab === 'progression'
-                                  ? 'border-blue-500 text-blue-600'
-                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                activeMemberTab === "progression"
+                                  ? "border-blue-500 text-blue-600"
+                                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                               }`}
                             >
                               Progression
                             </button>
                             <button
                               onClick={() => {
-                                setActiveMemberTab('program')
-                                setSelectedWorkout(null)
+                                setActiveMemberTab("program");
+                                setSelectedWorkout(null);
                               }}
                               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                                activeMemberTab === 'program'
-                                  ? 'border-blue-500 text-blue-600'
-                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                activeMemberTab === "program"
+                                  ? "border-blue-500 text-blue-600"
+                                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                               }`}
                             >
                               Program
@@ -1084,136 +1379,191 @@ export default function MoaiDetailPage() {
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-6">
-                          {activeMemberTab === 'workouts' && (
+                          {activeMemberTab === "workouts" && (
                             <div className="space-y-6">
-                        {/* Key Metrics */}
-                        {memberDetails.metrics && (
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Target className="h-4 w-4 text-blue-600" />
-                                <p className="text-xs text-gray-600">This Week</p>
-                              </div>
-                              <p className="text-2xl font-bold text-gray-900">
-                                {memberDetails.metrics.current_week_completed}/
-                                {memberDetails.metrics.current_week_commitment}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {memberDetails.metrics.current_week_completion_rate.toFixed(1)}%
-                                completion
-                              </p>
-                            </div>
-                            <div className="bg-green-50 p-4 rounded-lg">
-                              <div className="flex items-center gap-2 mb-2">
-                                <BarChart3 className="h-4 w-4 text-green-600" />
-                                <p className="text-xs text-gray-600">Overall Rate</p>
-                              </div>
-                              <p className="text-2xl font-bold text-gray-900">
-                                {memberDetails.metrics.overall_completion_rate.toFixed(1)}%
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {memberDetails.metrics.total_commitment_weeks} weeks tracked
-                              </p>
-                            </div>
-                            <div className="bg-purple-50 p-4 rounded-lg">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Dumbbell className="h-4 w-4 text-purple-600" />
-                                <p className="text-xs text-gray-600">Total Workouts</p>
-                              </div>
-                              <p className="text-2xl font-bold text-gray-900">
-                                {memberDetails.metrics.total_completed_workouts}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {memberDetails.metrics.total_workout_sessions} sessions
-                              </p>
-                            </div>
-                            <div className="bg-orange-50 p-4 rounded-lg">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Calendar className="h-4 w-4 text-orange-600" />
-                                <p className="text-xs text-gray-600">Last Workout</p>
-                              </div>
-                              <p className="text-lg font-bold text-gray-900">
-                                {memberDetails.metrics.last_workout_date
-                                  ? formatDate(memberDetails.metrics.last_workout_date.split('T')[0])
-                                  : 'Never'}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {memberDetails.metrics.chat_sessions_count} chat sessions
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Commitment History */}
-                        {memberDetails.commitmentHistory.length > 0 && (
-                          <div className="bg-white border border-gray-200 rounded-lg p-4">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                              Commitment History
-                            </h3>
-                            <div className="space-y-3">
-                              {memberDetails.commitmentHistory.slice(0, 12).map((week, idx) => {
-                                const prevWeek =
-                                  idx < memberDetails.commitmentHistory.length - 1
-                                    ? memberDetails.commitmentHistory[idx + 1]
-                                    : null
-                                const change = prevWeek
-                                  ? week.completion_rate - prevWeek.completion_rate
-                                  : 0
-                                return (
-                                  <div key={week.id} className="flex items-center gap-4">
-                                    <div className="w-24 text-sm text-gray-600">
-                                      {formatDate(week.week_start)}
+                              {/* Key Metrics */}
+                              {memberDetails.metrics && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                  <div className="bg-blue-50 p-4 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Target className="h-4 w-4 text-blue-600" />
+                                      <p className="text-xs text-gray-600">
+                                        This Week
+                                      </p>
                                     </div>
-                                    <div className="flex-1">
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className="text-sm font-medium text-gray-900">
-                                          {week.completed_sessions}/{week.commitment_count} sessions
-                                        </span>
-                                        {prevWeek && (
-                                          <span
-                                            className={`text-xs flex items-center gap-1 ${
-                                              change > 0
-                                                ? 'text-green-600'
-                                                : change < 0
-                                                ? 'text-red-600'
-                                                : 'text-gray-500'
-                                            }`}
-                                          >
-                                            {change > 0 ? (
-                                              <ArrowUpRight className="h-3 w-3" />
-                                            ) : change < 0 ? (
-                                              <ArrowDownRight className="h-3 w-3" />
-                                            ) : null}
-                                            {change !== 0
-                                              ? Math.abs(change).toFixed(1) + '%'
-                                              : 'No change'}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div
-                                          className={`h-2 rounded-full ${
-                                            week.completion_rate >= 80
-                                              ? 'bg-green-600'
-                                              : week.completion_rate >= 60
-                                              ? 'bg-yellow-500'
-                                              : 'bg-red-500'
-                                          }`}
-                                          style={{
-                                            width: `${Math.min(week.completion_rate, 100)}%`,
-                                          }}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="text-sm font-medium text-gray-900 w-20 text-right">
-                                      {week.completion_rate.toFixed(1)}%
-                                    </div>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                      {
+                                        memberDetails.metrics
+                                          .current_week_completed
+                                      }
+                                      /
+                                      {
+                                        memberDetails.metrics
+                                          .current_week_commitment
+                                      }
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {memberDetails.metrics.current_week_completion_rate.toFixed(
+                                        1,
+                                      )}
+                                      % completion
+                                    </p>
                                   </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
+                                  <div className="bg-green-50 p-4 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <BarChart3 className="h-4 w-4 text-green-600" />
+                                      <p className="text-xs text-gray-600">
+                                        Overall Rate
+                                      </p>
+                                    </div>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                      {memberDetails.metrics.overall_completion_rate.toFixed(
+                                        1,
+                                      )}
+                                      %
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {
+                                        memberDetails.metrics
+                                          .total_commitment_weeks
+                                      }{" "}
+                                      weeks tracked
+                                    </p>
+                                  </div>
+                                  <div className="bg-purple-50 p-4 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Dumbbell className="h-4 w-4 text-purple-600" />
+                                      <p className="text-xs text-gray-600">
+                                        Total Workouts
+                                      </p>
+                                    </div>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                      {
+                                        memberDetails.metrics
+                                          .total_completed_workouts
+                                      }
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {
+                                        memberDetails.metrics
+                                          .total_workout_sessions
+                                      }{" "}
+                                      sessions
+                                    </p>
+                                  </div>
+                                  <div className="bg-orange-50 p-4 rounded-lg">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Calendar className="h-4 w-4 text-orange-600" />
+                                      <p className="text-xs text-gray-600">
+                                        Last Workout
+                                      </p>
+                                    </div>
+                                    <p className="text-lg font-bold text-gray-900">
+                                      {memberDetails.metrics.last_workout_date
+                                        ? formatDate(
+                                            memberDetails.metrics.last_workout_date.split(
+                                              "T",
+                                            )[0],
+                                          )
+                                        : "Never"}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {
+                                        memberDetails.metrics
+                                          .chat_sessions_count
+                                      }{" "}
+                                      chat sessions
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Commitment History */}
+                              {memberDetails.commitmentHistory.length > 0 && (
+                                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    Commitment History
+                                  </h3>
+                                  <div className="space-y-3">
+                                    {memberDetails.commitmentHistory
+                                      .slice(0, 12)
+                                      .map((week, idx) => {
+                                        const prevWeek =
+                                          idx <
+                                          memberDetails.commitmentHistory
+                                            .length -
+                                            1
+                                            ? memberDetails.commitmentHistory[
+                                                idx + 1
+                                              ]
+                                            : null;
+                                        const change = prevWeek
+                                          ? week.completion_rate -
+                                            prevWeek.completion_rate
+                                          : 0;
+                                        return (
+                                          <div
+                                            key={week.id}
+                                            className="flex items-center gap-4"
+                                          >
+                                            <div className="w-24 text-sm text-gray-600">
+                                              {formatDate(week.week_start)}
+                                            </div>
+                                            <div className="flex-1">
+                                              <div className="flex items-center justify-between mb-1">
+                                                <span className="text-sm font-medium text-gray-900">
+                                                  {week.completed_sessions}/
+                                                  {week.commitment_count}{" "}
+                                                  sessions
+                                                </span>
+                                                {prevWeek && (
+                                                  <span
+                                                    className={`text-xs flex items-center gap-1 ${
+                                                      change > 0
+                                                        ? "text-green-600"
+                                                        : change < 0
+                                                          ? "text-red-600"
+                                                          : "text-gray-500"
+                                                    }`}
+                                                  >
+                                                    {change > 0 ? (
+                                                      <ArrowUpRight className="h-3 w-3" />
+                                                    ) : change < 0 ? (
+                                                      <ArrowDownRight className="h-3 w-3" />
+                                                    ) : null}
+                                                    {change !== 0
+                                                      ? Math.abs(
+                                                          change,
+                                                        ).toFixed(1) + "%"
+                                                      : "No change"}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                  className={`h-2 rounded-full ${
+                                                    week.completion_rate >= 80
+                                                      ? "bg-green-600"
+                                                      : week.completion_rate >=
+                                                          60
+                                                        ? "bg-yellow-500"
+                                                        : "bg-red-500"
+                                                  }`}
+                                                  style={{
+                                                    width: `${Math.min(week.completion_rate, 100)}%`,
+                                                  }}
+                                                />
+                                              </div>
+                                            </div>
+                                            <div className="text-sm font-medium text-gray-900 w-20 text-right">
+                                              {week.completion_rate.toFixed(1)}%
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                  </div>
+                                </div>
+                              )}
 
                               {/* Key Metrics */}
                               {memberDetails.metrics && (
@@ -1221,60 +1571,101 @@ export default function MoaiDetailPage() {
                                   <div className="bg-blue-50 p-4 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
                                       <Target className="h-4 w-4 text-blue-600" />
-                                      <p className="text-xs text-gray-600">This Week</p>
+                                      <p className="text-xs text-gray-600">
+                                        This Week
+                                      </p>
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900">
-                                      {memberDetails.metrics.current_week_completed}/
-                                      {memberDetails.metrics.current_week_commitment}
+                                      {
+                                        memberDetails.metrics
+                                          .current_week_completed
+                                      }
+                                      /
+                                      {
+                                        memberDetails.metrics
+                                          .current_week_commitment
+                                      }
                                     </p>
                                     <p className="text-xs text-gray-500 mt-1">
-                                      {memberDetails.metrics.current_week_completion_rate.toFixed(1)}%
-                                      completion
+                                      {memberDetails.metrics.current_week_completion_rate.toFixed(
+                                        1,
+                                      )}
+                                      % completion
                                     </p>
                                   </div>
                                   <div className="bg-green-50 p-4 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
                                       <BarChart3 className="h-4 w-4 text-green-600" />
-                                      <p className="text-xs text-gray-600">Overall Rate</p>
+                                      <p className="text-xs text-gray-600">
+                                        Overall Rate
+                                      </p>
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900">
-                                      {memberDetails.metrics.overall_completion_rate.toFixed(1)}%
+                                      {memberDetails.metrics.overall_completion_rate.toFixed(
+                                        1,
+                                      )}
+                                      %
                                     </p>
                                     <p className="text-xs text-gray-500 mt-1">
-                                      {memberDetails.metrics.total_commitment_weeks} weeks tracked
+                                      {
+                                        memberDetails.metrics
+                                          .total_commitment_weeks
+                                      }{" "}
+                                      weeks tracked
                                     </p>
                                   </div>
                                   <div className="bg-purple-50 p-4 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
                                       <Dumbbell className="h-4 w-4 text-purple-600" />
-                                      <p className="text-xs text-gray-600">Total Workouts</p>
+                                      <p className="text-xs text-gray-600">
+                                        Total Workouts
+                                      </p>
                                     </div>
                                     <p className="text-2xl font-bold text-gray-900">
-                                      {memberDetails.metrics.total_completed_workouts}
+                                      {
+                                        memberDetails.metrics
+                                          .total_completed_workouts
+                                      }
                                     </p>
                                     <p className="text-xs text-gray-500 mt-1">
-                                      {memberDetails.metrics.total_workout_sessions} sessions
+                                      {
+                                        memberDetails.metrics
+                                          .total_workout_sessions
+                                      }{" "}
+                                      sessions
                                     </p>
                                   </div>
                                   <div className="bg-orange-50 p-4 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
                                       <Calendar className="h-4 w-4 text-orange-600" />
-                                      <p className="text-xs text-gray-600">Last Workout</p>
+                                      <p className="text-xs text-gray-600">
+                                        Last Workout
+                                      </p>
                                     </div>
                                     <p className="text-lg font-bold text-gray-900">
                                       {memberDetails.metrics.last_workout_date
-                                        ? formatDate(memberDetails.metrics.last_workout_date.split('T')[0])
-                                        : 'Never'}
+                                        ? formatDate(
+                                            memberDetails.metrics.last_workout_date.split(
+                                              "T",
+                                            )[0],
+                                          )
+                                        : "Never"}
                                     </p>
                                     <p className="text-xs text-gray-500 mt-1">
-                                      {memberDetails.metrics.chat_sessions_count} chat sessions
+                                      {
+                                        memberDetails.metrics
+                                          .chat_sessions_count
+                                      }{" "}
+                                      chat sessions
                                     </p>
                                   </div>
                                 </div>
                               )}
 
                               {/* Workout Detail View */}
-                              {selectedWorkout && workoutDetails && workoutDetails.session ? (
+                              {selectedWorkout &&
+                              workoutDetails &&
+                              workoutDetails.session ? (
                                 <div className="space-y-4">
                                   <button
                                     onClick={() => setSelectedWorkout(null)}
@@ -1286,22 +1677,33 @@ export default function MoaiDetailPage() {
                                   <div className="bg-white border border-gray-200 rounded-lg p-6">
                                     <div className="mb-4">
                                       <h3 className="text-xl font-semibold text-gray-900">
-                                        {workoutDetails.session.workout_title || 'Workout'}
+                                        {workoutDetails.session.workout_title ||
+                                          "Workout"}
                                       </h3>
                                       <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                                        <span>{formatDate(workoutDetails.session.date)}</span>
-                                        <span>•</span>
-                                        <span>{workoutDetails.session.workout_type || 'N/A'}</span>
+                                        <span>
+                                          {formatDate(
+                                            workoutDetails.session.date,
+                                          )}
+                                        </span>
                                         <span>•</span>
                                         <span>
-                                          {workoutDetails.session.total_duration_seconds
+                                          {workoutDetails.session
+                                            .workout_type || "N/A"}
+                                        </span>
+                                        <span>•</span>
+                                        <span>
+                                          {workoutDetails.session
+                                            .total_duration_seconds
                                             ? `${Math.floor(workoutDetails.session.total_duration_seconds / 60)} min`
-                                            : 'N/A'}
+                                            : "N/A"}
                                         </span>
                                         {workoutDetails.session.rpe && (
                                           <>
                                             <span>•</span>
-                                            <span>RPE: {workoutDetails.session.rpe}</span>
+                                            <span>
+                                              RPE: {workoutDetails.session.rpe}
+                                            </span>
                                           </>
                                         )}
                                       </div>
@@ -1312,49 +1714,60 @@ export default function MoaiDetailPage() {
                                       )}
                                     </div>
                                     <div className="space-y-6">
-                                      {workoutDetails.exercises.map((exercise) => (
-                                        <div key={exercise.exercise_name} className="border-t border-gray-200 pt-4">
-                                          <button
-                                            onClick={() => handleExerciseClick(exercise.exercise_name)}
-                                            className="text-left w-full"
+                                      {workoutDetails.exercises.map(
+                                        (exercise) => (
+                                          <div
+                                            key={exercise.exercise_name}
+                                            className="border-t border-gray-200 pt-4"
                                           >
-                                            <h4 className="text-lg font-semibold text-gray-900 mb-3 hover:text-blue-600 transition-colors">
-                                              {exercise.exercise_name}
-                                            </h4>
-                                          </button>
-                                          <div className="space-y-2">
-                                            {exercise.sets.map((set) => (
-                                              <div
-                                                key={set.id}
-                                                className={`flex items-center gap-4 p-2 rounded ${
-                                                  set.is_completed ? 'bg-green-50' : 'bg-gray-50'
-                                                }`}
-                                              >
-                                                <span className="text-sm font-medium text-gray-600 w-12">
-                                                  Set {set.set_number}
-                                                </span>
-                                                <div className="flex-1 flex items-center gap-4">
-                                                  {set.weight_lbs && (
-                                                    <span className="text-sm text-gray-900">
-                                                      {set.weight_lbs} lbs
-                                                    </span>
-                                                  )}
-                                                  {set.reps && (
-                                                    <span className="text-sm text-gray-900">
-                                                      {set.reps} reps
-                                                    </span>
+                                            <button
+                                              onClick={() =>
+                                                handleExerciseClick(
+                                                  exercise.exercise_name,
+                                                )
+                                              }
+                                              className="text-left w-full"
+                                            >
+                                              <h4 className="text-lg font-semibold text-gray-900 mb-3 hover:text-blue-600 transition-colors">
+                                                {exercise.exercise_name}
+                                              </h4>
+                                            </button>
+                                            <div className="space-y-2">
+                                              {exercise.sets.map((set) => (
+                                                <div
+                                                  key={set.id}
+                                                  className={`flex items-center gap-4 p-2 rounded ${
+                                                    set.is_completed
+                                                      ? "bg-green-50"
+                                                      : "bg-gray-50"
+                                                  }`}
+                                                >
+                                                  <span className="text-sm font-medium text-gray-600 w-12">
+                                                    Set {set.set_number}
+                                                  </span>
+                                                  <div className="flex-1 flex items-center gap-4">
+                                                    {set.weight_lbs && (
+                                                      <span className="text-sm text-gray-900">
+                                                        {set.weight_lbs} lbs
+                                                      </span>
+                                                    )}
+                                                    {set.reps && (
+                                                      <span className="text-sm text-gray-900">
+                                                        {set.reps} reps
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  {set.is_completed ? (
+                                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                                  ) : (
+                                                    <AlertCircle className="h-4 w-4 text-gray-400" />
                                                   )}
                                                 </div>
-                                                {set.is_completed ? (
-                                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                                ) : (
-                                                  <AlertCircle className="h-4 w-4 text-gray-400" />
-                                                )}
-                                              </div>
-                                            ))}
+                                              ))}
+                                            </div>
                                           </div>
-                                        </div>
-                                      ))}
+                                        ),
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -1362,34 +1775,45 @@ export default function MoaiDetailPage() {
                                 /* Workout List */
                                 <div className="space-y-3">
                                   {memberDetails.workoutHistory.length > 0 ? (
-                                    memberDetails.workoutHistory.map((workout) => (
-                                      <button
-                                        key={workout.session_id}
-                                        onClick={() => handleWorkoutClick(workout)}
-                                        className="w-full text-left flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                      >
-                                        <div className="flex-1">
-                                          <p className="font-medium text-gray-900">
-                                            {workout.workout_title || 'Workout'}
-                                          </p>
-                                          <p className="text-sm text-gray-500 mt-1">
-                                            {formatDate(workout.date)} • {workout.workout_type || 'N/A'} •{' '}
-                                            {workout.exercise_count} exercises
-                                          </p>
-                                        </div>
-                                        <div className="text-right ml-4">
-                                          <p className="text-sm font-medium text-gray-900">
-                                            {workout.completed_sets}/{workout.total_sets} sets
-                                          </p>
-                                          <p className="text-xs text-gray-500">
-                                            {workout.status === 'completed' ? '✓ Completed' : workout.status}
-                                          </p>
-                                        </div>
-                                      </button>
-                                    ))
+                                    memberDetails.workoutHistory.map(
+                                      (workout) => (
+                                        <button
+                                          key={workout.session_id}
+                                          onClick={() =>
+                                            handleWorkoutClick(workout)
+                                          }
+                                          className="w-full text-left flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                        >
+                                          <div className="flex-1">
+                                            <p className="font-medium text-gray-900">
+                                              {workout.workout_title ||
+                                                "Workout"}
+                                            </p>
+                                            <p className="text-sm text-gray-500 mt-1">
+                                              {formatDate(workout.date)} •{" "}
+                                              {workout.workout_type || "N/A"} •{" "}
+                                              {workout.exercise_count} exercises
+                                            </p>
+                                          </div>
+                                          <div className="text-right ml-4">
+                                            <p className="text-sm font-medium text-gray-900">
+                                              {workout.completed_sets}/
+                                              {workout.total_sets} sets
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                              {workout.status === "completed"
+                                                ? "✓ Completed"
+                                                : workout.status}
+                                            </p>
+                                          </div>
+                                        </button>
+                                      ),
+                                    )
                                   ) : (
                                     <div className="text-center py-12">
-                                      <p className="text-gray-500">No workouts found</p>
+                                      <p className="text-gray-500">
+                                        No workouts found
+                                      </p>
                                     </div>
                                   )}
                                 </div>
@@ -1397,7 +1821,7 @@ export default function MoaiDetailPage() {
                             </div>
                           )}
 
-                          {activeMemberTab === 'progression' && (
+                          {activeMemberTab === "progression" && (
                             <div className="space-y-6">
                               {/* Exercise Selection */}
                               <div>
@@ -1405,17 +1829,26 @@ export default function MoaiDetailPage() {
                                   Select Exercise
                                 </label>
                                 <select
-                                  value={selectedExercise || ''}
-                                  onChange={(e) => setSelectedExercise(e.target.value || null)}
+                                  value={selectedExercise || ""}
+                                  onChange={(e) =>
+                                    setSelectedExercise(e.target.value || null)
+                                  }
                                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 >
                                   <option value="">All Exercises</option>
                                   {Array.from(
-                                    new Set(memberDetails.exercisePerformance.map((ep) => ep.exercise_name))
+                                    new Set(
+                                      memberDetails.exercisePerformance.map(
+                                        (ep) => ep.exercise_name,
+                                      ),
+                                    ),
                                   )
                                     .sort()
                                     .map((exerciseName) => (
-                                      <option key={exerciseName} value={exerciseName}>
+                                      <option
+                                        key={exerciseName}
+                                        value={exerciseName}
+                                      >
                                         {exerciseName}
                                       </option>
                                     ))}
@@ -1430,20 +1863,25 @@ export default function MoaiDetailPage() {
                                   </h3>
                                   <div className="space-y-4">
                                     {memberDetails.exercisePerformance
-                                      .filter((ep) => ep.exercise_name === selectedExercise)
+                                      .filter(
+                                        (ep) =>
+                                          ep.exercise_name === selectedExercise,
+                                      )
                                       .sort(
                                         (a, b) =>
                                           new Date(a.workout_date).getTime() -
-                                          new Date(b.workout_date).getTime()
+                                          new Date(b.workout_date).getTime(),
                                       )
                                       .map((perf, idx, arr) => {
-                                        const prevPerf = idx > 0 ? arr[idx - 1] : null
+                                        const prevPerf =
+                                          idx > 0 ? arr[idx - 1] : null;
                                         const weightChange = prevPerf
-                                          ? perf.avg_weight_lbs - prevPerf.avg_weight_lbs
-                                          : 0
+                                          ? perf.avg_weight_lbs -
+                                            prevPerf.avg_weight_lbs
+                                          : 0;
                                         const repsChange = prevPerf
                                           ? perf.avg_reps - prevPerf.avg_reps
-                                          : 0
+                                          : 0;
                                         return (
                                           <div
                                             key={`${perf.workout_session_id}-${perf.workout_date}`}
@@ -1457,12 +1895,14 @@ export default function MoaiDetailPage() {
                                                 <div className="flex items-center gap-2 text-xs">
                                                   {weightChange > 0 && (
                                                     <span className="text-green-600">
-                                                      +{weightChange.toFixed(1)} lbs
+                                                      +{weightChange.toFixed(1)}{" "}
+                                                      lbs
                                                     </span>
                                                   )}
                                                   {repsChange > 0 && (
                                                     <span className="text-green-600">
-                                                      +{repsChange.toFixed(0)} reps
+                                                      +{repsChange.toFixed(0)}{" "}
+                                                      reps
                                                     </span>
                                                   )}
                                                 </div>
@@ -1470,47 +1910,67 @@ export default function MoaiDetailPage() {
                                             </div>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                               <div>
-                                                <p className="text-gray-500">Avg Weight</p>
+                                                <p className="text-gray-500">
+                                                  Avg Weight
+                                                </p>
                                                 <p className="font-semibold text-gray-900">
-                                                  {perf.avg_weight_lbs.toFixed(1)} lbs
+                                                  {perf.avg_weight_lbs.toFixed(
+                                                    1,
+                                                  )}{" "}
+                                                  lbs
                                                 </p>
                                               </div>
                                               <div>
-                                                <p className="text-gray-500">Max Weight</p>
+                                                <p className="text-gray-500">
+                                                  Max Weight
+                                                </p>
                                                 <p className="font-semibold text-gray-900">
-                                                  {perf.max_weight_lbs.toFixed(1)} lbs
+                                                  {perf.max_weight_lbs.toFixed(
+                                                    1,
+                                                  )}{" "}
+                                                  lbs
                                                 </p>
                                               </div>
                                               <div>
-                                                <p className="text-gray-500">Avg Reps</p>
+                                                <p className="text-gray-500">
+                                                  Avg Reps
+                                                </p>
                                                 <p className="font-semibold text-gray-900">
                                                   {perf.avg_reps.toFixed(1)}
                                                 </p>
                                               </div>
                                               <div>
-                                                <p className="text-gray-500">Total Volume</p>
+                                                <p className="text-gray-500">
+                                                  Total Volume
+                                                </p>
                                                 <p className="font-semibold text-gray-900">
-                                                  {perf.total_volume.toFixed(0)} lbs
+                                                  {perf.total_volume.toFixed(0)}{" "}
+                                                  lbs
                                                 </p>
                                               </div>
                                             </div>
                                           </div>
-                                        )
+                                        );
                                       })}
                                   </div>
                                 </div>
                               ) : (
                                 <div className="text-center py-12">
-                                  <p className="text-gray-500">Select an exercise to view progression</p>
+                                  <p className="text-gray-500">
+                                    Select an exercise to view progression
+                                  </p>
                                 </div>
                               )}
                             </div>
                           )}
 
-                          {activeMemberTab === 'program' && (
+                          {activeMemberTab === "program" && (
                             <div className="space-y-6">
                               {/* Current Week Program */}
-                              {(memberDetails.weeklyWorkouts.length > 0 || (memberDetails.metrics && memberDetails.metrics.current_week_commitment > 0)) ? (
+                              {memberDetails.weeklyWorkouts.length > 0 ||
+                              (memberDetails.metrics &&
+                                memberDetails.metrics.current_week_commitment >
+                                  0) ? (
                                 <div className="bg-white border border-gray-200 rounded-lg p-6">
                                   <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-lg font-semibold text-gray-900">
@@ -1518,119 +1978,213 @@ export default function MoaiDetailPage() {
                                     </h3>
                                     <div className="text-sm text-gray-600">
                                       {memberDetails.metrics?.current_week_start
-                                        ? formatDate(memberDetails.metrics.current_week_start.split('T')[0])
-                                        : 'Current Week'}
+                                        ? formatDate(
+                                            memberDetails.metrics.current_week_start.split(
+                                              "T",
+                                            )[0],
+                                          )
+                                        : "Current Week"}
                                     </div>
                                   </div>
                                   {memberDetails.metrics && (
                                     <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                                       <p className="text-sm text-gray-700">
-                                        <span className="font-medium">Commitment Level:</span> {memberDetails.metrics.current_week_commitment} workout{memberDetails.metrics.current_week_commitment !== 1 ? 's' : ''} this week
+                                        <span className="font-medium">
+                                          Commitment Level:
+                                        </span>{" "}
+                                        {
+                                          memberDetails.metrics
+                                            .current_week_commitment
+                                        }{" "}
+                                        workout
+                                        {memberDetails.metrics
+                                          .current_week_commitment !== 1
+                                          ? "s"
+                                          : ""}{" "}
+                                        this week
                                       </p>
-                                      {memberDetails.metrics.current_week_commitment > 0 && (
+                                      {memberDetails.metrics
+                                        .current_week_commitment > 0 && (
                                         <p className="text-sm text-gray-700 mt-1">
-                                          <span className="font-medium">Completed:</span> {memberDetails.metrics.current_week_completed} / {memberDetails.metrics.current_week_commitment}
+                                          <span className="font-medium">
+                                            Completed:
+                                          </span>{" "}
+                                          {
+                                            memberDetails.metrics
+                                              .current_week_completed
+                                          }{" "}
+                                          /{" "}
+                                          {
+                                            memberDetails.metrics
+                                              .current_week_commitment
+                                          }
                                         </p>
                                       )}
                                     </div>
                                   )}
                                   {memberDetails.weeklyWorkouts.length > 0 ? (
                                     <div className="space-y-3">
-                                      {memberDetails.weeklyWorkouts.map((workout) => {
-                                        const isExpanded = expandedWorkoutId === workout.workout_id
-                                        const templateDetails = workoutTemplateDetails?.workoutId === workout.workout_id 
-                                          ? workoutTemplateDetails 
-                                          : null
-                                        
-                                        return (
-                                          <div key={workout.workout_id} className="border border-gray-200 rounded-lg overflow-hidden">
-                                            <button
-                                              onClick={() => handleWeeklyWorkoutClick(workout)}
-                                              className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
+                                      {memberDetails.weeklyWorkouts.map(
+                                        (workout) => {
+                                          const isExpanded =
+                                            expandedWorkoutId ===
+                                            workout.workout_id;
+                                          const templateDetails =
+                                            workoutTemplateDetails?.workoutId ===
+                                            workout.workout_id
+                                              ? workoutTemplateDetails
+                                              : null;
+
+                                          return (
+                                            <div
+                                              key={workout.workout_id}
+                                              className="border border-gray-200 rounded-lg overflow-hidden"
                                             >
-                                              <div className="flex-1">
-                                                <p className="text-sm font-medium text-gray-900">
-                                                  {workout.workout_title}
-                                                </p>
-                                                <p className="text-xs text-gray-500 mt-1">
-                                                  {workout.workout_type} • Assigned {formatDate(workout.assigned_at.split('T')[0])}
-                                                </p>
-                                              </div>
-                                              <div className="text-right ml-4 flex items-center gap-2">
-                                                {workout.status === 'completed' ? (
-                                                  <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                                                    <CheckCircle className="h-3 w-3" />
-                                                    Completed
-                                                  </span>
-                                                ) : (
-                                                  <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                                                    Assigned
-                                                  </span>
-                                                )}
-                                                <ArrowDownRight 
-                                                  className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                                />
-                                              </div>
-                                            </button>
-                                            
-                                            {isExpanded && templateDetails && (
-                                              <div className="border-t border-gray-200 bg-white p-4">
-                                                <div className="space-y-3">
-                                                  {templateDetails.exercises.map((exercise) => {
-                                                    const pb = workoutPersonalBests.get(exercise.exercise_name)
-                                                    const setsList = exercise.sets.map((set, idx) => {
-                                                      const parts = []
-                                                      if (set.target_weight_lbs) parts.push(`${set.target_weight_lbs} lbs`)
-                                                      if (set.target_reps) parts.push(`${set.target_reps} reps`)
-                                                      const setNum = set.set_number ?? idx + 1
-                                                      return `Set ${setNum}: ${parts.join(' ')}`
-                                                    }).join(', ')
-                                                    
-                                                    return (
-                                                      <div key={exercise.exercise_name} className="flex items-start gap-3 py-2 border-b border-gray-100 last:border-b-0">
-                                                        <div className="flex-1">
-                                                          <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-sm font-semibold text-gray-900">
-                                                              {exercise.exercise_name}
-                                                            </span>
-                                                            {pb && (
-                                                              <span className="text-xs text-blue-600">
-                                                                (PB: {pb.max_weight_lbs ? `${pb.max_weight_lbs} lbs` : ''} {pb.max_reps ? `${pb.max_reps} reps` : ''})
-                                                              </span>
-                                                            )}
-                                                          </div>
-                                                          <p className="text-xs text-gray-600">
-                                                            {setsList || 'No sets specified'}
-                                                          </p>
-                                                        </div>
-                                                      </div>
-                                                    )
-                                                  })}
-                                                  {templateDetails.exercises.length === 0 && (
-                                                    <p className="text-sm text-gray-500 text-center py-4">
-                                                      No exercise details available for this workout
-                                                    </p>
-                                                  )}
+                                              <button
+                                                onClick={() =>
+                                                  handleWeeklyWorkoutClick(
+                                                    workout,
+                                                  )
+                                                }
+                                                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors text-left"
+                                              >
+                                                <div className="flex-1">
+                                                  <p className="text-sm font-medium text-gray-900">
+                                                    {workout.workout_title}
+                                                  </p>
+                                                  <p className="text-xs text-gray-500 mt-1">
+                                                    {workout.workout_type} •
+                                                    Assigned{" "}
+                                                    {formatDate(
+                                                      workout.assigned_at.split(
+                                                        "T",
+                                                      )[0],
+                                                    )}
+                                                  </p>
                                                 </div>
-                                              </div>
-                                            )}
-                                            
-                                            {isExpanded && !templateDetails && (
-                                              <div className="border-t border-gray-200 bg-gray-50 p-4">
-                                                <p className="text-sm text-gray-500 text-center py-4">
-                                                  Loading workout details...
-                                                </p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        )
-                                      })}
+                                                <div className="text-right ml-4 flex items-center gap-2">
+                                                  {workout.status ===
+                                                  "completed" ? (
+                                                    <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                                      <CheckCircle className="h-3 w-3" />
+                                                      Completed
+                                                    </span>
+                                                  ) : (
+                                                    <span className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                                                      Assigned
+                                                    </span>
+                                                  )}
+                                                  <ArrowDownRight
+                                                    className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                                                  />
+                                                </div>
+                                              </button>
+
+                                              {isExpanded &&
+                                                templateDetails && (
+                                                  <div className="border-t border-gray-200 bg-white p-4">
+                                                    <div className="space-y-3">
+                                                      {templateDetails.exercises.map(
+                                                        (exercise) => {
+                                                          const pb =
+                                                            workoutPersonalBests.get(
+                                                              exercise.exercise_name,
+                                                            );
+                                                          const setsList =
+                                                            exercise.sets
+                                                              .map(
+                                                                (set, idx) => {
+                                                                  const parts =
+                                                                    [];
+                                                                  if (
+                                                                    set.target_weight_lbs
+                                                                  )
+                                                                    parts.push(
+                                                                      `${set.target_weight_lbs} lbs`,
+                                                                    );
+                                                                  if (
+                                                                    set.target_reps
+                                                                  )
+                                                                    parts.push(
+                                                                      `${set.target_reps} reps`,
+                                                                    );
+                                                                  const setNum =
+                                                                    set.set_number ??
+                                                                    idx + 1;
+                                                                  return `Set ${setNum}: ${parts.join(" ")}`;
+                                                                },
+                                                              )
+                                                              .join(", ");
+
+                                                          return (
+                                                            <div
+                                                              key={
+                                                                exercise.exercise_name
+                                                              }
+                                                              className="flex items-start gap-3 py-2 border-b border-gray-100 last:border-b-0"
+                                                            >
+                                                              <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                  <span className="text-sm font-semibold text-gray-900">
+                                                                    {
+                                                                      exercise.exercise_name
+                                                                    }
+                                                                  </span>
+                                                                  {pb && (
+                                                                    <span className="text-xs text-blue-600">
+                                                                      (PB:{" "}
+                                                                      {pb.max_weight_lbs
+                                                                        ? `${pb.max_weight_lbs} lbs`
+                                                                        : ""}{" "}
+                                                                      {pb.max_reps
+                                                                        ? `${pb.max_reps} reps`
+                                                                        : ""}
+                                                                      )
+                                                                    </span>
+                                                                  )}
+                                                                </div>
+                                                                <p className="text-xs text-gray-600">
+                                                                  {setsList ||
+                                                                    "No sets specified"}
+                                                                </p>
+                                                              </div>
+                                                            </div>
+                                                          );
+                                                        },
+                                                      )}
+                                                      {templateDetails.exercises
+                                                        .length === 0 && (
+                                                        <p className="text-sm text-gray-500 text-center py-4">
+                                                          No exercise details
+                                                          available for this
+                                                          workout
+                                                        </p>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                )}
+
+                                              {isExpanded &&
+                                                !templateDetails && (
+                                                  <div className="border-t border-gray-200 bg-gray-50 p-4">
+                                                    <p className="text-sm text-gray-500 text-center py-4">
+                                                      Loading workout details...
+                                                    </p>
+                                                  </div>
+                                                )}
+                                            </div>
+                                          );
+                                        },
+                                      )}
                                     </div>
                                   ) : (
                                     <div className="text-center py-8">
-                                      <p className="text-gray-500">No workouts assigned for this week</p>
+                                      <p className="text-gray-500">
+                                        No workouts assigned for this week
+                                      </p>
                                       <p className="text-sm text-gray-400 mt-2">
-                                        Workouts will appear here when assigned based on the user's commitment
+                                        Workouts will appear here when assigned
+                                        based on the user's commitment
                                       </p>
                                     </div>
                                   )}
@@ -1639,9 +2193,12 @@ export default function MoaiDetailPage() {
                                 <div className="bg-white border border-gray-200 rounded-lg p-6">
                                   <div className="text-center py-8">
                                     <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                    <p className="text-gray-600 font-medium">No Commitment Set</p>
+                                    <p className="text-gray-600 font-medium">
+                                      No Commitment Set
+                                    </p>
                                     <p className="text-sm text-gray-500 mt-2">
-                                      This user hasn't set a commitment for this week, so no workouts have been assigned.
+                                      This user hasn't set a commitment for this
+                                      week, so no workouts have been assigned.
                                     </p>
                                   </div>
                                 </div>
@@ -1661,11 +2218,15 @@ export default function MoaiDetailPage() {
           <div className="space-y-6">
             {/* Quick Stats */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Quick Stats</h3>
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">
+                Quick Stats
+              </h3>
               <div className="space-y-4">
                 <div>
                   <p className="text-xs text-gray-500">Weeks Active</p>
-                  <p className="text-lg font-bold text-gray-900">{moaiDetail.weeks_active}</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {moaiDetail.weeks_active}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">Avg Weekly Commitment</p>
@@ -1674,10 +2235,10 @@ export default function MoaiDetailPage() {
                       ? (
                           moaiDetail.moai_commitment_history.reduce(
                             (sum, w) => sum + w.total_commitment,
-                            0
+                            0,
                           ) / moaiDetail.moai_commitment_history.length
                         ).toFixed(1)
-                      : '0'}
+                      : "0"}
                   </p>
                 </div>
                 <div>
@@ -1685,9 +2246,11 @@ export default function MoaiDetailPage() {
                   <p className="text-lg font-bold text-gray-900">
                     {moaiDetail.moai_commitment_history.length > 0
                       ? Math.max(
-                          ...moaiDetail.moai_commitment_history.map((w) => w.completion_rate)
-                        ).toFixed(1) + '%'
-                      : 'N/A'}
+                          ...moaiDetail.moai_commitment_history.map(
+                            (w) => w.completion_rate,
+                          ),
+                        ).toFixed(1) + "%"
+                      : "N/A"}
                   </p>
                 </div>
               </div>
@@ -1696,34 +2259,45 @@ export default function MoaiDetailPage() {
             {/* Recent Commitment History */}
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900">Recent Weeks</h3>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Recent Weeks
+                </h3>
               </div>
               <div className="p-6">
                 <div className="space-y-3">
-                  {moaiDetail.moai_commitment_history?.slice(0, 6).map((week) => (
-                    <div key={week.week_start} className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-xs text-gray-600">{formatDate(week.week_start)}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                            <div
-                              className={`h-1.5 rounded-full ${
-                                week.completion_rate >= 80
-                                  ? 'bg-green-600'
-                                  : week.completion_rate >= 60
-                                  ? 'bg-yellow-500'
-                                  : 'bg-red-500'
-                              }`}
-                              style={{ width: `${Math.min(week.completion_rate, 100)}%` }}
-                            />
+                  {moaiDetail.moai_commitment_history
+                    ?.slice(0, 6)
+                    .map((week) => (
+                      <div
+                        key={week.week_start}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-600">
+                            {formatDate(week.week_start)}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                              <div
+                                className={`h-1.5 rounded-full ${
+                                  week.completion_rate >= 80
+                                    ? "bg-green-600"
+                                    : week.completion_rate >= 60
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500"
+                                }`}
+                                style={{
+                                  width: `${Math.min(week.completion_rate, 100)}%`,
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-gray-900 w-12 text-right">
+                              {week.completion_rate.toFixed(0)}%
+                            </span>
                           </div>
-                          <span className="text-xs font-medium text-gray-900 w-12 text-right">
-                            {week.completion_rate.toFixed(0)}%
-                          </span>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             </div>
@@ -1734,7 +2308,7 @@ export default function MoaiDetailPage() {
       {/* Chat Slide-in Panel */}
       <div
         className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-          showChat ? 'translate-x-0' : 'translate-x-full'
+          showChat ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="h-full flex flex-col">
@@ -1744,56 +2318,70 @@ export default function MoaiDetailPage() {
               <h2 className="text-lg font-semibold text-gray-900">Moai Chat</h2>
               <p className="text-xs text-gray-500 mt-1">{moaiDetail?.name}</p>
             </div>
-              <button
-                onClick={() => setShowChat(false)}
+            <button
+              onClick={() => setShowChat(false)}
               className="text-gray-500 hover:text-gray-700 p-1"
-              >
+            >
               <X className="h-5 w-5" />
-              </button>
-            </div>
+            </button>
+          </div>
 
-      {/* Messages */}
+          {/* Messages */}
           <div className="flex-1 overflow-y-auto px-4 py-6 bg-gray-100">
             {chatMessages.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
+              <div className="text-center text-gray-500 py-8">
                 <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="mb-2">No messages yet.</p>
-            <p className="text-sm">
-              Messages from before you were added to this Moai are not shown.
-            </p>
-          </div>
-        ) : (
+                <p className="mb-2">No messages yet.</p>
+                <p className="text-sm">
+                  Messages from before you were added to this Moai are not
+                  shown.
+                </p>
+              </div>
+            ) : (
               chatMessages.map((message, index) => {
-                const prevMessage = index > 0 ? chatMessages[index - 1] : null
-                const nextMessage = index < chatMessages.length - 1 ? chatMessages[index + 1] : null
-                const isSameSender = prevMessage && prevMessage.sender_id === message.sender_id && !message.is_coach
-                const timeDiff = prevMessage 
-                  ? new Date(message.timestamp).getTime() - new Date(prevMessage.timestamp).getTime()
-                  : Infinity
-                const showAvatar = !message.is_coach && (!isSameSender || timeDiff > 300000) // 5 minutes
-                const showTimestamp = !nextMessage || 
-                  new Date(nextMessage.timestamp).getTime() - new Date(message.timestamp).getTime() > 300000 ||
-                  nextMessage.sender_id !== message.sender_id
-                
+                const prevMessage = index > 0 ? chatMessages[index - 1] : null;
+                const nextMessage =
+                  index < chatMessages.length - 1
+                    ? chatMessages[index + 1]
+                    : null;
+                const isSameSender =
+                  prevMessage &&
+                  prevMessage.sender_id === message.sender_id &&
+                  !message.is_coach;
+                const timeDiff = prevMessage
+                  ? new Date(message.timestamp).getTime() -
+                    new Date(prevMessage.timestamp).getTime()
+                  : Infinity;
+                const showAvatar =
+                  !message.is_coach && (!isSameSender || timeDiff > 300000); // 5 minutes
+                const showTimestamp =
+                  !nextMessage ||
+                  new Date(nextMessage.timestamp).getTime() -
+                    new Date(message.timestamp).getTime() >
+                    300000 ||
+                  nextMessage.sender_id !== message.sender_id;
+
                 return (
-            <div
-              key={message.id}
-                    className={`flex items-end gap-2 mb-1 ${message.is_coach ? 'justify-end' : 'justify-start'}`}
-            >
+                  <div
+                    key={message.id}
+                    className={`flex items-end gap-2 mb-1 ${message.is_coach ? "justify-end" : "justify-start"}`}
+                  >
                     {/* Avatar for received messages */}
                     {!message.is_coach && (
                       <div className="w-8 h-8 flex-shrink-0">
                         {showAvatar ? (
                           message.sender_profile_picture_url ? (
-                  <img
-                    src={message.sender_profile_picture_url}
-                    alt={message.sender_name || 'User'}
+                            <img
+                              src={message.sender_profile_picture_url}
+                              alt={message.sender_name || "User"}
                               className="h-8 w-8 rounded-full object-cover"
-                  />
+                            />
                           ) : (
                             <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
                               <span className="text-xs font-medium text-gray-600">
-                                {(message.sender_name?.[0] || 'U').toUpperCase()}
+                                {(
+                                  message.sender_name?.[0] || "U"
+                                ).toUpperCase()}
                               </span>
                             </div>
                           )
@@ -1802,78 +2390,85 @@ export default function MoaiDetailPage() {
                         )}
                       </div>
                     )}
-                    
+
                     {/* Message bubble */}
-                    <div className={`flex flex-col ${message.is_coach ? 'items-end' : 'items-start'} max-w-[75%]`}>
+                    <div
+                      className={`flex flex-col ${message.is_coach ? "items-end" : "items-start"} max-w-[75%]`}
+                    >
                       {!message.is_coach && !isSameSender && (
                         <span className="text-xs text-gray-600 mb-1 px-1">
-                          {message.sender_name || 'User'}
+                          {message.sender_name || "User"}
                         </span>
-                )}
-                <div
+                      )}
+                      <div
                         className={`px-4 py-2 rounded-2xl ${
-                    message.is_coach
-                            ? 'bg-blue-500 text-white rounded-tr-sm'
-                            : 'bg-white text-gray-900 rounded-tl-sm shadow-sm'
+                          message.is_coach
+                            ? "bg-blue-500 text-white rounded-tr-sm"
+                            : "bg-white text-gray-900 rounded-tl-sm shadow-sm"
                         }`}
                         style={{
-                          borderRadius: message.is_coach 
-                            ? '18px 18px 4px 18px' 
-                            : '18px 18px 18px 4px'
+                          borderRadius: message.is_coach
+                            ? "18px 18px 4px 18px"
+                            : "18px 18px 18px 4px",
                         }}
-                    >
+                      >
                         <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
                           {message.message}
                         </p>
                       </div>
                       {showTimestamp && (
-                        <span className={`text-xs mt-1 px-1 ${message.is_coach ? 'text-gray-500' : 'text-gray-500'}`}>
-                          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <span
+                          className={`text-xs mt-1 px-1 ${message.is_coach ? "text-gray-500" : "text-gray-500"}`}
+                        >
+                          {new Date(message.timestamp).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
                         </span>
                       )}
-                </div>
-                    
+                    </div>
+
                     {/* Spacer for sent messages */}
                     {message.is_coach && <div className="w-8 flex-shrink-0" />}
-              </div>
-                )
+                  </div>
+                );
               })
-        )}
-            <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-          <div className="border-t border-gray-200 p-4 bg-white">
-        <div className="flex items-end gap-2">
-          <div className="flex-1 relative">
-          <input
-            type="text"
-              value={chatInputText}
-              onChange={(e) => setChatInputText(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSendMessage()
-                }
-              }}
-            placeholder="Type a message..."
-              className="w-full px-4 py-3 pr-12 bg-gray-100 border-0 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-          />
-          </div>
-          <button
-            onClick={handleSendMessage}
-            disabled={!chatInputText.trim() || sendingMessage}
-            className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-            aria-label="Send message"
-          >
-            {sendingMessage ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-            ) : (
-              <MessageSquare className="h-5 w-5" />
             )}
-          </button>
-        </div>
-      </div>
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="border-t border-gray-200 p-4 bg-white">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={chatInputText}
+                  onChange={(e) => setChatInputText(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder="Type a message..."
+                  className="w-full px-4 py-3 pr-12 bg-gray-100 border-0 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+                />
+              </div>
+              <button
+                onClick={handleSendMessage}
+                disabled={!chatInputText.trim() || sendingMessage}
+                className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                aria-label="Send message"
+              >
+                {sendingMessage ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                ) : (
+                  <MessageSquare className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1885,6 +2480,5 @@ export default function MoaiDetailPage() {
         />
       )}
     </div>
-  )
+  );
 }
-

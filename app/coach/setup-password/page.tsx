@@ -51,6 +51,12 @@ function SetupPasswordContent() {
       return;
     }
 
+    if (/\s/.test(trimmedUsername)) {
+      setError("Username cannot contain spaces");
+      setLoading(false);
+      return;
+    }
+
     // Validate password
     if (password.length < 8) {
       setError("Password must be at least 8 characters long");
@@ -278,7 +284,7 @@ function SetupPasswordContent() {
                 minLength={8}
                 maxLength={20}
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-t-md focus:outline-none focus:ring-2 focus:ring-[#1e3a8a] focus:border-[#1e3a8a] focus:z-10 sm:text-sm bg-white"
-                placeholder="Username (8-20 characters)"
+                placeholder="Username (8-20 chars, no spaces)"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />

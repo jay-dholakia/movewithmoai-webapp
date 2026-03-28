@@ -1,29 +1,38 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
-import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
-import { AdminService } from '@/lib/services/adminService'
-import { LogOut, LayoutDashboard, Users, UserCog, UsersRound, BarChart3 } from 'lucide-react'
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { AdminService } from "@/lib/services/adminService";
+import {
+  LogOut,
+  LayoutDashboard,
+  Users,
+  UserCog,
+  UsersRound,
+  BarChart3,
+  Focus,
+  Workflow,
+} from "lucide-react";
 
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const [mounted, setMounted] = useState(false)
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
+  const router = useRouter();
+  const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    setMounted(true)
-    
+    setMounted(true);
+
     // Skip admin check on login page
-    if (pathname === '/admin/login') {
-      setIsAdmin(false)
-      return
+    if (pathname === "/admin/login") {
+      setIsAdmin(false);
+      return;
     }
 
     // Check admin access for other pages
@@ -31,29 +40,29 @@ export default function AdminLayout({
       try {
         const {
           data: { session },
-        } = await supabase.auth.getSession()
+        } = await supabase.auth.getSession();
 
         if (!session) {
-          router.push('/admin/login')
-          setIsAdmin(false)
-          return
+          router.push("/admin/login");
+          setIsAdmin(false);
+          return;
         }
 
-        const adminCheck = await AdminService.isAdmin(session.user.id)
-        setIsAdmin(adminCheck)
+        const adminCheck = await AdminService.isAdmin(session.user.id);
+        setIsAdmin(adminCheck);
 
         if (!adminCheck) {
-          router.push('/admin/login')
+          router.push("/admin/login");
         }
       } catch (error) {
-        console.error('Error checking admin access:', error)
-        setIsAdmin(false)
-        router.push('/admin/login')
+        console.error("Error checking admin access:", error);
+        setIsAdmin(false);
+        router.push("/admin/login");
       }
-    }
+    };
 
-    checkAdminAccess()
-  }, [pathname, router])
+    checkAdminAccess();
+  }, [pathname, router]);
 
   // Don't render anything until mounted (prevents SSR issues)
   if (!mounted) {
@@ -64,12 +73,12 @@ export default function AdminLayout({
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Skip layout for login page - render immediately
-  if (pathname === '/admin/login') {
-    return <>{children}</>
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
   }
 
   // Show loading while checking admin status
@@ -81,25 +90,25 @@ export default function AdminLayout({
           <p className="mt-4 text-gray-600">Verifying access...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Redirect if not admin
   if (isAdmin === false) {
-    return null
+    return null;
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/admin/login')
-  }
+    await supabase.auth.signOut();
+    router.push("/admin/login");
+  };
 
   const isActive = (path: string) => {
-    if (path === '/admin') {
-      return pathname === '/admin'
+    if (path === "/admin") {
+      return pathname === "/admin";
     }
-    return pathname.startsWith(path)
-  }
+    return pathname.startsWith(path);
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -115,9 +124,9 @@ export default function AdminLayout({
           <Link
             href="/admin"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive('/admin') && pathname === '/admin'
-                ? 'bg-blue-50 text-blue-700 font-medium'
-                : 'text-gray-700 hover:bg-gray-100'
+              isActive("/admin") && pathname === "/admin"
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
             }`}
           >
             <LayoutDashboard className="h-5 w-5" />
@@ -127,9 +136,9 @@ export default function AdminLayout({
           <Link
             href="/admin/users"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive('/admin/users')
-                ? 'bg-blue-50 text-blue-700 font-medium'
-                : 'text-gray-700 hover:bg-gray-100'
+              isActive("/admin/users")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
             }`}
           >
             <Users className="h-5 w-5" />
@@ -139,9 +148,9 @@ export default function AdminLayout({
           <Link
             href="/admin/coaches"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive('/admin/coaches')
-                ? 'bg-blue-50 text-blue-700 font-medium'
-                : 'text-gray-700 hover:bg-gray-100'
+              isActive("/admin/coaches")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
             }`}
           >
             <UserCog className="h-5 w-5" />
@@ -151,9 +160,9 @@ export default function AdminLayout({
           <Link
             href="/admin/moais"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive('/admin/moais')
-                ? 'bg-blue-50 text-blue-700 font-medium'
-                : 'text-gray-700 hover:bg-gray-100'
+              isActive("/admin/moais")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
             }`}
           >
             <UsersRound className="h-5 w-5" />
@@ -163,13 +172,35 @@ export default function AdminLayout({
           <Link
             href="/admin/analytics"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive('/admin/analytics')
-                ? 'bg-blue-50 text-blue-700 font-medium'
-                : 'text-gray-700 hover:bg-gray-100'
+              isActive("/admin/analytics")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
             }`}
           >
             <BarChart3 className="h-5 w-5" />
             <span>Analytics</span>
+          </Link>
+          <Link
+            href="/admin/workout-focus"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive("/admin/workout-focus")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Workflow className="h-5 w-5" />
+            <span>Workout Focus</span>
+          </Link>
+          <Link
+            href="/admin/focus-moai"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive("/admin/focus-moai")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <Focus className="h-5 w-5" />
+            <span>Focus Moai</span>
           </Link>
         </nav>
 
@@ -186,10 +217,7 @@ export default function AdminLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <main className="flex-1 overflow-auto">{children}</main>
     </div>
-  )
+  );
 }
-
