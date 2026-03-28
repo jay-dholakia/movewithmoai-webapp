@@ -268,7 +268,12 @@ export default function MoaisPage() {
           .eq("focus_moai_id", focusMoaiId)
           .eq("status", "active")
           .order("joined_at", { ascending: true });
-        setFocusMoaiMembers((prev) => ({ ...prev, [focusMoaiId]: data || [] }));
+        const members: FocusMoaiMember[] = (data || []).map((item) => ({
+          ...item,
+          users: Array.isArray(item.users) ? item.users[0] : item.users,
+        }));
+
+        setFocusMoaiMembers((prev) => ({ ...prev, [focusMoaiId]: members }));
       } catch (err) {
         console.error("Error loading focus moai members:", err);
       } finally {
