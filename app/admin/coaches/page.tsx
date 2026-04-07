@@ -1,97 +1,110 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { AdminService } from '@/lib/services/adminService'
-import type { AdminCoachWithStatus } from '@/lib/types/admin'
-import { Users, CheckCircle, XCircle, Edit2, UserPlus, Mail, Clock } from 'lucide-react'
-import CreateCoachModal from './CreateCoachModal'
+import { useEffect, useState } from "react";
+import { AdminService } from "@/lib/services/adminService";
+import type { AdminCoachWithStatus } from "@/lib/types/admin";
+import {
+  Users,
+  CheckCircle,
+  XCircle,
+  Edit2,
+  UserPlus,
+  Mail,
+  Clock,
+} from "lucide-react";
+import CreateCoachModal from "./CreateCoachModal";
 
 export default function AdminCoachesPage() {
-  const [coaches, setCoaches] = useState<AdminCoachWithStatus[]>([])
-  const [resendingFor, setResendingFor] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [editingCoach, setEditingCoach] = useState<string | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [coaches, setCoaches] = useState<AdminCoachWithStatus[]>([]);
+  const [resendingFor, setResendingFor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editingCoach, setEditingCoach] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [editForm, setEditForm] = useState({
     is_available: false,
     max_clients: 50,
     max_moais: 10,
-  })
+  });
 
   useEffect(() => {
-    loadCoaches()
-  }, [])
+    loadCoaches();
+  }, []);
 
   const loadCoaches = async () => {
     try {
-      const coachesData = await AdminService.getCoachesWithStatus()
-      setCoaches(coachesData)
+      const coachesData = await AdminService.getCoachesWithStatus();
+      setCoaches(coachesData);
     } catch (error) {
-      console.error('Error loading coaches:', error)
+      console.error("Error loading coaches:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleResendInvite = async (coach: AdminCoachWithStatus) => {
-    if (resendingFor) return
-    setResendingFor(coach.email)
+    if (resendingFor) return;
+    setResendingFor(coach.email);
     try {
-      const result = await AdminService.resendCoachInvite(coach.email)
-      if (result.success && result.inviteLink) {
-        await navigator.clipboard.writeText(result.inviteLink)
-        alert('Invite link copied to clipboard! Send it to the coach. Links expire in 24 hours.')
+      const result = await AdminService.resendCoachInvite(coach.email);
+      if (result.success) {
+        alert("Invite email sent successfully!");
       } else {
-        alert(result.error || 'Failed to generate invite link')
+        alert(result.error || "Failed to send invite");
       }
-    } catch (error) {
-      alert('Failed to generate invite link')
+    } catch {
+      alert("Failed to send invite");
     } finally {
-      setResendingFor(null)
+      setResendingFor(null);
     }
-  }
+  };
 
-  const handleToggleAvailability = async (coachId: string, currentStatus: boolean) => {
+  const handleToggleAvailability = async (
+    coachId: string,
+    currentStatus: boolean,
+  ) => {
     try {
-      const success = await AdminService.updateCoachAvailability(coachId, !currentStatus)
+      const success = await AdminService.updateCoachAvailability(
+        coachId,
+        !currentStatus,
+      );
       if (success) {
-        await loadCoaches()
+        await loadCoaches();
       } else {
-        alert('Failed to update coach availability')
+        alert("Failed to update coach availability");
       }
     } catch (error) {
-      console.error('Error updating availability:', error)
-      alert('Error updating coach availability')
+      console.error("Error updating availability:", error);
+      alert("Error updating coach availability");
     }
-  }
+  };
 
   const handleSaveCapacity = async (coachId: string) => {
     try {
       const success = await AdminService.updateCoachCapacity(
         coachId,
         editForm.max_clients,
-        editForm.max_moais
-      )
+        editForm.max_moais,
+      );
       if (success) {
-        setEditingCoach(null)
-        await loadCoaches()
+        setEditingCoach(null);
+        await loadCoaches();
       } else {
-        alert('Failed to update coach capacity')
+        alert("Failed to update coach capacity");
       }
     } catch (error) {
-      console.error('Error updating capacity:', error)
-      alert('Error updating coach capacity')
+      console.error("Error updating capacity:", error);
+      alert("Error updating coach capacity");
     }
-  }
+  };
 
   const startEditing = (coach: AdminCoachWithStatus) => {
-    setEditingCoach(coach.id)
+    setEditingCoach(coach.id);
     setEditForm({
       is_available: coach.is_available,
       max_clients: coach.max_clients,
       max_moais: coach.max_moais,
-    })
-  }
+    });
+  };
 
   if (loading) {
     return (
@@ -101,7 +114,7 @@ export default function AdminCoachesPage() {
           <p className="mt-4 text-gray-600">Loading coaches...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -126,7 +139,7 @@ export default function AdminCoachesPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSuccess={() => {
-          loadCoaches()
+          loadCoaches();
         }}
       />
 
@@ -137,8 +150,12 @@ export default function AdminCoachesPage() {
             <div className="flex items-center">
               <Users className="h-8 w-8 text-blue-500" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Coaches</p>
-                <p className="text-2xl font-semibold text-gray-900">{coaches.length}</p>
+                <p className="text-sm font-medium text-gray-500">
+                  Total Coaches
+                </p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {coaches.length}
+                </p>
               </div>
             </div>
           </div>
@@ -174,7 +191,9 @@ export default function AdminCoachesPage() {
             <div className="flex items-center">
               <Clock className="h-8 w-8 text-amber-500" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Pending Signup</p>
+                <p className="text-sm font-medium text-gray-500">
+                  Pending Signup
+                </p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {coaches.filter((c) => !c.signup_confirmed).length}
                 </p>
@@ -209,7 +228,9 @@ export default function AdminCoachesPage() {
                     </div>
                     <div className="ml-4">
                       <div className="flex items-center flex-wrap gap-2">
-                        <p className="text-sm font-medium text-gray-900">{coach.name}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {coach.name}
+                        </p>
                         {coach.is_available ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Available
@@ -249,7 +270,10 @@ export default function AdminCoachesPage() {
                           type="number"
                           value={editForm.max_clients}
                           onChange={(e) =>
-                            setEditForm({ ...editForm, max_clients: parseInt(e.target.value) })
+                            setEditForm({
+                              ...editForm,
+                              max_clients: parseInt(e.target.value),
+                            })
                           }
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                           placeholder="Max clients"
@@ -258,7 +282,10 @@ export default function AdminCoachesPage() {
                           type="number"
                           value={editForm.max_moais}
                           onChange={(e) =>
-                            setEditForm({ ...editForm, max_moais: parseInt(e.target.value) })
+                            setEditForm({
+                              ...editForm,
+                              max_moais: parseInt(e.target.value),
+                            })
                           }
                           className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                           placeholder="Max Moais"
@@ -286,18 +313,27 @@ export default function AdminCoachesPage() {
                             title="Generate new invite link and copy to clipboard"
                           >
                             <Mail className="h-4 w-4" />
-                            {resendingFor === coach.email ? 'Copying...' : 'Resend Invite'}
+                            {resendingFor === coach.email
+                              ? "Copying..."
+                              : "Resend Invite"}
                           </button>
                         )}
                         <button
-                          onClick={() => handleToggleAvailability(coach.id, coach.is_available)}
+                          onClick={() =>
+                            handleToggleAvailability(
+                              coach.id,
+                              coach.is_available,
+                            )
+                          }
                           className={`px-3 py-1 rounded text-sm ${
                             coach.is_available
-                              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                              ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              : "bg-green-100 text-green-700 hover:bg-green-200"
                           }`}
                         >
-                          {coach.is_available ? 'Set Unavailable' : 'Set Available'}
+                          {coach.is_available
+                            ? "Set Unavailable"
+                            : "Set Available"}
                         </button>
                         <button
                           onClick={() => startEditing(coach)}
@@ -321,7 +357,5 @@ export default function AdminCoachesPage() {
         )}
       </div>
     </div>
-  )
+  );
 }
-
-
