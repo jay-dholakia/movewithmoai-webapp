@@ -109,18 +109,39 @@ export async function POST(request: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://withmoai.co";
     const trimmedEmail = email.trim();
 
-    // Step 1: Invalidate all existing unused custom tokens for this email
+    // Step 1: Fetch existing coach data BEFORE we delete anything
+    // We need this to recreate the records after re-invite assigns a new auth UUID
+    const { data: existingCoach, error: coachFetchError } = await admin
+      .from("coaches")
+      .select(
+        "first_name, last_name, is_available, max_clients, max_moais, bio, specializations",
+      )
+      .eq("email", trimmedEmail)
+      .single();
+
+    if (coachFetchError || !existingCoach) {
+      console.error(
+        "[resend-coach-invite] Could not find coach record:",
+        coachFetchError,
+      );
+      return NextResponse.json(
+        { success: false, error: "Coach not found" },
+        { status: 404 },
+      );
+    }
+
+    // Step 2: Invalidate all existing unused custom tokens for this email
     await (admin.from("coach_invites" as any) as any)
       .update({ used_at: new Date().toISOString() })
       .eq("email", trimmedEmail)
       .is("used_at", null);
 
-    // Step 2: Create a fresh custom token
-    const { data: invite, error: inviteErr } = await (admin
-      .from("coach_invites" as any)
+    const { data: invite, error: inviteErr } = (await (
+      admin.from("coach_invites") as any
+    )
       .insert({ email: trimmedEmail })
       .select("token")
-      .single() as Promise<{ data: { token: string } | null; error: any }>);
+      .single()) as unknown as { data: { token: string } | null; error: any };
 
     if (inviteErr || !invite) {
       console.error(
@@ -135,17 +156,20 @@ export async function POST(request: NextRequest) {
 
     const redirectTo = `${siteUrl}/coach/setup-password?invite=${invite.token}`;
 
-    // Step 3: Find the existing auth user
-    // The resend button only shows for signup_confirmed=false coaches, so they
-    // haven't set a password yet — it's safe to delete and re-invite them.
-    // This is the only way to send the invite email template (not reset password).
+    // Step 4: Find and delete the existing unconfirmed auth user
+    // The resend button only shows for signup_confirmed=false, so they've never
+    // set a password — safe to delete. This is the only way to re-send the
+    // invite email template (inviteUserByEmail rejects existing users).
     const { data: listData } = await admin.auth.admin.listUsers();
     const existingAuthUser = listData?.users?.find(
       (u) => u.email === trimmedEmail,
     );
 
     if (existingAuthUser) {
-      // Delete the unconfirmed auth user so inviteUserByEmail works again
+      // Delete coaches + users DB records first to avoid FK constraint errors
+      await admin.from("coaches").delete().eq("email", trimmedEmail);
+      await admin.from("users").delete().eq("email", trimmedEmail);
+
       const { error: deleteError } = await admin.auth.admin.deleteUser(
         existingAuthUser.id,
       );
@@ -164,9 +188,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 4: Re-invite — creates a new auth user and sends the invite email via your SMTP
+    // Step 5: Re-invite — creates a fresh auth user and sends the invite email via your SMTP
     const { data: inviteData, error: inviteError } =
-      await admin.auth.admin.inviteUserByEmail(trimmedEmail, { redirectTo });
+      await admin.auth.admin.inviteUserByEmail(trimmedEmail, {
+        data: {
+          first_name: existingCoach.first_name,
+          last_name: existingCoach.last_name,
+          user_type: "coach",
+        },
+        redirectTo,
+      });
 
     if (inviteError || !inviteData?.user) {
       console.error(
@@ -185,19 +216,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 5: Update the users table with the new auth user ID
-    // (old auth user was deleted, new one has a different UUID)
-    const { error: updateError } = await admin
-      .from("users")
-      .update({ id: inviteData.user.id })
-      .eq("email", trimmedEmail);
+    // Step 6: Recreate the users + coaches DB records with the new auth UUID via RPC
+    const { data: rpcResult, error: rpcError } = await admin.rpc(
+      "create_coach_records",
+      {
+        p_user_id: inviteData.user.id,
+        p_email: trimmedEmail,
+        p_first_name: existingCoach.first_name,
+        p_last_name: existingCoach.last_name,
+        p_is_available: existingCoach.is_available,
+        p_max_clients: existingCoach.max_clients,
+        p_max_moais: existingCoach.max_moais,
+        p_bio: existingCoach.bio ?? null,
+        p_specializations: existingCoach.specializations ?? [],
+      } as any,
+    );
 
-    if (updateError) {
+    if (rpcError || (rpcResult as any)?.success !== true) {
       console.error(
-        "[resend-coach-invite] Failed to update user ID:",
-        updateError,
+        "[resend-coach-invite] Failed to recreate coach records:",
+        rpcError ?? rpcResult,
       );
-      // Non-fatal — invite was sent, just log it
     }
 
     return NextResponse.json({ success: true });

@@ -151,6 +151,7 @@ export async function POST(request: NextRequest) {
       .select("id, role")
       .eq("email", email)
       .eq("is_deleted", false)
+      .returns<{ id: string; role: string }[]>()
       .single();
 
     if (existingUser?.role === "coach") {
@@ -160,11 +161,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: invite, error: inviteErr } = await (adminClient
-      .from("coach_invites" as any)
+    const { data: invite, error: inviteErr } = (await (
+      adminClient.from("coach_invites") as any
+    )
       .insert({ email })
       .select("token")
-      .single() as Promise<{ data: { token: string } | null; error: any }>);
+      .single()) as unknown as { data: { token: string } | null; error: any };
 
     if (inviteErr || !invite) {
       console.error("Failed to create invite token:", inviteErr);
