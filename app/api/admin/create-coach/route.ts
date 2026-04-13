@@ -196,10 +196,36 @@ export async function POST(request: NextRequest) {
       await (adminClient.from("coach_invites" as any) as any)
         .delete()
         .eq("token", invite.token);
+
+      const errMsg = (inviteError?.message || "").toLowerCase();
+      const isAlreadyRegistered =
+        errMsg.includes("already") ||
+        errMsg.includes("registered") ||
+        inviteError?.code === "user_already_exists" ||
+        inviteError?.code === "email_exists";
+
+      if (isAlreadyRegistered) {
+        const { data: existingCoach } = await adminClient
+          .from("coaches")
+          .select("id")
+          .eq("email", email)
+          .limit(1)
+          .maybeSingle();
+
+        const friendlyError = existingCoach
+          ? "This email is already registered as a coach. Use the Resend Invite button next to their name to send a new link."
+          : "This email already has an account. To add them as a coach, use Resend Invite from an existing coach record or contact support.";
+        return NextResponse.json(
+          { success: false, error: friendlyError },
+          { status: 400 },
+        );
+      }
+
       return NextResponse.json(
         {
           success: false,
           error: inviteError?.message || "Failed to send invitation email",
+          errorCode: inviteError?.code,
         },
         { status: 500 },
       );
