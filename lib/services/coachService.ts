@@ -63,7 +63,7 @@ export class CoachService {
    */
   static async getClientCommitmentHistory(
     userId: string,
-    coachId?: string
+    coachId?: string,
   ): Promise<CommitmentHistory[]> {
     // Try using the function first if coachId is provided
     if (coachId) {
@@ -73,7 +73,7 @@ export class CoachService {
           {
             client_uuid: userId,
             coach_uuid: coachId,
-          }
+          },
         );
 
         if (!error && data) {
@@ -105,7 +105,7 @@ export class CoachService {
   static async getClientWorkoutHistory(
     userId: string,
     coachId?: string,
-    limit = 50
+    limit = 50,
   ): Promise<WorkoutHistory[]> {
     // Try using the function first if coachId is provided
     if (coachId) {
@@ -116,7 +116,7 @@ export class CoachService {
             client_uuid: userId,
             coach_uuid: coachId,
             result_limit: limit,
-          }
+          },
         );
 
         if (!error && data) {
@@ -149,7 +149,7 @@ export class CoachService {
    */
   static async getClientExercisePerformance(
     userId: string,
-    exerciseName?: string
+    exerciseName?: string,
   ): Promise<ExercisePerformance[]> {
     let query = supabase
       .from("coach_client_exercise_performance")
@@ -176,24 +176,24 @@ export class CoachService {
    * Get detailed workout session with exercise sets
    */
   static async getWorkoutSessionDetails(sessionId: string): Promise<{
-    session: WorkoutHistory | null
-      exercises: Array<{
-        exercise_name: string
-        sets: Array<{
-          id: string
-          set_number: number
-          weight_lbs: number | null
-          reps: number | null
-          is_completed: boolean
-        }>
-      }>
+    session: WorkoutHistory | null;
+    exercises: Array<{
+      exercise_name: string;
+      sets: Array<{
+        id: string;
+        set_number: number;
+        weight_lbs: number | null;
+        reps: number | null;
+        is_completed: boolean;
+      }>;
+    }>;
   } | null> {
     try {
       // Get workout session
       const { data: session, error: sessionError } = await supabase
         .from("workout_sessions")
         .select(
-          "id, user_id, workout_template_id, status, started_at, completed_at, total_duration_seconds, notes, rpe"
+          "id, user_id, workout_template_id, status, started_at, completed_at, total_duration_seconds, notes, rpe",
         )
         .eq("id", sessionId)
         .single();
@@ -204,16 +204,19 @@ export class CoachService {
       }
 
       // Get workout template info (optional - table might not exist)
-      let template: { title: string | null; workout_type: string | null } | null = null
+      let template: {
+        title: string | null;
+        workout_type: string | null;
+      } | null = null;
       if (session.workout_template_id) {
         const { data: templateData, error: templateError } = await supabase
           .from("workout_templates")
           .select("title, workout_type")
           .eq("id", session.workout_template_id)
-          .single()
-        
+          .single();
+
         if (!templateError && templateData) {
-          template = templateData
+          template = templateData;
         }
       }
 
@@ -226,8 +229,8 @@ export class CoachService {
       if (setsError) {
         console.error("Error fetching exercise sets:", setsError);
         const sessionDate = session.started_at
-          ? new Date(session.started_at).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0]
+          ? new Date(session.started_at).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0];
         return {
           session: {
             session_id: session.id,
@@ -254,8 +257,8 @@ export class CoachService {
 
       if (!exerciseSets || exerciseSets.length === 0) {
         const sessionDate = session.started_at
-          ? new Date(session.started_at).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0]
+          ? new Date(session.started_at).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0];
         return {
           session: {
             session_id: session.id,
@@ -295,11 +298,11 @@ export class CoachService {
         .map(([exercise_name, sets]) => {
           // Sort sets by created_at to maintain order
           const sortedSets = [...sets].sort((a, b) => {
-            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
-            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
-            return dateA - dateB
-          })
-          
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateA - dateB;
+          });
+
           return {
             exercise_name,
             sets: sortedSets.map((s, index) => ({
@@ -309,12 +312,12 @@ export class CoachService {
               reps: s.reps,
               is_completed: s.is_completed,
             })),
-          }
+          };
         });
 
       const sessionDate = session.started_at
-        ? new Date(session.started_at).toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0]
+        ? new Date(session.started_at).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
       return {
         session: {
           session_id: session.id,
@@ -365,7 +368,7 @@ export class CoachService {
    * Get coach profile by user_id
    */
   static async getCoachProfileByUserId(
-    userId: string
+    userId: string,
   ): Promise<CoachProfile | null> {
     const { data, error } = await supabase
       .from("coaches")
@@ -403,7 +406,7 @@ export class CoachService {
       injury_specializations: string[];
       max_clients: number;
       calendly_event_uri: string | null;
-    }>
+    }>,
   ): Promise<CoachProfile | null> {
     const { data, error } = await supabase
       .from("coaches")
@@ -420,46 +423,44 @@ export class CoachService {
     return data;
   }
 
-  /**
-   * Upload profile image to Supabase Storage
-   * Note: The 'coach-profiles' bucket must exist in Supabase Storage
-   * and be configured as public for this to work.
-   */
   static async uploadProfileImage(
     coachId: string,
-    file: File
+    file: File,
   ): Promise<string | null> {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${coachId}/${Date.now()}.${fileExt}`;
-      const filePath = fileName;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session");
 
-      // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('coach-profiles')
+      const fileExt = file.name.split(".").pop();
+      const filePath = `${session.user.id}/${coachId}-${Date.now()}.${fileExt}`;
+
+      const mimeType = file.type.startsWith("image/")
+        ? file.type
+        : "image/jpeg";
+
+      const { error } = await supabase.storage
+        .from("profile-pics")
         .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true, // Allow overwriting existing files
+          cacheControl: "3600",
+          upsert: false,
+          contentType: mimeType,
         });
 
       if (error) {
         console.error("Error uploading image:", error);
-        // If bucket doesn't exist, provide helpful error
-        if (error.message?.includes('Bucket not found')) {
-          throw new Error('Storage bucket "coach-profiles" not found. Please create it in Supabase Storage settings.');
-        }
         return null;
       }
 
-      // Get public URL
       const { data: urlData } = supabase.storage
-        .from('coach-profiles')
+        .from("profile-pics")
         .getPublicUrl(filePath);
 
       return urlData.publicUrl;
     } catch (err) {
       console.error("Exception uploading image:", err);
-      throw err; // Re-throw to allow UI to show error message
+      throw err;
     }
   }
 
@@ -468,7 +469,7 @@ export class CoachService {
    */
   static async getClientMetrics(
     userId: string,
-    coachId: string
+    coachId: string,
   ): Promise<ClientMetrics | null> {
     const { data, error } = await supabase
       .from("coach_client_metrics")
@@ -495,7 +496,7 @@ export class CoachService {
     const { data, error } = await supabase
       .from("users")
       .select(
-        "id, email, first_name, last_name, username, profile_picture_url, birthdate, gender, height_inches, weight_kg, experience_level, fitness_goal, equipment, injury_history, city, country, created_at"
+        "id, email, first_name, last_name, username, profile_picture_url, birthdate, gender, height_inches, weight_kg, experience_level, fitness_goal, equipment, injury_history, city, country, created_at",
       )
       .eq("id", userId)
       .single();
@@ -533,13 +534,13 @@ export class CoachService {
       console.log("Found user workouts:", userWorkouts.length);
       console.log(
         "Sample user workout:",
-        JSON.stringify(userWorkouts[0], null, 2)
+        JSON.stringify(userWorkouts[0], null, 2),
       );
 
       // Get unique plan IDs from base_plan_id
       const planIds = [
         ...new Set(
-          userWorkouts.map((uw) => (uw as any).base_plan_id).filter(Boolean)
+          userWorkouts.map((uw) => (uw as any).base_plan_id).filter(Boolean),
         ),
       ];
 
@@ -550,7 +551,7 @@ export class CoachService {
         console.warn("No plan IDs found in user_workouts.base_plan_id");
         console.log(
           "All user workouts:",
-          JSON.stringify(userWorkouts.slice(0, 5), null, 2)
+          JSON.stringify(userWorkouts.slice(0, 5), null, 2),
         );
         return [];
       }
@@ -570,7 +571,7 @@ export class CoachService {
 
       // Create plan lookup
       const planLookup = new Map(
-        plans?.map((p) => [p.plan_id, p.plan_name]) || []
+        plans?.map((p) => [p.plan_id, p.plan_name]) || [],
       );
       console.log("Plan lookup map:", Array.from(planLookup.entries()));
 
@@ -637,7 +638,7 @@ export class CoachService {
 
         const completedSession = completedSessions?.find(
           (s) =>
-            s.user_workout_id === uw.id || s.workout_template_id === workout.id
+            s.user_workout_id === uw.id || s.workout_template_id === workout.id,
         );
 
         if (!plansMap.has(planId)) {
@@ -689,7 +690,7 @@ export class CoachService {
       // Sort by assigned_at (newest first)
       return plansArray.sort(
         (a, b) =>
-          new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()
+          new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime(),
       );
     } catch (err) {
       console.error("Exception in getUserPlansHistory:", err);
@@ -700,43 +701,46 @@ export class CoachService {
   /**
    * Get weekly assigned workouts for a user based on their commitment
    */
-  static async getWeeklyAssignedWorkouts(userId: string, weekStart?: string): Promise<WorkoutInPlan[]> {
+  static async getWeeklyAssignedWorkouts(
+    userId: string,
+    weekStart?: string,
+  ): Promise<WorkoutInPlan[]> {
     try {
       // Calculate current week start (Monday) if not provided
-      let weekStartDate: Date
+      let weekStartDate: Date;
       if (weekStart) {
-        weekStartDate = new Date(weekStart + 'T00:00:00') // Parse as local date
+        weekStartDate = new Date(weekStart + "T00:00:00"); // Parse as local date
       } else {
-        const now = new Date()
-        weekStartDate = new Date(now)
-        const dayOfWeek = weekStartDate.getDay() // 0 = Sunday, 1 = Monday, etc.
-        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
-        weekStartDate.setDate(weekStartDate.getDate() - daysToMonday)
+        const now = new Date();
+        weekStartDate = new Date(now);
+        const dayOfWeek = weekStartDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        weekStartDate.setDate(weekStartDate.getDate() - daysToMonday);
         // Set to start of day (midnight) in local time
-        weekStartDate.setHours(0, 0, 0, 0)
+        weekStartDate.setHours(0, 0, 0, 0);
       }
-      
-      const weekEndDate = new Date(weekStartDate)
-      weekEndDate.setDate(weekEndDate.getDate() + 7) // End of week (next Monday)
-      
+
+      const weekEndDate = new Date(weekStartDate);
+      weekEndDate.setDate(weekEndDate.getDate() + 7); // End of week (next Monday)
+
       // Format as YYYY-MM-DD in local time (not UTC)
-      const year = weekStartDate.getFullYear()
-      const month = String(weekStartDate.getMonth() + 1).padStart(2, '0')
-      const day = String(weekStartDate.getDate()).padStart(2, '0')
-      const weekStartStr = `${year}-${month}-${day}`
-      
-      const yearEnd = weekEndDate.getFullYear()
-      const monthEnd = String(weekEndDate.getMonth() + 1).padStart(2, '0')
-      const dayEnd = String(weekEndDate.getDate()).padStart(2, '0')
-      const weekEndStr = `${yearEnd}-${monthEnd}-${dayEnd}`
-      
-      const today = new Date()
+      const year = weekStartDate.getFullYear();
+      const month = String(weekStartDate.getMonth() + 1).padStart(2, "0");
+      const day = String(weekStartDate.getDate()).padStart(2, "0");
+      const weekStartStr = `${year}-${month}-${day}`;
+
+      const yearEnd = weekEndDate.getFullYear();
+      const monthEnd = String(weekEndDate.getMonth() + 1).padStart(2, "0");
+      const dayEnd = String(weekEndDate.getDate()).padStart(2, "0");
+      const weekEndStr = `${yearEnd}-${monthEnd}-${dayEnd}`;
+
+      const today = new Date();
       console.log(`Week calculation for user ${userId}:`, {
         today: today.toLocaleDateString(),
         todayDayOfWeek: today.getDay(), // 0=Sunday, 1=Monday, etc.
         calculatedMonday: weekStartStr,
         weekStartDate: weekStartDate.toLocaleDateString(),
-      })
+      });
 
       // First, check what week_of values exist for this user (for debugging)
       const { data: allUserWorkoutsSample, error: sampleError } = await supabase
@@ -744,11 +748,15 @@ export class CoachService {
         .select("week_of, created_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(10)
+        .limit(10);
 
       if (!sampleError && allUserWorkoutsSample) {
-        const uniqueWeekOfs = [...new Set(allUserWorkoutsSample.map(uw => uw.week_of).filter(Boolean))]
-        console.log(`Sample week_of values for user ${userId}:`, uniqueWeekOfs)
+        const uniqueWeekOfs = [
+          ...new Set(
+            allUserWorkoutsSample.map((uw) => uw.week_of).filter(Boolean),
+          ),
+        ];
+        console.log(`Sample week_of values for user ${userId}:`, uniqueWeekOfs);
       }
 
       // Get user workouts for this specific week using week_of column
@@ -757,41 +765,46 @@ export class CoachService {
         .select("id, workout_id, base_plan_id, created_at, week_of")
         .eq("user_id", userId)
         .eq("week_of", weekStartStr) // Filter by the week_of column
-        .order("created_at", { ascending: true })
+        .order("created_at", { ascending: true });
 
       if (uwError) {
-        console.error("Error fetching weekly user workouts:", uwError)
-        return []
+        console.error("Error fetching weekly user workouts:", uwError);
+        return [];
       }
 
-      console.log(`Weekly workouts for user ${userId} (week_of: ${weekStartStr}):`, {
-        count: userWorkouts?.length || 0,
-        workouts: userWorkouts,
-        weekOfValues: userWorkouts?.map(uw => uw.week_of), // Show all week_of values found
-      })
+      console.log(
+        `Weekly workouts for user ${userId} (week_of: ${weekStartStr}):`,
+        {
+          count: userWorkouts?.length || 0,
+          workouts: userWorkouts,
+          weekOfValues: userWorkouts?.map((uw) => uw.week_of), // Show all week_of values found
+        },
+      );
 
       if (!userWorkouts || userWorkouts.length === 0) {
-        console.log(`No user workouts found for week ${weekStartStr}`)
-        return []
+        console.log(`No user workouts found for week ${weekStartStr}`);
+        return [];
       }
 
       // Get workout details
-      const workoutIds = userWorkouts.map((uw) => uw.workout_id).filter(Boolean)
+      const workoutIds = userWorkouts
+        .map((uw) => uw.workout_id)
+        .filter(Boolean);
       if (workoutIds.length === 0) {
-        return []
+        return [];
       }
 
       const { data: workouts, error: workoutsError } = await supabase
         .from("workoutss")
         .select("id, title, type")
-        .in("id", workoutIds)
+        .in("id", workoutIds);
 
       if (workoutsError) {
-        console.error("Error fetching workouts:", workoutsError)
-        return []
+        console.error("Error fetching workouts:", workoutsError);
+        return [];
       }
 
-      const workoutLookup = new Map(workouts?.map((w) => [w.id, w]) || [])
+      const workoutLookup = new Map(workouts?.map((w) => [w.id, w]) || []);
 
       // Get completed workout sessions for this week
       const { data: completedSessions, error: sessionsError } = await supabase
@@ -800,18 +813,20 @@ export class CoachService {
         .eq("user_id", userId)
         .eq("status", "completed")
         .gte("completed_at", weekStartStr)
-        .lt("completed_at", weekEndStr)
+        .lt("completed_at", weekEndStr);
 
       if (sessionsError) {
-        console.error("Error fetching workout sessions:", sessionsError)
+        console.error("Error fetching workout sessions:", sessionsError);
       }
 
       // Map user workouts to WorkoutInPlan format
       const weeklyWorkouts: WorkoutInPlan[] = userWorkouts.map((uw) => {
-        const workout = workoutLookup.get(uw.workout_id)
+        const workout = workoutLookup.get(uw.workout_id);
         const completedSession = completedSessions?.find(
-          (s) => s.user_workout_id === uw.id || s.workout_template_id === workout?.id
-        )
+          (s) =>
+            s.user_workout_id === uw.id ||
+            s.workout_template_id === workout?.id,
+        );
 
         return {
           workout_id: uw.workout_id,
@@ -821,18 +836,18 @@ export class CoachService {
           completed_at: completedSession?.completed_at || null,
           status: completedSession ? "completed" : "assigned",
           workout_session_id: completedSession?.id || null,
-        }
-      })
+        };
+      });
 
       console.log(`Mapped weekly workouts for user ${userId}:`, {
         count: weeklyWorkouts.length,
         workouts: weeklyWorkouts,
-      })
+      });
 
-      return weeklyWorkouts
+      return weeklyWorkouts;
     } catch (err) {
-      console.error("Exception in getWeeklyAssignedWorkouts:", err)
-      return []
+      console.error("Exception in getWeeklyAssignedWorkouts:", err);
+      return [];
     }
   }
 
@@ -860,7 +875,7 @@ export class CoachService {
 
       const sessionIds = sessions.map((s) => s.id);
       const sessionLookup = new Map(
-        sessions.map((s) => [s.id, s.completed_at])
+        sessions.map((s) => [s.id, s.completed_at]),
       );
 
       // Get exercise sets for these sessions
@@ -898,7 +913,7 @@ export class CoachService {
 
       // Create exercise lookup (name -> id)
       const exerciseLookup = new Map(
-        exercises?.map((e) => [e.name, e.id]) || []
+        exercises?.map((e) => [e.name, e.id]) || [],
       );
 
       // Group by exercise and find personal bests
@@ -963,7 +978,7 @@ export class CoachService {
       });
 
       return Array.from(bestsMap.values()).sort((a, b) =>
-        a.exercise_name.localeCompare(b.exercise_name)
+        a.exercise_name.localeCompare(b.exercise_name),
       );
     } catch (err) {
       console.error("Exception in getUserPersonalBests:", err);
@@ -975,17 +990,17 @@ export class CoachService {
    * Get workout template details with exercises, sets, and reps
    */
   static async getWorkoutTemplateDetails(workoutId: string): Promise<{
-    workout_id: string
-    title: string
-    type: string
+    workout_id: string;
+    title: string;
+    type: string;
     exercises: Array<{
-      exercise_name: string
+      exercise_name: string;
       sets: Array<{
-        set_number: number
-        target_reps: number | null
-        target_weight_lbs: number | null
-      }>
-    }>
+        set_number: number;
+        target_reps: number | null;
+        target_weight_lbs: number | null;
+      }>;
+    }>;
   } | null> {
     try {
       // Get workout template
@@ -993,108 +1008,132 @@ export class CoachService {
         .from("workoutss")
         .select("id, title, type")
         .eq("id", workoutId)
-        .single()
+        .single();
 
       if (workoutError || !workout) {
-        console.error("Error fetching workout template:", workoutError)
-        return null
+        console.error("Error fetching workout template:", workoutError);
+        return null;
       }
 
       // Get workout exercises - first query all columns to see what exists
-      let workoutExercises: any[] = []
-      let exercisesError: any = null
+      let workoutExercises: any[] = [];
+      let exercisesError: any = null;
 
       // Query all columns to discover the actual schema
       const { data: workoutExercisesData, error: dataError } = await supabase
         .from("workout_exercises")
         .select("*")
         .eq("workout_template_id", workoutId)
-        .limit(10)
+        .limit(10);
 
       if (dataError) {
-        console.error("Error fetching workout exercises:", dataError)
-        exercisesError = dataError
+        console.error("Error fetching workout exercises:", dataError);
+        exercisesError = dataError;
       } else if (workoutExercisesData && workoutExercisesData.length > 0) {
         // Log the actual columns to help debug
-        console.log("workout_exercises actual columns:", Object.keys(workoutExercisesData[0]))
-        console.log("workout_exercises sample row:", workoutExercisesData[0])
-        
+        console.log(
+          "workout_exercises actual columns:",
+          Object.keys(workoutExercisesData[0]),
+        );
+        console.log("workout_exercises sample row:", workoutExercisesData[0]);
+
         // Get unique exercise IDs (try different possible column names)
-        const exerciseIds: string[] = []
+        const exerciseIds: string[] = [];
         workoutExercisesData.forEach((row: any) => {
-          if (row.exercise_id) exerciseIds.push(row.exercise_id)
-        })
-        
+          if (row.exercise_id) exerciseIds.push(row.exercise_id);
+        });
+
         if (exerciseIds.length > 0) {
           // Fetch exercise names from exercises table
           const { data: exercises, error: exercisesNameError } = await supabase
             .from("exercises")
             .select("id, name")
-            .in("id", [...new Set(exerciseIds)])
+            .in("id", [...new Set(exerciseIds)]);
 
           if (exercisesNameError) {
-            console.error("Error fetching exercise names:", exercisesNameError)
-            exercisesError = exercisesNameError
+            console.error("Error fetching exercise names:", exercisesNameError);
+            exercisesError = exercisesNameError;
           } else if (exercises) {
             // Create a map of exercise_id -> exercise_name
-            const exerciseNameMap = new Map(exercises.map((e: any) => [e.id, e.name]))
-            
+            const exerciseNameMap = new Map(
+              exercises.map((e: any) => [e.id, e.name]),
+            );
+
             // Map workout exercises - use sets and reps columns
-            workoutExercises = workoutExercisesData.map((row: any) => {
-              const exerciseName = exerciseNameMap.get(row.exercise_id) || null
-              
-              // Use sets and reps columns directly from workout_exercises table
-              const setNumber = row.sets ?? null
-              const targetReps = row.reps ?? null
-              const targetWeight = row.target_weight_lbs || row.weight_lbs || row.weight || row.target_weight || null
-              
-              return {
-                exercise_name: exerciseName,
-                set_number: setNumber,
-                target_reps: targetReps,
-                target_weight_lbs: targetWeight,
-              }
-            }).filter((ex: any) => ex.exercise_name) // Filter out any without names
+            workoutExercises = workoutExercisesData
+              .map((row: any) => {
+                const exerciseName =
+                  exerciseNameMap.get(row.exercise_id) || null;
+
+                // Use sets and reps columns directly from workout_exercises table
+                const setNumber = row.sets ?? null;
+                const targetReps = row.reps ?? null;
+                const targetWeight =
+                  row.target_weight_lbs ||
+                  row.weight_lbs ||
+                  row.weight ||
+                  row.target_weight ||
+                  null;
+
+                return {
+                  exercise_name: exerciseName,
+                  set_number: setNumber,
+                  target_reps: targetReps,
+                  target_weight_lbs: targetWeight,
+                };
+              })
+              .filter((ex: any) => ex.exercise_name); // Filter out any without names
           }
         }
       }
 
       if (exercisesError || workoutExercises.length === 0) {
-        console.warn("Could not fetch workout exercises, returning workout without exercise details")
+        console.warn(
+          "Could not fetch workout exercises, returning workout without exercise details",
+        );
         return {
           workout_id: workout.id,
           title: workout.title || "Unknown Workout",
           type: workout.type || "unknown",
           exercises: [],
-        }
+        };
       }
 
       // Group exercises by name
-      const exercisesMap = new Map<string, Array<{ set_number: number; target_reps: number | null; target_weight_lbs: number | null }>>()
+      const exercisesMap = new Map<
+        string,
+        Array<{
+          set_number: number;
+          target_reps: number | null;
+          target_weight_lbs: number | null;
+        }>
+      >();
       workoutExercises.forEach((ex: any) => {
-        if (!ex.exercise_name) return
+        if (!ex.exercise_name) return;
         if (!exercisesMap.has(ex.exercise_name)) {
-          exercisesMap.set(ex.exercise_name, [])
+          exercisesMap.set(ex.exercise_name, []);
         }
         exercisesMap.get(ex.exercise_name)!.push({
           set_number: ex.set_number,
           target_reps: ex.target_reps,
           target_weight_lbs: ex.target_weight_lbs,
-        })
-      })
+        });
+      });
 
       return {
         workout_id: workout.id,
         title: workout.title || "Unknown Workout",
         type: workout.type || "unknown",
-        exercises: Array.from(exercisesMap.entries()).map(([exercise_name, sets]) => ({
-          exercise_name,
-          sets,
-        })),
-      }
+        exercises: Array.from(exercisesMap.entries()).map(
+          ([exercise_name, sets]) => ({
+            exercise_name,
+            sets,
+          }),
+        ),
+      };
     } catch (err) {
-      console.error("Exception in getWorkoutTemplateDetails:", err)
-      return null
+      console.error("Exception in getWorkoutTemplateDetails:", err);
+      return null;
     }
   }
 
@@ -1106,7 +1145,7 @@ export class CoachService {
       // Get all active Moai coach subscriptions for this coach using RPC function (bypasses RLS)
       const { data: subscriptions, error: subsError } = await supabase.rpc(
         "get_coach_moai_subscriptions",
-        { p_coach_id: coachId }
+        { p_coach_id: coachId },
       );
 
       if (subsError) {
@@ -1120,7 +1159,7 @@ export class CoachService {
 
       const moaiIds = subscriptions.map((s: any) => s.moai_id);
       const subscriptionMap = new Map(
-        subscriptions.map((s: any) => [s.moai_id, s.started_at])
+        subscriptions.map((s: any) => [s.moai_id, s.started_at]),
       );
 
       // Get circle details
@@ -1160,9 +1199,15 @@ export class CoachService {
         console.error("Error fetching chats:", chatsError);
       }
 
-      const chatMap = new Map<string, { id: string; last_message_at: string | null }>();
+      const chatMap = new Map<
+        string,
+        { id: string; last_message_at: string | null }
+      >();
       chats?.forEach((c) => {
-        chatMap.set(c.circle_id, { id: c.id, last_message_at: c.last_message_at });
+        chatMap.set(c.circle_id, {
+          id: c.id,
+          last_message_at: c.last_message_at,
+        });
       });
 
       // Get unread message counts for coach (messages from when coach was added)
@@ -1198,8 +1243,8 @@ export class CoachService {
         currentWeekStart.setHours(0, 0, 0, 0);
         // Format as YYYY-MM-DD in local time (not UTC)
         const year = currentWeekStart.getFullYear();
-        const month = String(currentWeekStart.getMonth() + 1).padStart(2, '0');
-        const day = String(currentWeekStart.getDate()).padStart(2, '0');
+        const month = String(currentWeekStart.getMonth() + 1).padStart(2, "0");
+        const day = String(currentWeekStart.getDate()).padStart(2, "0");
         const currentWeekStartStr = `${year}-${month}-${day}`;
 
         // Get all active members
@@ -1211,55 +1256,73 @@ export class CoachService {
 
         const memberUserIds = activeMembers?.map((m) => m.user_id) || [];
         const memberJoinDates = new Map(
-          activeMembers?.map((m) => [m.user_id, m.joined_at]) || []
+          activeMembers?.map((m) => [m.user_id, m.joined_at]) || [],
         );
 
         // Get current week commitments for all members using RPC function (bypasses RLS)
         let currentWeekCommitment = 0;
         let currentWeekCompleted = 0;
         if (memberUserIds.length > 0) {
-          const { data: commitments, error: commitmentsError } = await supabase.rpc(
-            "get_moai_members_weekly_commitments",
-            {
+          const { data: commitments, error: commitmentsError } =
+            await supabase.rpc("get_moai_members_weekly_commitments", {
               p_user_ids: memberUserIds,
               p_week_start: currentWeekStartStr,
-            }
-          );
+            });
 
           if (commitmentsError) {
-            console.error(`Error fetching current week commitments for Moai ${circle.id}:`, commitmentsError);
-            console.error('Week start:', currentWeekStartStr, 'Member IDs:', memberUserIds);
+            console.error(
+              `Error fetching current week commitments for Moai ${circle.id}:`,
+              commitmentsError,
+            );
+            console.error(
+              "Week start:",
+              currentWeekStartStr,
+              "Member IDs:",
+              memberUserIds,
+            );
           }
 
-          console.log(`Current week commitments for Moai ${circle.id} (${circle.name}):`, {
-            weekStart: currentWeekStartStr,
-            memberCount: memberUserIds.length,
-            commitmentsReturned: commitments?.length || 0,
-            commitments: commitments
-          });
+          console.log(
+            `Current week commitments for Moai ${circle.id} (${circle.name}):`,
+            {
+              weekStart: currentWeekStartStr,
+              memberCount: memberUserIds.length,
+              commitmentsReturned: commitments?.length || 0,
+              commitments: commitments,
+            },
+          );
 
           if (commitments && commitments.length > 0) {
             commitments.forEach((c: any) => {
               const memberJoinedAt = memberJoinDates.get(c.user_id);
-              
+
               // Only filter by member join date - if member joined before or on the week start, include their commitment
               // Compare dates as strings (YYYY-MM-DD) to avoid timezone issues
-              const weekStartDateStr = c.week_start?.split('T')[0] || c.week_start;
-              const joinedDateStr = memberJoinedAt ? new Date(memberJoinedAt).toISOString().split('T')[0] : null;
-              
-              if (!memberJoinedAt || !joinedDateStr || weekStartDateStr >= joinedDateStr) {
+              const weekStartDateStr =
+                c.week_start?.split("T")[0] || c.week_start;
+              const joinedDateStr = memberJoinedAt
+                ? new Date(memberJoinedAt).toISOString().split("T")[0]
+                : null;
+
+              if (
+                !memberJoinedAt ||
+                !joinedDateStr ||
+                weekStartDateStr >= joinedDateStr
+              ) {
                 currentWeekCommitment += c.commitment_count || 0;
                 currentWeekCompleted += c.completed_sessions || 0;
               } else {
                 console.log(`Skipping commitment for user ${c.user_id}:`, {
                   weekStart: weekStartDateStr,
                   memberJoinedAt: joinedDateStr,
-                  commitmentCount: c.commitment_count
+                  commitmentCount: c.commitment_count,
                 });
               }
             });
           } else {
-            console.log(`No commitments returned for week ${currentWeekStartStr} for Moai ${circle.id}`);
+            console.log(
+              `No commitments returned for week ${currentWeekStartStr} for Moai ${circle.id}`,
+            );
           }
         }
 
@@ -1272,7 +1335,7 @@ export class CoachService {
             {
               p_user_ids: memberUserIds,
               p_week_start: null, // Get all weeks
-            }
+            },
           );
 
           allCommitments?.forEach((c: any) => {
@@ -1305,16 +1368,19 @@ export class CoachService {
             ? (currentWeekCompleted / currentWeekCommitment) * 100
             : 0;
         const overallRate =
-          overallCommitment > 0 ? (overallCompleted / overallCommitment) * 100 : 0;
+          overallCommitment > 0
+            ? (overallCompleted / overallCommitment) * 100
+            : 0;
 
         // Only include active or forming Moais, exclude inactive ones
-        if (circle.status !== 'inactive') {
+        if (circle.status !== "inactive") {
           moaiMetrics.push({
             moai_id: circle.id,
             moai_name: circle.name,
             status: circle.status as "forming" | "active" | "inactive",
             member_count: memberCount,
-            coach_subscription_started_at: subscriptionStart || circle.created_at,
+            coach_subscription_started_at:
+              subscriptionStart || circle.created_at,
             last_message_at: chat?.last_message_at || null,
             unread_messages_count: unreadCount,
             current_week_commitment: currentWeekCommitment,
@@ -1338,7 +1404,9 @@ export class CoachService {
         }
         if (a.last_message_at) return -1;
         if (b.last_message_at) return 1;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
       });
     } catch (err) {
       console.error("Exception in getMoais:", err);
@@ -1351,16 +1419,18 @@ export class CoachService {
    */
   static async getMoaiDetail(
     moaiId: string,
-    coachId: string
+    coachId: string,
   ): Promise<MoaiDetail | null> {
     try {
       // Verify coach has access to this Moai using RPC function (bypasses RLS)
       const { data: subscriptions, error: subError } = await supabase.rpc(
         "get_coach_moai_subscriptions",
-        { p_coach_id: coachId }
+        { p_coach_id: coachId },
       );
 
-      const subscription = subscriptions?.find((s: any) => s.moai_id === moaiId);
+      const subscription = subscriptions?.find(
+        (s: any) => s.moai_id === moaiId,
+      );
 
       if (subError || !subscription) {
         console.error("Coach does not have access to this Moai:", subError);
@@ -1395,7 +1465,7 @@ export class CoachService {
 
       const memberUserIds = members?.map((m) => m.user_id) || [];
       const memberJoinDates = new Map(
-        members?.map((m) => [m.user_id, m.joined_at]) || []
+        members?.map((m) => [m.user_id, m.joined_at]) || [],
       );
 
       // Get member details with metrics
@@ -1403,7 +1473,9 @@ export class CoachService {
         (members || []).map(async (member) => {
           const { data: user } = await supabase
             .from("users")
-            .select("email, username, first_name, last_name, profile_picture_url")
+            .select(
+              "email, username, first_name, last_name, profile_picture_url",
+            )
             .eq("id", member.user_id)
             .single();
 
@@ -1418,32 +1490,37 @@ export class CoachService {
           currentWeekStart.setHours(0, 0, 0, 0);
           // Format as YYYY-MM-DD in local time (not UTC)
           const year = currentWeekStart.getFullYear();
-          const month = String(currentWeekStart.getMonth() + 1).padStart(2, '0');
-          const day = String(currentWeekStart.getDate()).padStart(2, '0');
+          const month = String(currentWeekStart.getMonth() + 1).padStart(
+            2,
+            "0",
+          );
+          const day = String(currentWeekStart.getDate()).padStart(2, "0");
           const currentWeekStartStr = `${year}-${month}-${day}`;
 
-          const { data: currentWeekData, error: currentWeekError } = await supabase.rpc(
-            "get_moai_member_weekly_commitments",
-            {
+          const { data: currentWeekData, error: currentWeekError } =
+            await supabase.rpc("get_moai_member_weekly_commitments", {
               p_user_id: member.user_id,
               p_week_start: currentWeekStartStr,
-            }
-          );
-          
+            });
+
           if (currentWeekError) {
-            console.error(`Error fetching current week for user ${member.user_id}:`, currentWeekError);
+            console.error(
+              `Error fetching current week for user ${member.user_id}:`,
+              currentWeekError,
+            );
           }
-          
+
           console.log(`Current week data for ${member.user_id}:`, {
             currentWeekStartStr,
             currentWeekData,
             isArray: Array.isArray(currentWeekData),
             length: Array.isArray(currentWeekData) ? currentWeekData.length : 0,
           });
-          
-          const currentWeek = Array.isArray(currentWeekData) && currentWeekData.length > 0 
-            ? currentWeekData[0] 
-            : null;
+
+          const currentWeek =
+            Array.isArray(currentWeekData) && currentWeekData.length > 0
+              ? currentWeekData[0]
+              : null;
 
           // Get overall stats (show ALL historical data, not filtered by coach subscription) using RPC function
           const { data: allCommitmentsData } = await supabase.rpc(
@@ -1451,28 +1528,30 @@ export class CoachService {
             {
               p_user_id: member.user_id,
               p_week_start: null, // Get all weeks
-            }
-          );
-          
-          // Filter only by member join date (not coach subscription start)
-          const memberJoinedDate = new Date(member.joined_at).toISOString().split('T')[0];
-          
-          const allCommitments = (allCommitmentsData || []).filter(
-            (c: any) => {
-              // week_start is already in 'YYYY-MM-DD' format from the RPC function
-              const weekStartDate = c.week_start?.split('T')[0] || c.week_start;
-              return weekStartDate >= memberJoinedDate;
-            }
+            },
           );
 
-          const totalCommitment = allCommitments?.reduce(
-            (sum: number, c: any) => sum + (c.commitment_count || 0),
-            0
-          ) || 0;
-          const totalCompleted = allCommitments?.reduce(
-            (sum: number, c: any) => sum + (c.completed_sessions || 0),
-            0
-          ) || 0;
+          // Filter only by member join date (not coach subscription start)
+          const memberJoinedDate = new Date(member.joined_at)
+            .toISOString()
+            .split("T")[0];
+
+          const allCommitments = (allCommitmentsData || []).filter((c: any) => {
+            // week_start is already in 'YYYY-MM-DD' format from the RPC function
+            const weekStartDate = c.week_start?.split("T")[0] || c.week_start;
+            return weekStartDate >= memberJoinedDate;
+          });
+
+          const totalCommitment =
+            allCommitments?.reduce(
+              (sum: number, c: any) => sum + (c.commitment_count || 0),
+              0,
+            ) || 0;
+          const totalCompleted =
+            allCommitments?.reduce(
+              (sum: number, c: any) => sum + (c.completed_sessions || 0),
+              0,
+            ) || 0;
           const overallRate =
             totalCommitment > 0 ? (totalCompleted / totalCommitment) * 100 : 0;
 
@@ -1496,36 +1575,39 @@ export class CoachService {
             current_week_completed: currentWeek?.completed_sessions || 0,
             current_week_completion_rate:
               currentWeek?.commitment_count && currentWeek.commitment_count > 0
-                ? (currentWeek.completed_sessions / currentWeek.commitment_count) * 100
+                ? (currentWeek.completed_sessions /
+                    currentWeek.commitment_count) *
+                  100
                 : 0,
             overall_completion_rate: overallRate,
             total_workouts: workoutCount || 0,
             total_commitment_weeks: allCommitments?.length || 0,
           };
-        })
+        }),
       );
 
       // Get Moai-level commitment history (aggregate by week) using RPC function (bypasses RLS)
       // Show ALL historical data, not filtered by coach subscription start
-      const { data: allCommitmentsData, error: commitmentsError } = await supabase.rpc(
-        "get_moai_members_weekly_commitments",
-        {
+      const { data: allCommitmentsData, error: commitmentsError } =
+        await supabase.rpc("get_moai_members_weekly_commitments", {
           p_user_ids: memberUserIds,
           p_week_start: null, // Get all weeks
-        }
-      );
+        });
 
       if (commitmentsError) {
-        console.error("Error fetching Moai commitment history:", commitmentsError);
+        console.error(
+          "Error fetching Moai commitment history:",
+          commitmentsError,
+        );
       }
-      
+
       // Sort all commitments by date (descending) - no filtering by coach subscription
       // Note: week_start is a DATE, returned as 'YYYY-MM-DD' string from RPC
       const allCommitments = (allCommitmentsData || [])
         .sort((a: any, b: any) => {
           // Sort descending by date
-          const dateA = a.week_start?.split('T')[0] || a.week_start;
-          const dateB = b.week_start?.split('T')[0] || b.week_start;
+          const dateA = a.week_start?.split("T")[0] || a.week_start;
+          const dateB = b.week_start?.split("T")[0] || b.week_start;
           return dateB.localeCompare(dateA);
         })
         .slice(0, 52);
@@ -1538,10 +1620,10 @@ export class CoachService {
 
       allCommitments?.forEach((c: any) => {
         // week_start is already in 'YYYY-MM-DD' format from the RPC function
-        const weekStartDate = c.week_start?.split('T')[0] || c.week_start;
+        const weekStartDate = c.week_start?.split("T")[0] || c.week_start;
         const memberJoinedAt = memberJoinDates.get(c.user_id);
-        const memberJoinedDate = memberJoinedAt 
-          ? new Date(memberJoinedAt).toISOString().split('T')[0] 
+        const memberJoinedDate = memberJoinedAt
+          ? new Date(memberJoinedAt).toISOString().split("T")[0]
           : null;
 
         // Only count if the week started after the member joined (no coach subscription filter)
@@ -1569,7 +1651,10 @@ export class CoachService {
             data.commitment > 0 ? (data.completed / data.commitment) * 100 : 0,
           member_count: data.members.size,
         }))
-        .sort((a, b) => new Date(b.week_start).getTime() - new Date(a.week_start).getTime())
+        .sort(
+          (a, b) =>
+            new Date(b.week_start).getTime() - new Date(a.week_start).getTime(),
+        )
         .slice(0, 12); // Last 12 weeks
 
       // Get Moai workout stats (show ALL historical data, not filtered by coach subscription)
@@ -1589,7 +1674,7 @@ export class CoachService {
 
       const totalWorkouts = filteredWorkouts.length;
       const completedWorkouts = filteredWorkouts.filter(
-        (w) => w.status === "completed"
+        (w) => w.status === "completed",
       ).length;
       const workoutCompletionRate =
         totalWorkouts > 0 ? (completedWorkouts / totalWorkouts) * 100 : 0;
@@ -1624,7 +1709,8 @@ export class CoachService {
     try {
       const { data: posts, error } = await supabase
         .from("community_posts")
-        .select(`
+        .select(
+          `
           id,
           content,
           media_path,
@@ -1639,7 +1725,8 @@ export class CoachService {
             last_name,
             profile_picture_url
           )
-        `)
+        `,
+        )
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(limit);
@@ -1664,13 +1751,15 @@ export class CoachService {
       // Get active Moais with their stats
       const { data: moais, error } = await supabase
         .from("circles")
-        .select(`
+        .select(
+          `
           id,
           name,
           status,
           created_at,
           activated_at
-        `)
+        `,
+        )
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
@@ -1719,18 +1808,18 @@ export class CoachService {
             {
               p_user_ids: memberIds,
               p_week_start: null,
-            }
+            },
           );
 
           const totalCompleted =
             commitments?.reduce(
               (sum: number, c: any) => sum + (c.completed_sessions || 0),
-              0
+              0,
             ) || 0;
           const totalCommitment =
             commitments?.reduce(
               (sum: number, c: any) => sum + (c.commitment_count || 0),
-              0
+              0,
             ) || 0;
 
           const completionRate =
@@ -1745,7 +1834,7 @@ export class CoachService {
             total_commitment: totalCommitment,
             completion_rate: completionRate,
           };
-        })
+        }),
       );
 
       // Sort by completion rate, then total completed, then total workouts
