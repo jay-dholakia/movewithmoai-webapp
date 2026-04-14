@@ -12,8 +12,8 @@ import {
   UserCog,
   UsersRound,
   BarChart3,
-  Focus,
   Workflow,
+  Dumbbell,
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -181,26 +181,29 @@ export default function AdminLayout({
             <span>Analytics</span>
           </Link>
           <Link
-            href="/admin/workout-focus"
+            href="/admin/workout-programs"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/admin/workout-focus")
+              isActive("/admin/workout-programs") ||
+              isActive("/admin/workout-templates") ||
+              isActive("/admin/ai-program-generator")
                 ? "bg-blue-50 text-blue-700 font-medium"
                 : "text-gray-700 hover:bg-gray-100"
             }`}
           >
-            <Workflow className="h-5 w-5" />
-            <span>Workout Focus</span>
+            <Dumbbell className="h-5 w-5" />
+            <span>Programs & workouts</span>
           </Link>
           <Link
-            href="/admin/focus-moai"
+            href="/admin/workout-focus"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive("/admin/workout-focus") ||
               isActive("/admin/focus-moai")
                 ? "bg-blue-50 text-blue-700 font-medium"
                 : "text-gray-700 hover:bg-gray-100"
             }`}
           >
-            <Focus className="h-5 w-5" />
-            <span>Focus Moai</span>
+            <Workflow className="h-5 w-5" />
+            <span>Focus</span>
           </Link>
         </nav>
 

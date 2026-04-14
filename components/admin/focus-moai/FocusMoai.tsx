@@ -1,13 +1,26 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { FocusMoai } from "./components/types";
 import { ConfirmationModal } from "@/components/global/ConfirmationModal";
 import { FocusMoaiModal } from "./components/FocusMoaiModal";
-import { useRouter } from "next/navigation";
+import { AdminService } from "@/lib/services/adminService";
+import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type FocusMoaiMemberRow = {
+  id: string;
+  user_id: string;
+  users: {
+    first_name?: string | null;
+    last_name?: string | null;
+    username?: string | null;
+    email?: string | null;
+  } | null;
+};
 
 const FocusMoaiPage = () => {
-  const router = useRouter();
   const [supabase, setSupabase] = useState<any>(null);
   const [moais, setMoais] = useState<FocusMoai[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,6 +29,16 @@ const FocusMoaiPage = () => {
   const [editTarget, setEditTarget] = useState<FocusMoai | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FocusMoai | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [expandedMoaiId, setExpandedMoaiId] = useState<string | null>(null);
+  const [membersByMoai, setMembersByMoai] = useState<
+    Record<string, FocusMoaiMemberRow[]>
+  >({});
+  const [loadingMembers, setLoadingMembers] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [memberLoadErrors, setMemberLoadErrors] = useState<
+    Record<string, string>
+  >({});
 
   useEffect(() => {
     import("@/lib/supabase").then(({ supabase }) => setSupabase(supabase));
@@ -107,6 +130,35 @@ const FocusMoaiPage = () => {
       .update({ status: newStatus })
       .eq("id", moai.id);
     fetchMoais();
+  };
+
+  const toggleMoaiMembers = async (moaiId: string) => {
+    if (expandedMoaiId === moaiId) {
+      setExpandedMoaiId(null);
+      return;
+    }
+    setExpandedMoaiId(moaiId);
+    if (membersByMoai[moaiId] || loadingMembers[moaiId]) return;
+    setLoadingMembers((prev) => ({ ...prev, [moaiId]: true }));
+    const res = await AdminService.getFocusMoaiMembers(moaiId);
+    setLoadingMembers((prev) => ({ ...prev, [moaiId]: false }));
+    if (res.success && Array.isArray(res.members)) {
+      setMembersByMoai((prev) => ({
+        ...prev,
+        [moaiId]: res.members as FocusMoaiMemberRow[],
+      }));
+      setMemberLoadErrors((prev) => {
+        const next = { ...prev };
+        delete next[moaiId];
+        return next;
+      });
+    } else {
+      setMemberLoadErrors((prev) => ({
+        ...prev,
+        [moaiId]:
+          (res as { error?: string }).error || "Failed to load members",
+      }));
+    }
   };
 
   const totalRevenue = moais.reduce((sum, m) => sum + (m.revenue || 0), 0);
@@ -255,19 +307,46 @@ const FocusMoaiPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map((moai) => (
+                {filtered.map((moai) => {
+                  const isOpen = expandedMoaiId === moai.id;
+                  const members = membersByMoai[moai.id];
+                  const loadingM = loadingMembers[moai.id];
+                  return (
+                    <Fragment key={moai.id}>
                   <tr
-                    key={moai.id}
                     className="hover:bg-slate-50 transition-colors"
                   >
-                    {/* Name */}
+                    {/* Name — expand members in-page */}
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-800">{moai.name}</p>
-                      {moai.description && (
-                        <p className="text-xs text-slate-400 truncate max-w-45">
-                          {moai.description}
-                        </p>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => toggleMoaiMembers(moai.id)}
+                        className="w-full text-left rounded-lg -m-1 p-1 hover:bg-slate-100/80 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1e3a8a]/25"
+                        aria-expanded={isOpen}
+                      >
+                        <span className="flex items-start gap-2">
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 text-slate-400 shrink-0 mt-0.5 transition-transform",
+                              isOpen && "rotate-180",
+                            )}
+                            aria-hidden
+                          />
+                          <span className="min-w-0">
+                            <span className="font-medium text-slate-800 block">
+                              {moai.name}
+                            </span>
+                            {moai.description && (
+                              <span className="text-xs text-slate-400 truncate block max-w-[14rem]">
+                                {moai.description}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-[#1e3a8a] font-medium mt-0.5 inline-block">
+                              {isOpen ? "Hide members" : "Show members"}
+                            </span>
+                          </span>
+                        </span>
+                      </button>
                     </td>
 
                     {/* Workout Focus */}
@@ -325,6 +404,7 @@ const FocusMoaiPage = () => {
                     {/* Status */}
                     <td className="px-4 py-3">
                       <button
+                        type="button"
                         onClick={() => toggleStatus(moai)}
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
                           moai.status === "active"
@@ -349,6 +429,7 @@ const FocusMoaiPage = () => {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
                         <button
+                          type="button"
                           onClick={() => handleEdit(moai)}
                           className="p-1.5 text-slate-400 hover:text-[#1e3a8a] hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
@@ -368,6 +449,7 @@ const FocusMoaiPage = () => {
                           </svg>
                         </button>
                         <button
+                          type="button"
                           onClick={() => setDeleteTarget(moai)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Delete"
@@ -389,7 +471,53 @@ const FocusMoaiPage = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  {isOpen && (
+                    <tr className="bg-slate-50/90 border-b border-slate-100">
+                      <td colSpan={9} className="px-4 py-3">
+                        {loadingM ? (
+                          <p className="text-sm text-slate-500 py-2">
+                            Loading members…
+                          </p>
+                        ) : memberLoadErrors[moai.id] ? (
+                          <p className="text-sm text-red-600 py-2">
+                            {memberLoadErrors[moai.id]}
+                          </p>
+                        ) : !members || members.length === 0 ? (
+                          <p className="text-sm text-slate-500 py-2">
+                            No active members in this Focus Moai.
+                          </p>
+                        ) : (
+                          <ul className="divide-y divide-slate-200/80 rounded-lg border border-slate-200 bg-white overflow-hidden max-h-64 overflow-y-auto">
+                            {members.map((m) => {
+                              const u = m.users;
+                              const label =
+                                u?.first_name || u?.last_name
+                                  ? `${u?.first_name || ""} ${u?.last_name || ""}`.trim()
+                                  : u?.username || u?.email || m.user_id;
+                              return (
+                                <li key={m.id}>
+                                  <Link
+                                    href={`/admin/users/${encodeURIComponent(m.user_id)}`}
+                                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-3 py-2.5 text-sm hover:bg-blue-50/60 transition-colors"
+                                  >
+                                    <span className="font-medium text-slate-800">
+                                      {label}
+                                    </span>
+                                    <span className="text-xs text-slate-500 font-mono">
+                                      {u?.email || m.user_id}
+                                    </span>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                    </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
