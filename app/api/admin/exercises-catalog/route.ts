@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     const admin = getSupabaseAdmin();
     let query = admin
       .from("exercises")
-      .select("id, name, category, muscle_group")
+      .select(
+        "id, name, category, muscle_group, equipment, form_video_url, log_type, instructions",
+      )
       .order("name", { ascending: true })
       .limit(limit);
 

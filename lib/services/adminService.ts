@@ -3,6 +3,7 @@ import type {
   AdminStats,
   AdminUser,
   AdminCoach,
+  AdminCoachDetail,
   AdminCoachWithStatus,
   AdminMoai,
   LoginActivity,
@@ -439,6 +440,115 @@ export class AdminService {
     } catch (error) {
       console.error("Error fetching coaches with status:", error);
       return [];
+    }
+  }
+
+  static async getCoachDetail(
+    coachId: string,
+  ): Promise<AdminCoachDetail | null> {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return null;
+
+      const response = await fetch(`/api/admin/coaches/${coachId}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) return null;
+
+      const json = await response.json();
+      if (!json.success || !json.coach) return null;
+      return json.coach as AdminCoachDetail;
+    } catch (error) {
+      console.error("Error fetching coach detail:", error);
+      return null;
+    }
+  }
+
+  static async updateCoachDetail(
+    coachId: string,
+    body: {
+      name?: string;
+      first_name?: string;
+      last_name?: string | null;
+      bio?: string | null;
+      specializations?: string[];
+      is_available?: boolean;
+      max_clients?: number;
+      max_moais?: number;
+      calendly_event_uri?: string | null;
+    },
+  ): Promise<{ success: boolean; coach?: AdminCoachDetail; error?: string }> {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        return { success: false, error: "Not authenticated" };
+      }
+
+      const response = await fetch(`/api/admin/coaches/${coachId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        return {
+          success: false,
+          error: json.error || "Failed to update coach",
+        };
+      }
+      return { success: true, coach: json.coach as AdminCoachDetail };
+    } catch (error) {
+      console.error("Error updating coach:", error);
+      return { success: false, error: "Unexpected error" };
+    }
+  }
+
+  static async uploadCoachProfilePicture(
+    coachId: string,
+    file: File,
+  ): Promise<{ success: boolean; profile_image_url?: string; error?: string }> {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        return { success: false, error: "Not authenticated" };
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        `/api/admin/coaches/${coachId}/profile-picture`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: formData,
+        },
+      );
+
+      const json = await response.json();
+      if (!response.ok || !json.success) {
+        return {
+          success: false,
+          error: json.error || "Failed to upload image",
+        };
+      }
+      return {
+        success: true,
+        profile_image_url: json.profile_image_url as string,
+      };
+    } catch (error) {
+      console.error("Error uploading coach profile picture:", error);
+      return { success: false, error: "Unexpected error" };
     }
   }
 
@@ -2265,6 +2375,25 @@ export class AdminService {
     if (q.trim()) sp.set("q", q.trim());
     const res = await fetch(`/api/admin/exercises-catalog?${sp}`, {
       headers: h,
+    });
+    return res.json();
+  }
+
+  static async createExercise(body: {
+    name: string;
+    category?: string | null;
+    muscle_group?: string | null;
+    log_type?: string | null;
+    instructions?: string | null;
+    equipment?: string[] | null;
+    form_video_url?: string | null;
+  }) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/admin/exercises", {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify(body),
     });
     return res.json();
   }

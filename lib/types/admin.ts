@@ -55,6 +55,13 @@ export interface AdminCoachWithStatus extends AdminCoach {
   signup_confirmed: boolean
 }
 
+/** Full coach row for admin profile editing (API: GET /api/admin/coaches/[coachId]). */
+export interface AdminCoachDetail extends AdminCoachWithStatus {
+  bio: string | null
+  specializations: string[] | null
+  calendly_event_uri: string | null
+}
+
 export interface AdminMoai {
   id: string
   name: string

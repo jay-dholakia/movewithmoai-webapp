@@ -12,6 +12,7 @@ const FOCUS_TABS = [
 const PROGRAMS_TABS = [
   { href: "/admin/workout-programs", label: "Programs" },
   { href: "/admin/workout-templates", label: "Workout library" },
+  { href: "/admin/exercises", label: "Exercises" },
   { href: "/admin/ai-program-generator", label: "AI generator" },
 ] as const;
 
@@ -34,6 +35,12 @@ function programsTabActive(pathname: string, href: string): boolean {
   }
   if (href === "/admin/workout-templates") {
     return pathname.startsWith("/admin/workout-templates");
+  }
+  if (href === "/admin/exercises") {
+    return (
+      pathname === "/admin/exercises" ||
+      pathname.startsWith("/admin/exercises/")
+    );
   }
   if (href === "/admin/ai-program-generator") {
     return pathname.startsWith("/admin/ai-program-generator");

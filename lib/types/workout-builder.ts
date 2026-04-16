@@ -47,6 +47,18 @@ export interface WorkoutTemplateRow {
   updated_at: string | null;
 }
 
+/** Row from `exercises` for admin catalog / library. */
+export interface AdminCatalogExercise {
+  id: string;
+  name: string;
+  category: string | null;
+  muscle_group: string | null;
+  equipment?: unknown;
+  form_video_url?: string | null;
+  log_type?: string | null;
+  instructions?: string | null;
+}
+
 export interface WorkoutExerciseRow {
   id: string;
   workout_template_id: string | null;
