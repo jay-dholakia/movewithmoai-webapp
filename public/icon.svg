@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Lowercase "m" in Comfortaa style - curved, modern, rounded -->
-  <path d="M 20 75 L 20 25 L 30 25 L 30 40 Q 30 45 33 47.5 Q 36 50 40 50 Q 42 50 43.5 49.5 Q 45 49 46 48 L 46 25 L 56 25 L 56 40 Q 56 45 59 47.5 Q 62 50 66 50 Q 68 50 69.5 49.5 Q 71 49 72 48 L 72 25 L 82 25 L 82 75 L 72 75 L 72 60 Q 71 62 69.5 63 Q 68 64 66 64 Q 59 64 55 60 Q 51 56 51 50 L 51 75 L 46 75 L 46 60 Q 45 62 43.5 63 Q 42 64 40 64 Q 33 64 29 60 Q 25 56 25 50 L 25 75 Z" fill="#2563eb"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Moai">
+  <!-- Three circles = small group / crew; stays legible at favicon size -->
+  <circle cx="50" cy="30" r="22" fill="#2563eb"/>
+  <circle cx="28" cy="72" r="22" fill="#2563eb"/>
+  <circle cx="72" cy="72" r="22" fill="#2563eb"/>
 </svg>
