@@ -6,12 +6,12 @@ import Link from 'next/link'
 import {
   ArrowRight,
   Users,
-  UserRound,
   Sparkles,
   ChevronDown,
   HeartPulse,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LandingActiveMoaisSection } from '@/components/landing-active-moais-section'
 
 const NODE_COLORS = [
   'bg-[#2563eb]',
@@ -26,13 +26,6 @@ const STEP_STYLES = [
   'bg-emerald-50 text-emerald-800 ring-2 ring-emerald-200/80',
   'bg-orange-50 text-orange-900 ring-2 ring-orange-200/80',
   'bg-violet-50 text-violet-800 ring-2 ring-violet-200/80',
-] as const
-
-const PERSONA_ACCENT = [
-  'border-l-[3px] border-l-emerald-500',
-  'border-l-[3px] border-l-orange-500',
-  'border-l-[3px] border-l-violet-500',
-  'border-l-[3px] border-l-cyan-500',
 ] as const
 
 const LANDING_FAQ_ITEMS: { id: string; q: string; paragraphs: string[] }[] = [
@@ -231,26 +224,26 @@ function StaggeredHowItWorksCards() {
   }, [])
 
   return (
-    <ol ref={listRef} className="grid md:grid-cols-2 gap-6 list-none m-0 p-0">
+    <ol ref={listRef} className="grid md:grid-cols-2 gap-4 list-none m-0 p-0">
       {HOW_IT_WORKS_STEPS.map((item, i) => (
         <li
           key={item.step}
           className={cn(
-            'h-full rounded-2xl border border-slate-200/90 bg-white p-6 shadow-md hover:shadow-lg transition-shadow duration-300',
+            'h-full rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm hover:shadow-md transition-shadow duration-300',
             'reveal-on-scroll',
             i < visibleCount && 'reveal-on-scroll-visible'
           )}
         >
           <span
             className={cn(
-              'inline-flex h-10 w-10 items-center justify-center rounded-full font-semibold tabular-nums text-lg mb-4',
+              'inline-flex h-8 w-8 items-center justify-center rounded-full font-semibold tabular-nums text-sm mb-3',
               STEP_STYLES[i % STEP_STYLES.length]
             )}
           >
             {item.step}
           </span>
-          <h3 className="text-xl font-semibold text-slate-900 mb-2">{item.title}</h3>
-          <div className="text-slate-600 leading-relaxed space-y-3">
+          <h3 className="text-base font-semibold text-slate-900 mb-1.5">{item.title}</h3>
+          <div className="text-[15px] leading-relaxed text-slate-600 space-y-2.5">
             {item.bodyLines.map((line, j) => (
               <p key={`${item.step}-${j}`}>{line}</p>
             ))}
@@ -458,7 +451,7 @@ function HomeContent() {
             <ScrollReveal>
               <h2
                 id="how-heading"
-                className="text-3xl md:text-5xl text-slate-900 mb-12"
+                className="text-3xl md:text-5xl text-slate-900 mb-8"
               >
                 How it works
               </h2>
@@ -467,75 +460,7 @@ function HomeContent() {
           </div>
         </section>
 
-        {/* Who it's for */}
-        <section
-          id="who-its-for"
-          className="landing-section-alt border-b border-slate-300/40 py-20 md:py-28"
-          aria-labelledby="personas-heading"
-        >
-          <div className="max-w-5xl mx-auto px-6">
-            <ScrollReveal>
-              <h2
-                id="personas-heading"
-                className="text-3xl md:text-5xl text-slate-900 mb-3"
-              >
-                Who Moai is for
-              </h2>
-            </ScrollReveal>
-            <ScrollReveal delayMs={70}>
-              <p className="text-lg text-slate-600 mb-10 max-w-2xl">
-                Built for people who want a better way to start—and a reason to keep going.
-              </p>
-            </ScrollReveal>
-            <div className="grid md:grid-cols-2 gap-6">
-              {(
-                [
-                  [
-                    'The parent who looks up and two weeks are gone.',
-                    'No guilt trip. Just someone who notices.',
-                  ],
-                  [
-                    'The person crawling back after burnout.',
-                    'Needs structure—and people who remember what they said matters.',
-                  ],
-                  [
-                    'The lifter training alone.',
-                    'Wants form feedback—and a group that notices if they disappear.',
-                  ],
-                  [
-                    'The remote worker who misses gym buddies.',
-                    'Needs enough rhythm that “tomorrow” stops winning.',
-                  ],
-                ] as const
-              ).map((lines, i) => (
-                <ScrollReveal key={lines[0]} delayMs={i * 100}>
-                  <div
-                    className={cn(
-                      'h-full rounded-2xl border border-slate-200/90 bg-white pl-5 pr-6 py-6 md:py-8 shadow-sm hover:shadow-md transition-shadow',
-                      PERSONA_ACCENT[i % PERSONA_ACCENT.length]
-                    )}
-                  >
-                    <UserRound
-                      className={cn(
-                        'w-8 h-8 mb-3',
-                        i % 4 === 0 && 'text-emerald-600',
-                        i % 4 === 1 && 'text-orange-600',
-                        i % 4 === 2 && 'text-violet-600',
-                        i % 4 === 3 && 'text-cyan-600'
-                      )}
-                      aria-hidden
-                    />
-                    <div className="space-y-2 text-lg text-slate-700 leading-relaxed">
-                      {lines.map((line, j) => (
-                        <p key={`${i}-${j}`}>{line}</p>
-                      ))}
-                    </div>
-                  </div>
-                </ScrollReveal>
-              ))}
-            </div>
-          </div>
-        </section>
+        <LandingActiveMoaisSection />
 
         {/* FAQ */}
         <section
