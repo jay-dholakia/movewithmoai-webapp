@@ -10,6 +10,9 @@ const appDir = fs.existsSync(path.join(configDir, "node_modules", "tailwindcss")
   : process.cwd();
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [{ source: '/manifesto', destination: '/origin', permanent: true }]
+  },
   // Without this, Next may use e.g. /Users/user when ~/package-lock.json exists, and load the wrong .env.
   turbopack: {
     root: appDir,

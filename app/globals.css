@@ -422,8 +422,9 @@
 }
 
 .marketing-landing .marketing-hero-lede {
-  font-size: clamp(1.125rem, 2.5vw, 1.5rem);
-  line-height: 1.55;
+  /* Slightly smaller than section body: comfortable on mobile, not oversized on desktop */
+  font-size: clamp(0.875rem, 0.8rem + 0.55vw, 1.125rem);
+  line-height: 1.52;
   font-weight: 400;
   color: rgb(51 65 85);
 }
@@ -440,10 +441,14 @@
   font-size: clamp(1.0625rem, 2.2vw, 1.3125rem);
   line-height: 1.7;
   color: rgb(51 65 85);
+  /* Blank-line spacing: flex gap is reliable (space-y margins were not winning the cascade). */
+  display: flex;
+  flex-direction: column;
+  gap: 1.7em;
 }
 
 .marketing-landing .marketing-manifesto-body p {
-  margin-bottom: 0;
+  margin: 0;
 }
 
 /* Standout lines: no italics, weight + air for rhythm */
@@ -466,14 +471,10 @@
   }
 }
 
-.marketing-landing .marketing-manifesto-stanza {
-  margin-bottom: 2.75rem;
-}
-
-@media (min-width: 768px) {
-  .marketing-landing .marketing-manifesto-stanza {
-    margin-bottom: 3.75rem;
-  }
+/* Pull lines inside manifesto body: same vertical rhythm as other blocks (no extra margin). */
+.marketing-landing .marketing-manifesto-body .marketing-manifesto-pull {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .marketing-landing .landing-section-alt {

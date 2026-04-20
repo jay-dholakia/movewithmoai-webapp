@@ -35,7 +35,7 @@ const comfortaa = Comfortaa({
   display: "swap",
 })
 
-/** Editorial serif + modern sans for consumer marketing (landing, manifesto). */
+/** Editorial serif + modern sans for consumer marketing (landing, origin). */
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
   variable: "--font-instrument",

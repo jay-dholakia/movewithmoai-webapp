@@ -160,7 +160,7 @@ const HOW_IT_WORKS_STEPS = [
     title: 'Create or join a Moai',
     bodyLines: [
       'Start a Moai with friends or join a coach-led Focus Moai for more structure.',
-      "Either way, you're in a small group that shows up together.",
+      "Either way, you're in a small group working toward a shared goal—whether that's weight loss, muscle gain, or long-term health.",
     ],
   },
   {
@@ -294,10 +294,10 @@ function HomeContent() {
             </div>
             <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-1 text-[13px] sm:text-sm tracking-wide">
               <Link
-                href="/manifesto"
+                href="/origin"
                 className="text-slate-800 hover:text-[#2563eb] transition-colors focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2 rounded-md px-1 py-1"
               >
-                Manifesto
+                Origin
               </Link>
               <Link
                 href="#download"
@@ -345,14 +345,15 @@ function HomeContent() {
                   id="hero-heading"
                   className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl text-slate-900 max-w-[20ch]"
                 >
-                  Make consistency a shared ritual
+                  Make consistency a{' '}
+                  <span className="whitespace-nowrap">shared ritual</span>
                 </h1>
                 <p className="marketing-hero-lede max-w-2xl mt-2">
                   Small groups where showing up actually counts.
                   <br />
-                  Support from your crew, guidance from a coach.
+                  Support from your crew, guidance from a real coach.
                   <br />
-                  A routine you can actually stick with.
+                  A system you can actually stick with, and evolves with you.
                 </p>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-2">
                   <a
@@ -363,10 +364,10 @@ function HomeContent() {
                     <ArrowRight className="w-5 h-5" aria-hidden />
                   </a>
                   <Link
-                    href="/manifesto"
+                    href="/origin"
                     className="inline-flex items-center justify-center px-6 py-3.5 rounded-xl font-medium text-[#2563eb] border-2 border-[#2563eb]/35 bg-white/60 hover:bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2 focus:ring-offset-[#e8edf5]"
                   >
-                    Read manifesto
+                    Read Origin
                   </Link>
                 </div>
               </div>
@@ -483,8 +484,7 @@ function HomeContent() {
             </ScrollReveal>
             <ScrollReveal delayMs={70}>
               <p className="text-lg text-slate-600 mb-10 max-w-2xl">
-                A few vibes we had in mind while building it. If one sounds like you, you are
-                probably in the right place.
+                Built for people who want a better way to start—and a reason to keep going.
               </p>
             </ScrollReveal>
             <div className="grid md:grid-cols-2 gap-6">
@@ -637,10 +637,10 @@ function HomeContent() {
                 <ul className="space-y-3">
                   <li>
                     <Link
-                      href="/manifesto"
+                      href="/origin"
                       className="text-slate-300 hover:text-white transition-colors text-sm"
                     >
-                      Manifesto
+                      Origin
                     </Link>
                   </li>
                   <li>
