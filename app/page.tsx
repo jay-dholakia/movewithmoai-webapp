@@ -25,6 +25,7 @@ const STEP_STYLES = [
   'bg-blue-50 text-blue-800 ring-2 ring-blue-200/80',
   'bg-emerald-50 text-emerald-800 ring-2 ring-emerald-200/80',
   'bg-orange-50 text-orange-900 ring-2 ring-orange-200/80',
+  'bg-cyan-50 text-cyan-900 ring-2 ring-cyan-200/80',
   'bg-violet-50 text-violet-800 ring-2 ring-violet-200/80',
 ] as const
 
@@ -158,6 +159,13 @@ const HOW_IT_WORKS_STEPS = [
   },
   {
     step: '3',
+    title: 'Set a workout commitment',
+    bodyLines: [
+      'This curates a coach-designed routine based on your focus, equipment availability, and training experience.',
+    ],
+  },
+  {
+    step: '4',
     title: 'Train and check in',
     bodyLines: [
       'Log workouts, share progress, and be honest when things get off track.',
@@ -165,7 +173,7 @@ const HOW_IT_WORKS_STEPS = [
     ],
   },
   {
-    step: '4',
+    step: '5',
     title: 'Celebrate wins together',
     bodyLines: [
       'Progress is shared.',
@@ -224,7 +232,7 @@ function StaggeredHowItWorksCards() {
   }, [])
 
   return (
-    <ol ref={listRef} className="grid md:grid-cols-2 gap-4 list-none m-0 p-0">
+    <ol ref={listRef} className="flex w-full flex-col gap-4 list-none m-0 p-0">
       {HOW_IT_WORKS_STEPS.map((item, i) => (
         <li
           key={item.step}
@@ -336,7 +344,7 @@ function HomeContent() {
               <div className="space-y-7">
                 <h1
                   id="hero-heading"
-                  className="text-4xl sm:text-5xl md:text-6xl lg:text-8xl text-slate-900 max-w-[20ch]"
+                  className="text-5xl sm:text-5xl md:text-6xl lg:text-8xl text-slate-900 max-w-[20ch]"
                 >
                   Make consistency a{' '}
                   <span className="whitespace-nowrap">shared ritual</span>
@@ -382,16 +390,9 @@ function HomeContent() {
               >
                 What&apos;s a Moai?
               </h2>
-              <div className="text-lg text-slate-600 mb-10 max-w-3xl space-y-4">
+              <div className="text-lg text-slate-600 mb-10 max-w-3xl">
                 <p className="text-slate-700">
                   A Moai is a small group built around staying consistent, together.
-                </p>
-                <p>
-                  Your week is visible.
-                  <br />
-                  If you go quiet, people notice.
-                  <br />
-                  And a coach is there to guide you—so you&apos;re not figuring it out on your own.
                 </p>
               </div>
             </ScrollReveal>

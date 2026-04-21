@@ -1,6 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { cn } from '@/lib/utils'
 
 type MemberAvatar = { imageUrl: string | null; initial: string }
@@ -135,6 +141,155 @@ function MoaiMarqueeCard({ item }: { item: ActiveMoaiItem }) {
   )
 }
 
+const RESUME_AUTO_MS = 2600
+const AUTO_PAN_PX_PER_FRAME = 0.48
+
+function ActiveMoaisAutoPanStrip({ stripItems }: { stripItems: ActiveMoaiItem[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const userControlRef = useRef(false)
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isProgrammaticScrollRef = useRef(false)
+  const dragRef = useRef<{ startX: number; startScroll: number; pointerId: number } | null>(
+    null
+  )
+
+  const clearResumeTimer = useCallback(() => {
+    if (resumeTimerRef.current != null) {
+      clearTimeout(resumeTimerRef.current)
+      resumeTimerRef.current = null
+    }
+  }, [])
+
+  const scheduleResumeAuto = useCallback(() => {
+    clearResumeTimer()
+    resumeTimerRef.current = setTimeout(() => {
+      userControlRef.current = false
+      resumeTimerRef.current = null
+    }, RESUME_AUTO_MS)
+  }, [clearResumeTimer])
+
+  const takeUserControl = useCallback(() => {
+    userControlRef.current = true
+    clearResumeTimer()
+  }, [clearResumeTimer])
+
+  const releaseUserControlSoon = useCallback(() => {
+    scheduleResumeAuto()
+  }, [scheduleResumeAuto])
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    let raf = 0
+    const tick = () => {
+      if (!userControlRef.current && el.scrollWidth > el.clientWidth + 2) {
+        const half = el.scrollWidth / 2
+        if (half > 2) {
+          isProgrammaticScrollRef.current = true
+          el.scrollLeft += AUTO_PAN_PX_PER_FRAME
+          if (el.scrollLeft >= half - 0.5) {
+            el.scrollLeft -= half
+          }
+        }
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [stripItems.length])
+
+  const onScroll = useCallback(() => {
+    if (isProgrammaticScrollRef.current) {
+      isProgrammaticScrollRef.current = false
+      return
+    }
+    takeUserControl()
+    scheduleResumeAuto()
+  }, [takeUserControl, scheduleResumeAuto])
+
+  const onPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0 && e.pointerType !== 'touch' && e.pointerType !== 'pen') return
+      const el = scrollRef.current
+      if (!el) return
+      takeUserControl()
+      dragRef.current = {
+        startX: e.clientX,
+        startScroll: el.scrollLeft,
+        pointerId: e.pointerId,
+      }
+      try {
+        el.setPointerCapture(e.pointerId)
+      } catch {
+        /* ignore */
+      }
+    },
+    [takeUserControl]
+  )
+
+  const onPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    const el = scrollRef.current
+    if (!drag || !el || e.pointerId !== drag.pointerId) return
+    isProgrammaticScrollRef.current = true
+    el.scrollLeft = drag.startScroll - (e.clientX - drag.startX)
+  }, [])
+
+  const onPointerUpLike = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const el = scrollRef.current
+      if (dragRef.current && e.pointerId === dragRef.current.pointerId) {
+        dragRef.current = null
+        try {
+          el?.releasePointerCapture(e.pointerId)
+        } catch {
+          /* ignore */
+        }
+        releaseUserControlSoon()
+      }
+    },
+    [releaseUserControlSoon]
+  )
+
+  const onWheel = useCallback(() => {
+    takeUserControl()
+    scheduleResumeAuto()
+  }, [takeUserControl, scheduleResumeAuto])
+
+  useEffect(() => {
+    return () => clearResumeTimer()
+  }, [clearResumeTimer])
+
+  return (
+    <div
+      ref={scrollRef}
+      role="region"
+      aria-label="Active Moai groups on the app"
+      tabIndex={0}
+      className="landing-moai-strip-hide-scrollbar overflow-x-auto overflow-y-hidden py-1 cursor-grab active:cursor-grabbing touch-pan-x outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f0f4fa] rounded-md"
+      onScroll={onScroll}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUpLike}
+      onPointerCancel={onPointerUpLike}
+      onLostPointerCapture={() => {
+        if (dragRef.current) {
+          dragRef.current = null
+          releaseUserControlSoon()
+        }
+      }}
+      onWheel={onWheel}
+    >
+      <div className="flex gap-3 px-6 w-max items-start">
+        {stripItems.map((item, i) => (
+          <MoaiMarqueeCard key={`${item.id}-${i}`} item={item} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function LandingActiveMoaisSection() {
   const [data, setData] = useState<ApiResponse | null>(null)
   const [loadError, setLoadError] = useState(false)
@@ -205,21 +360,18 @@ export function LandingActiveMoaisSection() {
               aria-hidden
             />
 
-            <div className="overflow-hidden py-1">
+            {reduceMotion ? (
               <div
-                className={cn(
-                  'gap-3 px-6',
-                  reduceMotion
-                    ? 'flex flex-wrap justify-center items-start gap-y-4'
-                    : 'landing-active-moai-marquee-track'
-                )}
+                className="flex flex-wrap justify-center items-start gap-x-3 gap-y-4 px-6 py-1"
                 aria-label="Active Moai groups on the app"
               >
                 {loop.map((item, i) => (
                   <MoaiMarqueeCard key={`${item.id}-${i}`} item={item} />
                 ))}
               </div>
-            </div>
+            ) : (
+              <ActiveMoaisAutoPanStrip stripItems={loop} />
+            )}
           </div>
         ) : null}
 

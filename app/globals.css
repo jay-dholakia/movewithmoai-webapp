@@ -490,19 +490,12 @@
   );
 }
 
-@keyframes landing-active-moai-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
+.marketing-landing .landing-moai-strip-hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-.marketing-landing .landing-active-moai-marquee-track {
-  display: flex;
-  align-items: flex-start;
-  width: max-content;
-  animation: landing-active-moai-marquee 50s linear infinite;
+.marketing-landing .landing-moai-strip-hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
