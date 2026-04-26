@@ -501,20 +501,16 @@ export class AdminService {
    * This calls an API route that uses service role key to create auth user
    */
   static async createCoach(data: {
-    email: string;
-    first_name: string;
-    last_name: string;
-    is_available?: boolean;
-    max_clients?: number;
-    max_moais?: number;
-    bio?: string;
-    specializations?: string[];
-  }): Promise<{
-    success: boolean;
-    coachId?: string;
-    error?: string;
-    warning?: string;
-  }> {
+    email: string
+    first_name: string
+    last_name: string
+    is_available?: boolean
+    max_clients?: number
+    max_moais?: number
+    monthly_price?: number
+    bio?: string
+    specializations?: string[]
+  }): Promise<{ success: boolean; coachId?: string; error?: string; warning?: string }> {
     try {
       // Get current session for auth header
       const {

@@ -1,8 +1,15 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { type NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import Stripe from 'stripe'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY!
+
+function getStripe() {
+  if (!stripeSecretKey) throw new Error('Missing STRIPE_SECRET_KEY')
+  return new Stripe(stripeSecretKey, { apiVersion: '2026-02-25.clover' })
+}
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error(
@@ -57,7 +64,8 @@ export async function POST(request: NextRequest) {
       max_moais = 10,
       bio = null,
       specializations = [],
-    } = body;
+      monthly_price = 15.00,
+    } = body
 
     if (!email || !first_name || !last_name) {
       return NextResponse.json(
@@ -253,14 +261,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rpcResult = result as any;
-    console.log("Coach created successfully!");
+    const rpcResult = result as any
+    const coachId: string = rpcResult.coach_id
+
+    console.log('✅ [API] Coach account created successfully!')
+
+    // Create a Stripe product + price for this coach
+    let stripeProductId: string | null = null
+    let stripePriceId: string | null = null
+    try {
+      const stripe = getStripe()
+      const coachFullName = `${first_name.trim()} ${last_name.trim()}`
+
+      const product = await stripe.products.create({
+        name: coachFullName,
+        metadata: { type: 'coach_subscription', coach_id: coachId },
+      })
+
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: Math.round(monthly_price * 100),
+        currency: 'usd',
+        recurring: { interval: 'month' },
+        metadata: { type: 'coach_subscription', coach_id: coachId },
+      })
+
+      stripeProductId = product.id
+      stripePriceId = price.id
+      console.log('✅ [API] Stripe product/price created:', { stripeProductId, stripePriceId })
+
+      await adminClient
+        .from('coaches')
+        .update({
+          stripe_product_id: stripeProductId,
+          stripe_price_id: stripePriceId,
+          monthly_price,
+        })
+        .eq('id', coachId)
+    } catch (stripeErr: any) {
+      // Non-fatal: coach is created, log the Stripe failure for manual recovery
+      console.error('⚠️ [API] Stripe product creation failed (coach still created):', stripeErr?.message)
+    }
 
     return NextResponse.json({
       success: true,
-      coachId: rpcResult.coach_id,
+      coachId,
       userId: rpcResult.user_id,
-    });
+      stripeProductId,
+      stripePriceId,
+    })
   } catch (error: any) {
     console.error("Unhandled exception:", error?.message, error?.stack);
     return NextResponse.json(

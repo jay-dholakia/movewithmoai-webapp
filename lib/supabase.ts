@@ -1,11 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://klvosnnkhofhqkwwehev.supabase.co";
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtsdm9zbm5raG9maHFrd3dlaGV2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5MTY3MTgsImV4cCI6MjA3MjQ5MjcxOH0.C6TOPCx3sasiZj1ST3LHTnYOAnzSrcpcQSyEXfFqZlY";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pujlrdfgpbbnfffuzwep.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1amxyZGZncGJibmZmZnV6d2VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MjksImV4cCI6MjA4NDc4MjUyOX0.6C7e9o1NnA-4LDsTB2DTaKwmXHzdA4Bp_HdQhw9Q4A4'
 
 // Lazy initialization to avoid SSR issues
 let supabaseInstance: SupabaseClient | null = null;

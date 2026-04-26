@@ -21,6 +21,7 @@ export default function CreateCoachModal({
     is_available: false,
     max_clients: 50,
     max_moais: 10,
+    monthly_price: 199,
     bio: "",
     specializations: "",
   });
@@ -48,6 +49,7 @@ export default function CreateCoachModal({
         is_available: formData.is_available,
         max_clients: formData.max_clients,
         max_moais: formData.max_moais,
+        monthly_price: formData.monthly_price,
         bio: formData.bio.trim() || undefined,
         specializations:
           specializations.length > 0 ? specializations : undefined,
@@ -62,6 +64,7 @@ export default function CreateCoachModal({
           is_available: false,
           max_clients: 50,
           max_moais: 10,
+          monthly_price: 199,
           bio: "",
           specializations: "",
         });
@@ -176,7 +179,7 @@ export default function CreateCoachModal({
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label
                 htmlFor="max_clients"
@@ -216,6 +219,31 @@ export default function CreateCoachModal({
                   setFormData({
                     ...formData,
                     max_moais: parseInt(e.target.value) || 10,
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="monthly_price"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Monthly Price (USD) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="monthly_price"
+                min="1"
+                step="0.01"
+                required
+                value={formData.monthly_price}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    monthly_price: parseFloat(e.target.value) || 199,
                   })
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
