@@ -290,8 +290,8 @@ export async function POST(request: NextRequest) {
       stripePriceId = price.id
       console.log('✅ [API] Stripe product/price created:', { stripeProductId, stripePriceId })
 
-      await adminClient
-        .from('coaches')
+      await (adminClient
+        .from('coaches') as any)
         .update({
           stripe_product_id: stripeProductId,
           stripe_price_id: stripePriceId,
