@@ -328,6 +328,7 @@ export class AdminService {
       const { data, error } = await supabase
         .from("coaches")
         .select("*")
+        .eq("is_deleted", false)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -713,6 +714,71 @@ export class AdminService {
     } catch (error) {
       console.error("Error fetching login activity:", error);
       return [];
+    }
+  }
+
+  /**
+   * Get active subscription counts for a coach (used before deletion confirmation)
+   */
+  static async getCoachActiveCounts(
+    coachId: string,
+  ): Promise<{ activeClients: number; activeMoais: number }> {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) return { activeClients: 0, activeMoais: 0 }
+
+      const [clientResult, moaiResult] = await Promise.all([
+        supabase
+          .from('subscriptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('assigned_coach_id', coachId)
+          .in('status', ['active', 'trial']),
+        supabase
+          .from('moai_coach_subscriptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('coach_id', coachId)
+          .eq('status', 'active'),
+      ])
+
+      return {
+        activeClients: clientResult.count ?? 0,
+        activeMoais: moaiResult.count ?? 0,
+      }
+    } catch {
+      return { activeClients: 0, activeMoais: 0 }
+    }
+  }
+
+  /**
+   * Permanently delete a coach and all associated records
+   */
+  static async deleteCoach(
+    coachId: string,
+  ): Promise<{ success: boolean; error?: string; warnings?: string[] }> {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session) return { success: false, error: 'Not authenticated' }
+
+      const response = await fetch('/api/admin/delete-coach', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ coachId }),
+      })
+
+      const result = await response.json()
+      if (!response.ok || !result.success) {
+        return { success: false, error: result.error || 'Failed to delete coach' }
+      }
+      return { success: true, warnings: result.warnings }
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Failed to delete coach' }
     }
   }
 

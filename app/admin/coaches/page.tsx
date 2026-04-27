@@ -11,6 +11,7 @@ import {
   UserPlus,
   Mail,
   Clock,
+  Trash2,
 } from "lucide-react";
 import CreateCoachModal from "./CreateCoachModal";
 
@@ -20,6 +21,10 @@ export default function AdminCoachesPage() {
   const [loading, setLoading] = useState(true);
   const [editingCoach, setEditingCoach] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [deletingCoach, setDeletingCoach] = useState<AdminCoachWithStatus | null>(null);
+  const [deleteActiveCounts, setDeleteActiveCounts] = useState<{ activeClients: number; activeMoais: number } | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteInProgress, setDeleteInProgress] = useState(false);
   const [editForm, setEditForm] = useState({
     is_available: false,
     max_clients: 50,
@@ -104,6 +109,37 @@ export default function AdminCoachesPage() {
       max_clients: coach.max_clients,
       max_moais: coach.max_moais,
     });
+  };
+
+  const startDelete = async (coach: AdminCoachWithStatus) => {
+    setDeletingCoach(coach);
+    setDeleteConfirmText("");
+    setDeleteActiveCounts(null);
+    const counts = await AdminService.getCoachActiveCounts(coach.id);
+    setDeleteActiveCounts(counts);
+  };
+
+  const handleDeleteCoach = async () => {
+    if (!deletingCoach || deleteConfirmText !== deletingCoach.name) return;
+    setDeleteInProgress(true);
+    try {
+      const result = await AdminService.deleteCoach(deletingCoach.id);
+      if (result.success) {
+        setDeletingCoach(null);
+        setDeleteConfirmText("");
+        setDeleteActiveCounts(null);
+        if (result.warnings?.length) {
+          alert("Coach deleted with warnings:\n" + result.warnings.join("\n"));
+        }
+        await loadCoaches();
+      } else {
+        alert(result.error || "Failed to delete coach");
+      }
+    } catch {
+      alert("Failed to delete coach");
+    } finally {
+      setDeleteInProgress(false);
+    }
   };
 
   if (loading) {
@@ -342,6 +378,13 @@ export default function AdminCoachesPage() {
                         >
                           <Edit2 className="h-5 w-5" />
                         </button>
+                        <button
+                          onClick={() => startDelete(coach)}
+                          className="p-1 text-red-400 hover:text-red-600"
+                          title="Delete coach"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -356,6 +399,100 @@ export default function AdminCoachesPage() {
           </div>
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      {deletingCoach && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+              Delete Coach
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              This permanently deletes{" "}
+              <span className="font-medium text-gray-900">
+                {deletingCoach.name}
+              </span>{" "}
+              and wipes all their records from the database and authentication.
+              This action cannot be undone.
+            </p>
+
+            {deleteActiveCounts === null ? (
+              <p className="text-sm text-gray-500 mb-4">
+                Checking active subscriptions…
+              </p>
+            ) : (deleteActiveCounts.activeClients > 0 ||
+                deleteActiveCounts.activeMoais > 0) ? (
+              <div className="rounded-md bg-amber-50 border border-amber-200 p-3 mb-4 text-sm text-amber-800">
+                <p className="font-medium mb-1">
+                  Warning: Active subscriptions will be cancelled
+                </p>
+                {deleteActiveCounts.activeClients > 0 && (
+                  <p>
+                    • {deleteActiveCounts.activeClients} active client
+                    subscription
+                    {deleteActiveCounts.activeClients !== 1 ? "s" : ""}
+                  </p>
+                )}
+                {deleteActiveCounts.activeMoais > 0 && (
+                  <p>
+                    • {deleteActiveCounts.activeMoais} active Moai subscription
+                    {deleteActiveCounts.activeMoais !== 1 ? "s" : ""}
+                  </p>
+                )}
+                <p className="mt-1 text-amber-700">
+                  All Stripe subscriptions will be cancelled immediately.
+                  Affected users will lose access to this coach.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-md bg-gray-50 border border-gray-200 p-3 mb-4 text-sm text-gray-600">
+                No active subscriptions found.
+              </div>
+            )}
+
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type{" "}
+              <span className="font-mono text-red-600">
+                {deletingCoach.name}
+              </span>{" "}
+              to confirm
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-red-500"
+              placeholder={deletingCoach.name}
+              disabled={deleteInProgress}
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setDeletingCoach(null);
+                  setDeleteConfirmText("");
+                  setDeleteActiveCounts(null);
+                }}
+                disabled={deleteInProgress}
+                className="px-4 py-2 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteCoach}
+                disabled={
+                  deleteConfirmText !== deletingCoach.name ||
+                  deleteInProgress ||
+                  deleteActiveCounts === null
+                }
+                className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteInProgress ? "Deleting…" : "Delete Coach"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
