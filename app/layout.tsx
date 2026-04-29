@@ -1,6 +1,13 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Playfair_Display, Space_Grotesk, Comfortaa } from "next/font/google"
+import {
+  Inter,
+  Playfair_Display,
+  Space_Grotesk,
+  Comfortaa,
+  Instrument_Serif,
+  Plus_Jakarta_Sans,
+} from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 
@@ -22,10 +29,26 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 })
 
-const comfortaa = Comfortaa({ 
+const comfortaa = Comfortaa({
   subsets: ["latin"],
   variable: "--font-comfortaa",
   display: "swap",
+})
+
+/** Editorial serif + modern sans for consumer marketing (landing, origin). */
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  variable: "--font-instrument",
+  display: "swap",
+  weight: ["400"],
+  style: ["normal", "italic"],
+})
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
 })
 
 export const metadata: Metadata = {
@@ -76,7 +99,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${inter.variable} ${playfair.variable} ${spaceGrotesk.variable} ${comfortaa.variable} font-sans antialiased`}>
+      <body
+        className={`${inter.variable} ${playfair.variable} ${spaceGrotesk.variable} ${comfortaa.variable} ${instrumentSerif.variable} ${plusJakarta.variable} font-sans antialiased`}
+      >
         {children}
         <Analytics />
       </body>

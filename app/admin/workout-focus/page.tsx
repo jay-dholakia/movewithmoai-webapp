@@ -1,12 +1,13 @@
-import WorkoutFocus from "@/components/admin/workout-focus/WorkoutFocus";
-import React from "react";
+import { AdminFocusTabs } from "@/components/admin/AdminSectionTabs";
+import WorkoutFocusPage from "@/components/admin/workout-focus/WorkoutFocus";
 
-const page = () => {
+export default function WorkoutFocusRoutePage() {
   return (
-    <div>
-      <WorkoutFocus />
-    </div>
+    <>
+      <div className="max-w-5xl mx-auto px-6 pt-6">
+        <AdminFocusTabs />
+      </div>
+      <WorkoutFocusPage />
+    </>
   );
-};
-
-export default page;
+}

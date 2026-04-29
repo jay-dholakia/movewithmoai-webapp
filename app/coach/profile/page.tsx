@@ -14,6 +14,7 @@ import {
   Loader2,
   LogOut,
 } from "lucide-react";
+import { ProfileImageCropModal } from "@/components/ProfileImageCropModal";
 
 export default function CoachProfilePage() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function CoachProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state
@@ -119,59 +121,53 @@ export default function CoachProfilePage() {
     }));
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !profile) return;
+  const closeCropModal = () => {
+    if (cropImageUrl) {
+      URL.revokeObjectURL(cropImageUrl);
+      setCropImageUrl(null);
+    }
+  };
 
-    // Validate file type
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (!file || !profile) return;
     if (!file.type.startsWith("image/")) {
       alert("Please select an image file");
       return;
     }
-
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert("Image size must be less than 5MB");
       return;
     }
+    if (cropImageUrl) URL.revokeObjectURL(cropImageUrl);
+    setCropImageUrl(URL.createObjectURL(file));
+  };
 
+  const handleCroppedUpload = async (file: File) => {
+    if (!profile) return;
     setUploadingImage(true);
-
     try {
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      // Upload to Supabase Storage
-      try {
-        const imageUrl = await CoachService.uploadProfileImage(
-          profile.id,
-          file,
-        );
-        if (imageUrl) {
-          const updated = await CoachService.updateCoachProfile(profile.id, {
-            profile_image_url: imageUrl,
-          });
-          if (updated) {
-            setProfile(updated);
-            setPreviewImage(imageUrl);
-            alert("Profile image updated successfully!");
-          }
-        } else {
-          alert("Failed to upload image. Please try again.");
+      const imageUrl = await CoachService.uploadProfileImage(profile.id, file);
+      if (imageUrl) {
+        const updated = await CoachService.updateCoachProfile(profile.id, {
+          profile_image_url: imageUrl,
+        });
+        if (updated) {
+          setProfile(updated);
+          setPreviewImage(imageUrl);
+          alert("Profile image updated successfully!");
         }
-      } catch (error: any) {
-        alert(
-          error.message ||
-            "Failed to upload image. Please ensure the storage bucket is configured.",
-        );
+      } else {
+        alert("Failed to upload image. Please try again.");
       }
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      alert("Failed to upload image. Please try again.");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to upload image.";
+      alert(
+        message ||
+          "Failed to upload image. Please ensure the storage bucket is configured.",
+      );
     } finally {
       setUploadingImage(false);
     }
@@ -238,6 +234,13 @@ export default function CoachProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ProfileImageCropModal
+        open={!!cropImageUrl}
+        imageUrl={cropImageUrl}
+        onClose={closeCropModal}
+        onConfirm={handleCroppedUpload}
+        title="Adjust profile photo"
+      />
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -317,7 +320,7 @@ export default function CoachProfilePage() {
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
-                  onChange={handleImageUpload}
+                  onChange={handleImagePick}
                   className="hidden"
                 />
                 <p className="text-blue-100 text-sm mt-2">

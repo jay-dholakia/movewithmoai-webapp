@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { AdminService } from "@/lib/services/adminService";
 import type { AdminCoachWithStatus } from "@/lib/types/admin";
 import {
@@ -246,7 +247,10 @@ export default function AdminCoachesPage() {
             <li key={coach.id}>
               <div className="px-4 py-4 sm:px-6">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center">
+                  <Link
+                    href={`/admin/coaches/${coach.id}`}
+                    className="flex items-center min-w-0 flex-1 rounded-lg -m-2 p-2 hover:bg-gray-50 transition-colors group"
+                  >
                     <div className="flex-shrink-0 h-10 w-10">
                       {coach.profile_image_url ? (
                         <img
@@ -262,9 +266,9 @@ export default function AdminCoachesPage() {
                         </div>
                       )}
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 min-w-0">
                       <div className="flex items-center flex-wrap gap-2">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-gray-900 group-hover:text-blue-700">
                           {coach.name}
                         </p>
                         {coach.is_available ? (
@@ -288,10 +292,15 @@ export default function AdminCoachesPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-500">{coach.email}</p>
+                      <p className="text-sm text-gray-500 truncate">
+                        {coach.email}
+                      </p>
+                      <p className="text-xs text-blue-600 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        View profile & photo →
+                      </p>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
+                  </Link>
+                  <div className="flex items-center space-x-4 shrink-0">
                     <div className="text-right">
                       <p className="text-sm text-gray-900">
                         {coach.current_clients} / {coach.max_clients} clients
