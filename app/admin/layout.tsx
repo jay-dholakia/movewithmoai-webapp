@@ -14,6 +14,7 @@ import {
   BarChart3,
   Workflow,
   Dumbbell,
+  ShieldAlert,
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -25,6 +26,7 @@ export default function AdminLayout({
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [pendingComments, setPendingComments] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -53,6 +55,20 @@ export default function AdminLayout({
 
         if (!adminCheck) {
           router.push("/admin/login");
+          return;
+        }
+
+        // Load pending comment count for badge
+        try {
+          const res = await fetch('/api/admin/moderation/comments', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (res.ok) {
+            const json = await res.json();
+            setPendingComments((json.comments || []).length);
+          }
+        } catch {
+          // badge is non-critical, ignore errors
         }
       } catch (error) {
         console.error("Error checking admin access:", error);
@@ -205,6 +221,23 @@ export default function AdminLayout({
           >
             <Workflow className="h-5 w-5" />
             <span>Focus</span>
+          </Link>
+
+          <Link
+            href="/admin/moderation"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive("/admin/moderation")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <ShieldAlert className="h-5 w-5" />
+            <span>Moderation</span>
+            {pendingComments > 0 && (
+              <span className="ml-auto bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                {pendingComments}
+              </span>
+            )}
           </Link>
         </nav>
 
