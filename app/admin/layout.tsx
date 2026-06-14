@@ -60,7 +60,7 @@ export default function AdminLayout({
 
         // Load pending comment count for badge
         try {
-          const res = await fetch('/api/admin/moderation/comments', {
+          const res = await fetch("/api/admin/moderation/comments", {
             headers: { Authorization: `Bearer ${session.access_token}` },
           });
           if (res.ok) {
@@ -211,10 +211,20 @@ export default function AdminLayout({
             <span>Programs & workouts</span>
           </Link>
           <Link
+            href="/admin/requested-features"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive("/admin/requested-features")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <UserCog className="h-5 w-5" />
+            <span>Requested Features</span>
+          </Link>
+          <Link
             href="/admin/workout-focus"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive("/admin/workout-focus") ||
-              isActive("/admin/focus-moai")
+              isActive("/admin/workout-focus") || isActive("/admin/focus-moai")
                 ? "bg-blue-50 text-blue-700 font-medium"
                 : "text-gray-700 hover:bg-gray-100"
             }`}
