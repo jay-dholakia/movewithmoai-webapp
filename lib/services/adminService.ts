@@ -612,16 +612,21 @@ export class AdminService {
    * This calls an API route that uses service role key to create auth user
    */
   static async createCoach(data: {
-    email: string
-    first_name: string
-    last_name: string
-    is_available?: boolean
-    max_clients?: number
-    max_moais?: number
-    monthly_price?: number
-    bio?: string
-    specializations?: string[]
-  }): Promise<{ success: boolean; coachId?: string; error?: string; warning?: string }> {
+    email: string;
+    first_name: string;
+    last_name: string;
+    is_available?: boolean;
+    max_clients?: number;
+    max_moais?: number;
+    monthly_price?: number;
+    bio?: string;
+    specializations?: string[];
+  }): Promise<{
+    success: boolean;
+    coachId?: string;
+    error?: string;
+    warning?: string;
+  }> {
     try {
       // Get current session for auth header
       const {
@@ -724,32 +729,80 @@ export class AdminService {
     }
   }
 
-  /**
-   * Get all Moais with admin view
-   */
-  static async getAllMoais(): Promise<AdminMoai[]> {
+  static async getCoachDisablePreview(coachId: string) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const res = await fetch(`/api/admin/coaches/${coachId}/disable`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token}`,
+      },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || "Failed to load disable preview");
+    }
+    return res.json();
+  }
+
+  static async executeCoachDisable(
+    coachId: string,
+  ): Promise<{ success: boolean; error?: string; warnings?: string[] }> {
     try {
-      const { data: circles, error: circlesError } = await supabase
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch(`/api/admin/coaches/${coachId}/disable`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+      return res.json();
+    } catch {
+      return { success: false, error: "Network error" };
+    }
+  }
+
+  // Replace your existing getAllMoais with these two methods:
+
+  static async getAllMoais(
+    page = 1,
+    pageSize = 10,
+    status: "all" | "forming" | "active" | "inactive" = "all",
+  ): Promise<{ data: AdminMoai[]; total: number }> {
+    try {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      let query = supabase
         .from("circles")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (status !== "all") {
+        query = query.eq("status", status);
+      }
+
+      const { data: circles, count, error: circlesError } = await query;
 
       if (circlesError) {
         console.error("Error fetching circles:", circlesError);
-        return [];
+        return { data: [], total: 0 };
       }
 
       // Get member counts and coach info for each circle
       const moaisWithStats = await Promise.all(
         (circles || []).map(async (circle) => {
-          // Get member count
           const { count: memberCount } = await supabase
             .from("circle_members")
             .select("id", { count: "exact", head: true })
             .eq("circle_id", circle.id)
             .eq("status", "active");
 
-          // Check if Moai has a coach subscription - handle RLS errors gracefully
           let hasCoach = false;
           let coachId: string | null = null;
           try {
@@ -786,11 +839,43 @@ export class AdminService {
         }),
       );
 
-      return moaisWithStats;
+      return { data: moaisWithStats, total: count ?? 0 };
     } catch (error) {
       console.error("Error fetching Moais:", error);
-      return [];
+      return { data: [], total: 0 };
     }
+  }
+
+  static async getMoaiStats(): Promise<{
+    total: number;
+    active: number;
+    forming: number;
+    withCoach: number;
+  }> {
+    const [totalRes, activeRes, formingRes] = await Promise.all([
+      supabase.from("circles").select("id", { count: "exact", head: true }),
+      supabase
+        .from("circles")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active"),
+      supabase
+        .from("circles")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "forming"),
+    ]);
+
+    // Coach count via subscriptions since circles don't store coach_id directly
+    const { count: withCoach } = await supabase
+      .from("moai_coach_subscriptions")
+      .select("moai_id", { count: "exact", head: true })
+      .eq("status", "active");
+
+    return {
+      total: totalRes.count ?? 0,
+      active: activeRes.count ?? 0,
+      forming: formingRes.count ?? 0,
+      withCoach: withCoach ?? 0,
+    };
   }
 
   /**
@@ -836,28 +921,28 @@ export class AdminService {
     try {
       const {
         data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) return { activeClients: 0, activeMoais: 0 }
+      } = await supabase.auth.getSession();
+      if (!session) return { activeClients: 0, activeMoais: 0 };
 
       const [clientResult, moaiResult] = await Promise.all([
         supabase
-          .from('subscriptions')
-          .select('id', { count: 'exact', head: true })
-          .eq('assigned_coach_id', coachId)
-          .in('status', ['active', 'trial']),
+          .from("subscriptions")
+          .select("id", { count: "exact", head: true })
+          .eq("assigned_coach_id", coachId)
+          .in("status", ["active", "trial"]),
         supabase
-          .from('moai_coach_subscriptions')
-          .select('id', { count: 'exact', head: true })
-          .eq('coach_id', coachId)
-          .eq('status', 'active'),
-      ])
+          .from("moai_coach_subscriptions")
+          .select("id", { count: "exact", head: true })
+          .eq("coach_id", coachId)
+          .eq("status", "active"),
+      ]);
 
       return {
         activeClients: clientResult.count ?? 0,
         activeMoais: moaiResult.count ?? 0,
-      }
+      };
     } catch {
-      return { activeClients: 0, activeMoais: 0 }
+      return { activeClients: 0, activeMoais: 0 };
     }
   }
 
@@ -870,25 +955,31 @@ export class AdminService {
     try {
       const {
         data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) return { success: false, error: 'Not authenticated' }
+      } = await supabase.auth.getSession();
+      if (!session) return { success: false, error: "Not authenticated" };
 
-      const response = await fetch('/api/admin/delete-coach', {
-        method: 'DELETE',
+      const response = await fetch("/api/admin/delete-coach", {
+        method: "DELETE",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ coachId }),
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
       if (!response.ok || !result.success) {
-        return { success: false, error: result.error || 'Failed to delete coach' }
+        return {
+          success: false,
+          error: result.error || "Failed to delete coach",
+        };
       }
-      return { success: true, warnings: result.warnings }
+      return { success: true, warnings: result.warnings };
     } catch (error: any) {
-      return { success: false, error: error.message || 'Failed to delete coach' }
+      return {
+        success: false,
+        error: error.message || "Failed to delete coach",
+      };
     }
   }
 
@@ -2192,9 +2283,10 @@ export class AdminService {
     }
   }
 
-  private static async workoutBuilderHeaders(): Promise<
-    Record<string, string> | null
-  > {
+  private static async workoutBuilderHeaders(): Promise<Record<
+    string,
+    string
+  > | null> {
     const {
       data: { session },
     } = await supabase.auth.getSession();
@@ -2304,17 +2396,13 @@ export class AdminService {
       sp.set("include_equipment_adapted", "true");
     }
     const q = sp.toString();
-    const res = await fetch(
-      `/api/admin/workout-templates${q ? `?${q}` : ""}`,
-      { headers: h },
-    );
+    const res = await fetch(`/api/admin/workout-templates${q ? `?${q}` : ""}`, {
+      headers: h,
+    });
     return res.json();
   }
 
-  static async reorderWorkoutsInProgram(
-    planId: string,
-    workoutIds: string[],
-  ) {
+  static async reorderWorkoutsInProgram(planId: string, workoutIds: string[]) {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
     const res = await fetch(
@@ -2362,7 +2450,10 @@ export class AdminService {
     return res.json();
   }
 
-  static async updateWorkoutTemplate(id: string, body: Record<string, unknown>) {
+  static async updateWorkoutTemplate(
+    id: string,
+    body: Record<string, unknown>,
+  ) {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
     const res = await fetch(`/api/admin/workout-templates/${id}`, {

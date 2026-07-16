@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import CreateCoachModal from "./CreateCoachModal";
+import DisableCoachModal from "@/components/admin/disable-coach-modal/DisableCoachModal";
 
 export default function AdminCoachesPage() {
   const [coaches, setCoaches] = useState<AdminCoachWithStatus[]>([]);
@@ -22,8 +23,14 @@ export default function AdminCoachesPage() {
   const [loading, setLoading] = useState(true);
   const [editingCoach, setEditingCoach] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [deletingCoach, setDeletingCoach] = useState<AdminCoachWithStatus | null>(null);
-  const [deleteActiveCounts, setDeleteActiveCounts] = useState<{ activeClients: number; activeMoais: number } | null>(null);
+  const [disablingCoach, setDisablingCoach] =
+    useState<AdminCoachWithStatus | null>(null);
+  const [deletingCoach, setDeletingCoach] =
+    useState<AdminCoachWithStatus | null>(null);
+  const [deleteActiveCounts, setDeleteActiveCounts] = useState<{
+    activeClients: number;
+    activeMoais: number;
+  } | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -64,23 +71,26 @@ export default function AdminCoachesPage() {
     }
   };
 
-  const handleToggleAvailability = async (
-    coachId: string,
-    currentStatus: boolean,
-  ) => {
-    try {
-      const success = await AdminService.updateCoachAvailability(
-        coachId,
-        !currentStatus,
-      );
-      if (success) {
-        await loadCoaches();
-      } else {
-        alert("Failed to update coach availability");
+  const handleToggleAvailability = async (coach: AdminCoachWithStatus) => {
+    if (coach.is_available) {
+      // Disabling → open modal for refund flow
+      setDisablingCoach(coach);
+    } else {
+      // Enabling → simple toggle
+      try {
+        const success = await AdminService.updateCoachAvailability(
+          coach.id,
+          true,
+        );
+        if (success) {
+          await loadCoaches();
+        } else {
+          alert("Failed to update coach availability");
+        }
+      } catch (error) {
+        console.error("Error updating availability:", error);
+        alert("Error updating coach availability");
       }
-    } catch (error) {
-      console.error("Error updating availability:", error);
-      alert("Error updating coach availability");
     }
   };
 
@@ -145,7 +155,7 @@ export default function AdminCoachesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading coaches...</p>
@@ -165,7 +175,7 @@ export default function AdminCoachesPage() {
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors cursor-pointer"
         >
           <UserPlus className="h-5 w-5" />
           <span>Create Coach</span>
@@ -179,6 +189,18 @@ export default function AdminCoachesPage() {
           loadCoaches();
         }}
       />
+
+      {/* Disable Coach Modal */}
+      {disablingCoach && (
+        <DisableCoachModal
+          coach={disablingCoach}
+          onClose={() => setDisablingCoach(null)}
+          onSuccess={() => {
+            setDisablingCoach(null);
+            loadCoaches();
+          }}
+        />
+      )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-4 mb-8">
@@ -251,7 +273,7 @@ export default function AdminCoachesPage() {
                     href={`/admin/coaches/${coach.id}`}
                     className="flex items-center min-w-0 flex-1 rounded-lg -m-2 p-2 hover:bg-gray-50 transition-colors group"
                   >
-                    <div className="flex-shrink-0 h-10 w-10">
+                    <div className="shrink-0 h-10 w-10">
                       {coach.profile_image_url ? (
                         <img
                           className="h-10 w-10 rounded-full"
@@ -337,13 +359,13 @@ export default function AdminCoachesPage() {
                         />
                         <button
                           onClick={() => handleSaveCapacity(coach.id)}
-                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 cursor-pointer"
                         >
                           Save
                         </button>
                         <button
                           onClick={() => setEditingCoach(null)}
-                          className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+                          className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400 cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -354,7 +376,7 @@ export default function AdminCoachesPage() {
                           <button
                             onClick={() => handleResendInvite(coach)}
                             disabled={!!resendingFor}
-                            className="inline-flex items-center gap-1 px-3 py-1 rounded text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50"
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded text-sm bg-blue-100 text-blue-700 hover:bg-blue-200 disabled:opacity-50 cursor-pointer"
                             title="Generate new invite link and copy to clipboard"
                           >
                             <Mail className="h-4 w-4" />
@@ -364,13 +386,8 @@ export default function AdminCoachesPage() {
                           </button>
                         )}
                         <button
-                          onClick={() =>
-                            handleToggleAvailability(
-                              coach.id,
-                              coach.is_available,
-                            )
-                          }
-                          className={`px-3 py-1 rounded text-sm ${
+                          onClick={() => handleToggleAvailability(coach)}
+                          className={`px-3 py-1 rounded text-sm cursor-pointer ${
                             coach.is_available
                               ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                               : "bg-green-100 text-green-700 hover:bg-green-200"
@@ -382,14 +399,14 @@ export default function AdminCoachesPage() {
                         </button>
                         <button
                           onClick={() => startEditing(coach)}
-                          className="p-1 text-gray-400 hover:text-gray-600"
+                          className="p-1 text-gray-400 hover:text-gray-600 cursor-pointer"
                           title="Edit capacity"
                         >
                           <Edit2 className="h-5 w-5" />
                         </button>
                         <button
                           onClick={() => startDelete(coach)}
-                          className="p-1 text-red-400 hover:text-red-600"
+                          className="p-1 text-red-400 hover:text-red-600 cursor-pointer"
                           title="Delete coach"
                         >
                           <Trash2 className="h-5 w-5" />
@@ -429,8 +446,8 @@ export default function AdminCoachesPage() {
               <p className="text-sm text-gray-500 mb-4">
                 Checking active subscriptions…
               </p>
-            ) : (deleteActiveCounts.activeClients > 0 ||
-                deleteActiveCounts.activeMoais > 0) ? (
+            ) : deleteActiveCounts.activeClients > 0 ||
+              deleteActiveCounts.activeMoais > 0 ? (
               <div className="rounded-md bg-amber-50 border border-amber-200 p-3 mb-4 text-sm text-amber-800">
                 <p className="font-medium mb-1">
                   Warning: Active subscriptions will be cancelled
@@ -483,7 +500,7 @@ export default function AdminCoachesPage() {
                   setDeleteActiveCounts(null);
                 }}
                 disabled={deleteInProgress}
-                className="px-4 py-2 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
@@ -494,7 +511,7 @@ export default function AdminCoachesPage() {
                   deleteInProgress ||
                   deleteActiveCounts === null
                 }
-                className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {deleteInProgress ? "Deleting…" : "Delete Coach"}
               </button>
