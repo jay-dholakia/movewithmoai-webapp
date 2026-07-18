@@ -347,7 +347,7 @@ function HomeContent() {
                   className="text-5xl sm:text-5xl md:text-6xl lg:text-8xl text-slate-900 max-w-[20ch]"
                 >
                   Make consistency a{' '}
-                  <span className="whitespace-nowrap">shared ritual</span>
+                  <span className="whitespace-nowrap"> ritual</span>
                 </h1>
                 <p className="marketing-hero-lede max-w-2xl mt-2">
                   Small groups where showing up actually counts.
