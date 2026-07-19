@@ -305,12 +305,11 @@ export async function POST(
       try {
         const stripe = getStripe();
 
-        // Get actual billing period from Stripe for accurate refund
-        const stripeSub = await stripe.subscriptions.retrieve(
+        const stripeSub = (await stripe.subscriptions.retrieve(
           sub.stripe_subscription_id,
-        );
-        const periodStart = stripeSub.current_period_start;
-        const periodEnd = stripeSub.current_period_end;
+        )) as any;
+        const periodStart: number = stripeSub.current_period_start;
+        const periodEnd: number = stripeSub.current_period_end;
         const nowUnix = Math.floor(Date.now() / 1000);
         const totalSeconds = periodEnd - periodStart;
         const remainingSeconds = Math.max(0, periodEnd - nowUnix);
@@ -329,13 +328,14 @@ export async function POST(
             subscription: sub.stripe_subscription_id,
             limit: 1,
           });
-          const paymentIntent = invoices.data[0]?.payment_intent;
-          if (paymentIntent) {
+          const invoice = invoices.data[0] as any;
+          const piId: string | null =
+            typeof invoice?.payment_intent === "string"
+              ? invoice.payment_intent
+              : (invoice?.payment_intent?.id ?? null);
+          if (piId) {
             const refund = await stripe.refunds.create({
-              payment_intent:
-                typeof paymentIntent === "string"
-                  ? paymentIntent
-                  : paymentIntent.id,
+              payment_intent: piId,
               amount: refundAmountCents,
               reason: "requested_by_customer",
             });
