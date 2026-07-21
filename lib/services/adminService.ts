@@ -748,6 +748,7 @@ export class AdminService {
 
   static async executeCoachDisable(
     coachId: string,
+    options?: { focusReplacements?: Record<string, string> },
   ): Promise<{ success: boolean; error?: string; warnings?: string[] }> {
     try {
       const {
@@ -759,10 +760,37 @@ export class AdminService {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token}`,
         },
+        body: JSON.stringify({
+          focusReplacements: options?.focusReplacements ?? {},
+        }),
       });
       return res.json();
     } catch {
       return { success: false, error: "Network error" };
+    }
+  }
+
+  static async getAssignableCoaches(
+    excludeCoachId: string,
+  ): Promise<{ id: string; name: string }[]> {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch(
+        `/api/admin/coaches/assignable?exclude=${encodeURIComponent(
+          excludeCoachId,
+        )}`,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        },
+      );
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
     }
   }
 

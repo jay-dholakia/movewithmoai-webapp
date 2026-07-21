@@ -251,7 +251,7 @@ export async function GET(
   });
 }
 
-// ── POST: Execute disable with refunds ──────────────────────────────────────
+// ── POST: Execute disable — reassign focus moais, cancel/refund regular subs ─
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ coachId: string }> },
@@ -273,6 +273,16 @@ export async function POST(
   if (adminErr) return adminErr;
 
   const { coachId } = await params;
+
+  // Parse focusReplacements { [focus_moai_id]: replacementCoachId }
+  let focusReplacements: Record<string, string> = {};
+  try {
+    const body = await request.json();
+    focusReplacements = body?.focusReplacements ?? {};
+  } catch {
+    focusReplacements = {};
+  }
+
   const warnings: string[] = [];
   const refundResults: Array<{
     subscription_id: string;
@@ -282,14 +292,9 @@ export async function POST(
   }> = [];
 
   try {
-    // 1. Process active moai coach subscriptions
-    const { data: subscriptions } = (await (
-      adminClient.from("moai_coach_subscriptions") as any
-    )
-      .select("id, moai_id, stripe_subscription_id, payer_user_id, started_at")
-      .eq("coach_id", coachId)
-      .eq("status", "active")) as { data: any[] | null };
+    const now = new Date();
 
+    // Coach info (name/price) up front — needed for validation + messaging
     const { data: coach } = (await (adminClient.from("coaches") as any)
       .select("monthly_price, name")
       .eq("id", coachId)
@@ -299,7 +304,71 @@ export async function POST(
       parseFloat(coach?.monthly_price || "0") * 100,
     );
     const coachName = coach?.name || "Your coach";
-    const now = new Date();
+
+    // ── 0. VALIDATE focus-moai replacements BEFORE touching Stripe ──────────
+    const { data: focusMoais } = (await (adminClient.from("focus_moais") as any)
+      .select("id, name")
+      .eq("coach_id", coachId)
+      .eq("status", "active")) as { data: any[] | null };
+
+    // Every active focus moai must have a replacement selected
+    const missing = (focusMoais || []).filter(
+      (fm: any) => !focusReplacements[fm.id],
+    );
+    if (missing.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "A replacement coach must be selected for every focus moai: " +
+            missing.map((fm: any) => fm.name).join(", "),
+        },
+        { status: 400 },
+      );
+    }
+
+    // Replacement can't be the coach being disabled
+    const replacementIds = Array.from(
+      new Set(Object.values(focusReplacements)),
+    );
+    if (replacementIds.includes(coachId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Replacement coach cannot be the coach being disabled",
+        },
+        { status: 400 },
+      );
+    }
+
+    // All replacements must be active coaches
+    if (replacementIds.length > 0) {
+      const { data: validCoaches } = (await (adminClient.from("coaches") as any)
+        .select("id")
+        .in("id", replacementIds)
+        .eq("is_available", true)
+        .eq("is_deleted", false)) as { data: any[] | null };
+
+      const validSet = new Set((validCoaches || []).map((c: any) => c.id));
+      const invalid = replacementIds.filter((id) => !validSet.has(id));
+      if (invalid.length > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "One or more replacement coaches are invalid or inactive",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
+    // ── 1. Process active moai coach subscriptions (cancel + prorated refund)
+    const { data: subscriptions } = (await (
+      adminClient.from("moai_coach_subscriptions") as any
+    )
+      .select("id, moai_id, stripe_subscription_id, payer_user_id, started_at")
+      .eq("coach_id", coachId)
+      .eq("status", "active")) as { data: any[] | null };
 
     for (const sub of subscriptions || []) {
       try {
@@ -379,25 +448,27 @@ export async function POST(
       }
     }
 
-    // 2. Deactivate focus moais
-    const { data: focusMoais } = (await (adminClient.from("focus_moais") as any)
-      .select("id, name")
-      .eq("coach_id", coachId)
-      .eq("status", "active")) as { data: any[] | null };
-
+    // ── 2. Reassign focus moais to their selected replacement coach ─────────
     for (const fm of focusMoais || []) {
+      const newCoachId = focusReplacements[fm.id];
       try {
         await (adminClient.from("focus_moais") as any)
-          .update({ status: "inactive" })
+          .update({ coach_id: newCoachId, updated_at: now.toISOString() })
           .eq("id", fm.id);
+
+        await sendSystemMessage(
+          adminClient,
+          fm.id,
+          `Your focus moai has a new coach. ${coachName} has stepped down and a replacement coach has been assigned.`,
+        );
       } catch (err: any) {
         warnings.push(
-          `Failed to deactivate focus moai ${fm.name}: ${err.message}`,
+          `Failed to reassign focus moai ${fm.name}: ${err.message}`,
         );
       }
     }
 
-    // 3. Set coach as unavailable
+    // ── 3. Set coach as unavailable ─────────────────────────────────────────
     const { error: coachErr } = await (adminClient.from("coaches") as any)
       .update({ is_available: false })
       .eq("id", coachId);
@@ -410,7 +481,7 @@ export async function POST(
     }
 
     console.log(
-      `✅ [API] Coach ${coachId} disabled. Subscriptions cancelled: ${(subscriptions || []).length}, Focus moais deactivated: ${(focusMoais || []).length}`,
+      `✅ [API] Coach ${coachId} disabled. Subscriptions cancelled: ${(subscriptions || []).length}, Focus moais reassigned: ${(focusMoais || []).length}`,
     );
 
     return NextResponse.json({
@@ -418,7 +489,7 @@ export async function POST(
       warnings,
       refunds: refundResults,
       subscriptions_cancelled: (subscriptions || []).length,
-      focus_moais_deactivated: (focusMoais || []).length,
+      focus_moais_reassigned: (focusMoais || []).length,
     });
   } catch (err: any) {
     console.error("Error disabling coach:", err);

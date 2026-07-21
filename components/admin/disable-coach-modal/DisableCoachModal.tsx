@@ -48,6 +48,12 @@ export default function DisableCoachModal({
   const [error, setError] = useState<string | null>(null);
   const [disabling, setDisabling] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [replacementCoaches, setReplacementCoaches] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [focusReplacements, setFocusReplacements] = useState<
+    Record<string, string>
+  >({});
 
   useEffect(() => {
     loadPreview();
@@ -55,8 +61,12 @@ export default function DisableCoachModal({
 
   const loadPreview = async () => {
     try {
-      const data = await AdminService.getCoachDisablePreview(coach.id);
+      const [data, coaches] = await Promise.all([
+        AdminService.getCoachDisablePreview(coach.id),
+        AdminService.getAssignableCoaches(coach.id),
+      ]);
       setPreview(data);
+      setReplacementCoaches(coaches);
     } catch (err) {
       console.error("Error loading disable preview:", err);
       setError("Failed to load coach data. Please try again.");
@@ -71,12 +81,10 @@ export default function DisableCoachModal({
     setError(null);
 
     try {
-      const result = await AdminService.executeCoachDisable(coach.id);
+      const result = await AdminService.executeCoachDisable(coach.id,{focusReplacements});
       if (result.success) {
         if (result.warnings?.length) {
-          alert(
-            "Coach disabled with warnings:\n" + result.warnings.join("\n"),
-          );
+          alert("Coach disabled with warnings:\n" + result.warnings.join("\n"));
         }
         onSuccess();
         onClose();
@@ -94,14 +102,19 @@ export default function DisableCoachModal({
     preview &&
     (preview.subscriptions.length > 0 || preview.focus_moais.length > 0);
 
+  const allFocusReassigned =
+    !preview?.focus_moais.length ||
+    preview.focus_moais.every((fm) => !!focusReplacements[fm.id]);
+
+  const canDisable =
+    confirmText === coach.name && !disabling && !!preview && allFocusReassigned;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Disable Coach
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">Disable Coach</h2>
           <button
             onClick={onClose}
             disabled={disabling}
@@ -175,21 +188,41 @@ export default function DisableCoachModal({
                     {preview.focus_moais.map((fm) => (
                       <div
                         key={fm.id}
-                        className="rounded-md border border-gray-200 p-3 flex items-center justify-between"
+                        className="rounded-md border border-gray-200 p-3"
                       >
-                        <div>
-                          <span className="text-sm font-medium text-gray-900">
-                            {fm.name}
-                          </span>
-                          <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-500">
-                            <Users className="h-3 w-3" />
-                            {fm.member_count} member
-                            {fm.member_count !== 1 ? "s" : ""}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-sm font-medium text-gray-900">
+                              {fm.name}
+                            </span>
+                            <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-500">
+                              <Users className="h-3 w-3" />
+                              {fm.member_count} member
+                              {fm.member_count !== 1 ? "s" : ""}
+                            </div>
                           </div>
+                          <span className="text-xs font-medium text-gray-500">
+                            Reassign coach
+                          </span>
                         </div>
-                        <span className="text-xs font-medium text-red-600">
-                          Will be deactivated
-                        </span>
+                        <select
+                          value={focusReplacements[fm.id] ?? ""}
+                          onChange={(e) =>
+                            setFocusReplacements((prev) => ({
+                              ...prev,
+                              [fm.id]: e.target.value,
+                            }))
+                          }
+                          disabled={disabling}
+                          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                        >
+                          <option value="">Select a replacement coach…</option>
+                          {replacementCoaches.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     ))}
                   </div>
