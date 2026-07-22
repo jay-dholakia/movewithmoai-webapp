@@ -2549,15 +2549,44 @@ export class AdminService {
     return res.json();
   }
 
-  static async searchExercisesCatalog(q: string, limit = 80) {
+  // static async searchExercisesCatalog(q: string, limit = 80) {
+  //   const h = await this.workoutBuilderHeaders();
+  //   if (!h) return { success: false as const, error: "Not authenticated" };
+  //   const sp = new URLSearchParams({ limit: String(limit) });
+  //   if (q.trim()) sp.set("q", q.trim());
+  //   const res = await fetch(`/api/admin/exercises-catalog?${sp}`, {
+  //     headers: h,
+  //   });
+  //   return res.json();
+  // }
+
+  static async searchExercisesCatalog(
+    q: string,
+    opts: { page: number; pageSize: number },
+  ): Promise<{
+    success: boolean;
+    exercises?: any[];
+    total?: number;
+    error?: string;
+  }> {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
-    const sp = new URLSearchParams({ limit: String(limit) });
-    if (q.trim()) sp.set("q", q.trim());
-    const res = await fetch(`/api/admin/exercises-catalog?${sp}`, {
-      headers: h,
+
+    const sp = new URLSearchParams({
+      page: String(opts.page),
+      pageSize: String(opts.pageSize),
     });
-    return res.json();
+    if (q.trim()) sp.set("q", q.trim());
+
+    try {
+      const res = await fetch(`/api/admin/exercises-catalog?${sp}`, {
+        headers: h,
+      });
+      if (!res.ok) return { success: false, error: "Search failed" };
+      return res.json();
+    } catch {
+      return { success: false, error: "Network error" };
+    }
   }
 
   static async createExercise(body: {

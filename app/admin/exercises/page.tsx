@@ -11,7 +11,7 @@ import {
   exerciseCategoryLabel,
   exerciseLogTypeLabel,
 } from "@/lib/exercise-catalog-options";
-import { Loader2, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Search } from "lucide-react";
 import {
   adminInputClass,
   adminSelectClass,
@@ -19,9 +19,14 @@ import {
 import { AdminProgramsTabs } from "@/components/admin/AdminSectionTabs";
 import { cn } from "@/lib/utils";
 
+const PAGE_SIZE = 10;
+
 function formatEquipment(eq: unknown): string {
   if (Array.isArray(eq))
-    return eq.map((x) => String(x).trim()).filter(Boolean).join(", ");
+    return eq
+      .map((x) => String(x).trim())
+      .filter(Boolean)
+      .join(", ");
   if (typeof eq === "string" && eq.trim()) return eq.trim();
   return "—";
 }
@@ -51,6 +56,12 @@ export default function AdminExercisesLibraryPage() {
   const [hits, setHits] = useState<AdminCatalogExercise[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
 
+  // Pagination
+  const [page, setPage] = useState(1); // 1-based
+  const [total, setTotal] = useState(0);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   const equipmentLabels = useMemo(
     () =>
       equipmentIds
@@ -59,25 +70,40 @@ export default function AdminExercisesLibraryPage() {
     [equipmentIds],
   );
 
-  const runSearch = useCallback(async (q: string) => {
+  const runSearch = useCallback(async (q: string, pageArg: number) => {
     setSearching(true);
     setSearchError(null);
-    const res = await AdminService.searchExercisesCatalog(q, 100);
+    const res = await AdminService.searchExercisesCatalog(q, {
+      page: pageArg,
+      pageSize: PAGE_SIZE,
+    });
     setSearching(false);
     if (res.success && Array.isArray(res.exercises)) {
       setHits(res.exercises as AdminCatalogExercise[]);
+      setTotal(typeof res.total === "number" ? res.total : 0);
     } else {
       setHits([]);
+      setTotal(0);
       setSearchError(res.error || "Search failed");
     }
   }, []);
 
+  // Reset to page 1 whenever the query changes (debounced)
   useEffect(() => {
     const t = setTimeout(() => {
-      void runSearch(searchQ);
+      setPage(1);
+      void runSearch(searchQ, 1);
     }, 280);
     return () => clearTimeout(t);
   }, [searchQ, runSearch]);
+
+  // Fetch when page changes (but not on the initial mount / query-driven reset,
+  // which the effect above already covers for page 1)
+  useEffect(() => {
+    if (page === 1) return; // page 1 is handled by the query effect
+    void runSearch(searchQ, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const toggleEquipment = (id: string) => {
     setEquipmentIds((prev) =>
@@ -114,11 +140,15 @@ export default function AdminExercisesLibraryPage() {
       const ex = res.exercise as AdminCatalogExercise;
       setLastCreated(ex);
       resetForm();
-      void runSearch(searchQ);
+      setPage(1);
+      void runSearch(searchQ, 1);
     } else {
       alert(res.error || "Could not create exercise");
     }
   };
+
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
 
   return (
     <div className="p-8 max-w-4xl">
@@ -129,8 +159,10 @@ export default function AdminExercisesLibraryPage() {
             Exercise library
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            Add moves to the global <code className="text-xs bg-gray-100 px-1 rounded">exercises</code>{" "}
-            table. Category and log type use fixed lists; equipment uses catalog tags only.
+            Add moves to the global{" "}
+            <code className="text-xs bg-gray-100 px-1 rounded">exercises</code>{" "}
+            table. Category and log type use fixed lists; equipment uses catalog
+            tags only.
           </p>
         </div>
         <Link
@@ -289,7 +321,9 @@ export default function AdminExercisesLibraryPage() {
             placeholder="https://…"
           />
           <p className="text-xs text-gray-500 mt-1">
-            <code className="text-xs bg-gray-100 px-1 rounded">form_video_url</code>
+            <code className="text-xs bg-gray-100 px-1 rounded">
+              form_video_url
+            </code>
           </p>
         </div>
 
@@ -344,9 +378,12 @@ export default function AdminExercisesLibraryPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {searching && hits.length === 0 ? (
+              {searching ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
                     <Loader2 className="h-6 w-6 animate-spin inline text-blue-600" />
                   </td>
                 </tr>
@@ -375,13 +412,13 @@ export default function AdminExercisesLibraryPage() {
                       {row.muscle_group ?? "—"}
                     </td>
                     <td
-                      className="px-4 py-2 text-gray-600 max-w-[180px] truncate"
+                      className="px-4 py-2 text-gray-600 max-w-45 truncate"
                       title={formatEquipment(row.equipment)}
                     >
                       {formatEquipment(row.equipment)}
                     </td>
                     <td
-                      className="px-4 py-2 text-gray-600 max-w-[200px]"
+                      className="px-4 py-2 text-gray-600 max-w-50"
                       title={row.instructions ?? undefined}
                     >
                       {truncate(row.instructions, 72)}
@@ -392,7 +429,7 @@ export default function AdminExercisesLibraryPage() {
                           href={row.form_video_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline truncate max-w-[120px] inline-block align-bottom"
+                          className="text-blue-600 hover:underline truncate max-w-30 inline-block align-bottom"
                         >
                           Link
                         </a>
@@ -405,6 +442,36 @@ export default function AdminExercisesLibraryPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination footer */}
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-sm text-gray-600">
+          <span>
+            {total === 0 ? "No results" : `${from}–${to} of ${total}`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1 || searching}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Prev
+            </button>
+            <span className="tabular-nums">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages || searching}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

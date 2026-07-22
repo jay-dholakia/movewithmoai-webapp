@@ -24,6 +24,7 @@ export default function WorkoutTemplateEditorPage() {
   const id = String(params.id || "");
   const workoutIdRef = useRef(id);
   workoutIdRef.current = id;
+  const PAGE_SIZE = 10;
 
   const [workout, setWorkout] = useState<WorkoutTemplateRow | null>(null);
   const [programs, setPrograms] = useState<WorkoutProgramRow[]>([]);
@@ -42,9 +43,9 @@ export default function WorkoutTemplateEditorPage() {
   });
 
   const [searchQ, setSearchQ] = useState("");
-  const [searchHits, setSearchHits] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const [searchHits, setSearchHits] = useState<{ id: string; name: string }[]>(
+    [],
+  );
   const [searching, setSearching] = useState(false);
   const [pickExerciseId, setPickExerciseId] = useState<string | null>(null);
   const [addForm, setAddForm] = useState({
@@ -124,7 +125,7 @@ export default function WorkoutTemplateEditorPage() {
     } else alert(res.error || "Save failed");
   };
 
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimer = useRef<ReturnType<any> | null>(null);
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -132,9 +133,12 @@ export default function WorkoutTemplateEditorPage() {
       setSearchHits([]);
       return;
     }
-    searchTimer.current = setTimeout(async () => {
+    searchTimer.current = setTimeout(async (q: string, pageArg: number) => {
       setSearching(true);
-      const res = await AdminService.searchExercisesCatalog(searchQ, 60);
+      const res = await AdminService.searchExercisesCatalog(q, {
+        page: pageArg,
+        pageSize: PAGE_SIZE,
+      });
       setSearching(false);
       if (res.success && Array.isArray(res.exercises)) {
         setSearchHits(res.exercises);
@@ -343,7 +347,9 @@ export default function WorkoutTemplateEditorPage() {
             </h2>
             <p className="text-sm text-gray-600 mb-4">
               Each line is a row in{" "}
-              <code className="text-xs bg-gray-100 px-1 rounded">workout_exercises</code>
+              <code className="text-xs bg-gray-100 px-1 rounded">
+                workout_exercises
+              </code>
               : <strong>order_index</strong>, <strong>sets</strong>,{" "}
               <strong>reps</strong> (optional when not applicable),{" "}
               <strong>group_type</strong> (circuit / superset) and optional{" "}

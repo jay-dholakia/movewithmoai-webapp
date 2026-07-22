@@ -69,7 +69,8 @@ function SortableDraftRow({
   const [searchQ, setSearchQ] = useState("");
   const [hits, setHits] = useState<{ id: string; name: string }[]>([]);
   const [searching, setSearching] = useState(false);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimer = useRef<ReturnType<any> | null>(null);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     setLocal({ ...row });
@@ -89,9 +90,12 @@ function SortableDraftRow({
       setHits([]);
       return;
     }
-    searchTimer.current = setTimeout(async () => {
+    searchTimer.current = setTimeout(async (q: string, pageArg: number) => {
       setSearching(true);
-      const res = await AdminService.searchExercisesCatalog(searchQ, 50);
+      const res = await AdminService.searchExercisesCatalog(q, {
+        page: pageArg,
+        pageSize: PAGE_SIZE,
+      });
       setSearching(false);
       if (res.success && Array.isArray(res.exercises)) {
         setHits(res.exercises);
@@ -165,9 +169,7 @@ function SortableDraftRow({
                 onChange={(e) => setSearchQ(e.target.value)}
               />
             </div>
-            {searching && (
-              <p className="text-xs text-gray-500">Searching…</p>
-            )}
+            {searching && <p className="text-xs text-gray-500">Searching…</p>}
             <ul className="max-h-32 overflow-y-auto text-xs space-y-0.5">
               {hits.map((h) => (
                 <li key={h.id}>
@@ -234,7 +236,9 @@ function SortableDraftRow({
             const v = e.target.value;
             const n = {
               ...local,
-              group_type: (v === "" ? null : v) as EditorExerciseLine["group_type"],
+              group_type: (v === ""
+                ? null
+                : v) as EditorExerciseLine["group_type"],
               group_id: v === "" ? null : local.group_id,
             };
             setLocal(n);
@@ -254,8 +258,7 @@ function SortableDraftRow({
           onChange={(e) => {
             const n = {
               ...local,
-              group_id:
-                e.target.value === "" ? null : Number(e.target.value),
+              group_id: e.target.value === "" ? null : Number(e.target.value),
             };
             setLocal(n);
             onUpdate(n);
@@ -349,7 +352,8 @@ export function LocalDraftExerciseTable({
   const [addQ, setAddQ] = useState("");
   const [addHits, setAddHits] = useState<{ id: string; name: string }[]>([]);
   const [addSearching, setAddSearching] = useState(false);
-  const addTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addTimer = useRef<ReturnType<any> | null>(null);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     if (addTimer.current) clearTimeout(addTimer.current);
@@ -357,9 +361,12 @@ export function LocalDraftExerciseTable({
       setAddHits([]);
       return;
     }
-    addTimer.current = setTimeout(async () => {
+    addTimer.current = setTimeout(async (q: string, pageArg: number) => {
       setAddSearching(true);
-      const res = await AdminService.searchExercisesCatalog(addQ, 50);
+      const res = await AdminService.searchExercisesCatalog(q, {
+        page: pageArg,
+        pageSize: PAGE_SIZE,
+      });
       setAddSearching(false);
       if (res.success && Array.isArray(res.exercises)) {
         setAddHits(res.exercises);
@@ -399,7 +406,9 @@ export function LocalDraftExerciseTable({
   return (
     <div>
       {items.length === 0 ? (
-        <p className="p-3 text-sm text-gray-500">No exercises in this workout.</p>
+        <p className="p-3 text-sm text-gray-500">
+          No exercises in this workout.
+        </p>
       ) : (
         <DndContext
           sensors={sensors}
@@ -442,7 +451,8 @@ export function LocalDraftExerciseTable({
         </DndContext>
       )}
       <p className="text-xs text-gray-500 px-2 py-2">
-        Drag the grip to reorder. Order updates <code className="bg-gray-100 px-1 rounded">order_index</code>{" "}
+        Drag the grip to reorder. Order updates{" "}
+        <code className="bg-gray-100 px-1 rounded">order_index</code>{" "}
         automatically.
       </p>
       <div className="border-t border-gray-100 pt-3 mt-1 space-y-2">
@@ -456,9 +466,7 @@ export function LocalDraftExerciseTable({
             onChange={(e) => setAddQ(e.target.value)}
           />
         </div>
-        {addSearching && (
-          <p className="text-xs text-gray-500">Searching…</p>
-        )}
+        {addSearching && <p className="text-xs text-gray-500">Searching…</p>}
         {addHits.length > 0 && (
           <ul className="max-h-36 overflow-y-auto text-sm border border-gray-200 rounded-md divide-y divide-gray-100">
             {addHits.map((h) => (
