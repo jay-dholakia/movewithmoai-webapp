@@ -291,6 +291,13 @@
   }
 }
 
+/* Hero background video: respect reduced-motion by freezing on the poster frame */
+@media (prefers-reduced-motion: reduce) {
+  .hero-bg-video {
+    display: none;
+  }
+}
+
 /* Keyframes must be outside @layer */
 @keyframes gradientShift {
   0% {

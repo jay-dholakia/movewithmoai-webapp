@@ -33,6 +33,67 @@ type ApiResponse = {
   unavailable?: boolean
 }
 
+/** Illustrative sample groups shown alongside live data so the feed never looks empty. */
+const SAMPLE_MOAIS: ActiveMoaiItem[] = [
+  {
+    id: 'sample-sunrise',
+    kind: 'social',
+    memberCount: 6,
+    maxMembers: 10,
+    theme: null,
+    moaiName: 'Sunrise Crew',
+    withCoach: false,
+    description: null,
+    coachName: null,
+    coachImageUrl: null,
+    memberAvatars: [
+      { imageUrl: null, initial: 'A' },
+      { imageUrl: null, initial: 'M' },
+      { imageUrl: null, initial: 'J' },
+      { imageUrl: null, initial: 'K' },
+    ],
+    moaiCompletedWorkouts: 184,
+  },
+  {
+    id: 'sample-grind',
+    kind: 'social',
+    memberCount: 5,
+    maxMembers: 10,
+    theme: null,
+    moaiName: 'The Grind',
+    withCoach: false,
+    description: null,
+    coachName: null,
+    coachImageUrl: null,
+    memberAvatars: [
+      { imageUrl: null, initial: 'S' },
+      { imageUrl: null, initial: 'D' },
+      { imageUrl: null, initial: 'R' },
+    ],
+    moaiCompletedWorkouts: 97,
+  },
+  {
+    id: 'sample-iron',
+    kind: 'social',
+    memberCount: 7,
+    maxMembers: 10,
+    theme: null,
+    moaiName: 'Iron Circle',
+    withCoach: false,
+    description: null,
+    coachName: null,
+    coachImageUrl: null,
+    memberAvatars: [
+      { imageUrl: null, initial: 'T' },
+      { imageUrl: null, initial: 'B' },
+      { imageUrl: null, initial: 'N' },
+      { imageUrl: null, initial: 'L' },
+      { imageUrl: null, initial: 'P' },
+    ],
+    moaiCompletedWorkouts: 156,
+  },
+]
+
 function SocialMemberAvatars({ members }: { members: MemberAvatar[] }) {
   if (members.length === 0) return null
   return (
@@ -115,10 +176,7 @@ function MoaiMarqueeCard({ item }: { item: ActiveMoaiItem }) {
         </div>
       ) : null}
 
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-        {isFocus ? 'Focus' : 'Social'}
-      </p>
-      <p className="mt-0.5 text-sm font-semibold text-slate-900 leading-snug pr-1 break-words">
+      <p className="text-sm font-semibold text-slate-900 leading-snug pr-1 break-words">
         {title}
       </p>
       {isFocus && item.theme && item.moaiName && item.theme !== item.moaiName ? (
@@ -292,7 +350,6 @@ function ActiveMoaisAutoPanStrip({ stripItems }: { stripItems: ActiveMoaiItem[] 
 
 export function LandingActiveMoaisSection() {
   const [data, setData] = useState<ApiResponse | null>(null)
-  const [loadError, setLoadError] = useState(false)
   const [reduceMotion, setReduceMotion] = useState(false)
 
   useEffect(() => {
@@ -310,9 +367,8 @@ export function LandingActiveMoaisSection() {
         const res = await fetch('/api/public/active-moais', { cache: 'no-store' })
         const json = (await res.json()) as ApiResponse
         if (!cancelled && json.success) setData(json)
-        else if (!cancelled) setLoadError(true)
       } catch {
-        if (!cancelled) setLoadError(true)
+        /* fall back to sample data only */
       }
     })()
     return () => {
@@ -320,8 +376,7 @@ export function LandingActiveMoaisSection() {
     }
   }, [])
 
-  const items = data?.items ?? []
-  const hasRows = items.length > 0
+  const items = [...SAMPLE_MOAIS, ...(data?.items ?? [])]
   const loop = reduceMotion ? items : [...items, ...items]
 
   return (
@@ -335,51 +390,35 @@ export function LandingActiveMoaisSection() {
           id="active-moais-heading"
           className="text-2xl md:text-4xl text-slate-900 mb-3"
         >
-          Moais happening now
+          See it in action
         </h2>
         <p className="text-base md:text-lg text-slate-600 mb-8 max-w-xl leading-relaxed">
           Small groups. Real commitments. Showing up each week.
         </p>
 
-        {loadError || data?.unavailable ? (
-          <p className="text-sm text-slate-500 mb-6">
-            Live groups will load here when the app is connected to our servers.
-          </p>
-        ) : !data ? (
-          <div className="h-5 w-48 rounded bg-slate-200/80 animate-pulse mb-6" aria-hidden />
-        ) : null}
+        <div className="relative -mx-6 md:mx-0">
+          <div
+            className="pointer-events-none absolute left-0 top-0 bottom-0 w-10 md:w-16 z-10 bg-gradient-to-r from-white to-transparent"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 md:w-16 z-10 bg-gradient-to-l from-white to-transparent"
+            aria-hidden
+          />
 
-        {hasRows ? (
-          <div className="relative -mx-6 md:mx-0">
+          {reduceMotion ? (
             <div
-              className="pointer-events-none absolute left-0 top-0 bottom-0 w-10 md:w-16 z-10 bg-gradient-to-r from-white to-transparent"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 md:w-16 z-10 bg-gradient-to-l from-white to-transparent"
-              aria-hidden
-            />
-
-            {reduceMotion ? (
-              <div
-                className="flex flex-wrap justify-center items-start gap-x-3 gap-y-4 px-6 py-1"
-                aria-label="Active Moai groups on the app"
-              >
-                {loop.map((item, i) => (
-                  <MoaiMarqueeCard key={`${item.id}-${i}`} item={item} />
-                ))}
-              </div>
-            ) : (
-              <ActiveMoaisAutoPanStrip stripItems={loop} />
-            )}
-          </div>
-        ) : null}
-
-        {data && !loadError && !hasRows && !data.unavailable ? (
-          <p className="text-center text-sm text-slate-600 max-w-md mx-auto py-6 border border-dashed border-slate-200 rounded-xl bg-white/60 px-4">
-            Groups are forming every day. Download the app to start or join a Moai.
-          </p>
-        ) : null}
+              className="flex flex-wrap justify-center items-start gap-x-3 gap-y-4 px-6 py-1"
+              aria-label="Active Moai groups on the app"
+            >
+              {loop.map((item, i) => (
+                <MoaiMarqueeCard key={`${item.id}-${i}`} item={item} />
+              ))}
+            </div>
+          ) : (
+            <ActiveMoaisAutoPanStrip stripItems={loop} />
+          )}
+        </div>
       </div>
     </section>
   )
