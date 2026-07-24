@@ -2408,12 +2408,13 @@ export class AdminService {
     );
     return res.json();
   }
-
   static async listWorkoutTemplates(params?: {
     plan_id?: string;
     unassigned_only?: boolean;
-    /** Set true to show equipment-adapted clone workouts (title contains “adapted to your equipment”). */
     include_equipment_adapted?: boolean;
+    page?: number;
+    page_size?: number;
+    q?: string;
   }) {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
@@ -2423,10 +2424,14 @@ export class AdminService {
     if (params?.include_equipment_adapted) {
       sp.set("include_equipment_adapted", "true");
     }
-    const q = sp.toString();
-    const res = await fetch(`/api/admin/workout-templates${q ? `?${q}` : ""}`, {
-      headers: h,
-    });
+    if (params?.page && params.page > 1) sp.set("page", String(params.page));
+    if (params?.page_size) sp.set("page_size", String(params.page_size));
+    if (params?.q?.trim()) sp.set("q", params.q.trim());
+    const query = sp.toString();
+    const res = await fetch(
+      `/api/admin/workout-templates${query ? `?${query}` : ""}`,
+      { headers: h },
+    );
     return res.json();
   }
 
@@ -2597,6 +2602,7 @@ export class AdminService {
     instructions?: string | null;
     equipment?: string[] | null;
     form_video_url?: string | null;
+    progressive_overload?: boolean | null;
   }) {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
@@ -2604,6 +2610,17 @@ export class AdminService {
       method: "POST",
       headers: h,
       body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async setExerciseProgressiveOverload(id: string, enabled: boolean) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/admin/exercises/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify({ progressive_overload: enabled }),
     });
     return res.json();
   }

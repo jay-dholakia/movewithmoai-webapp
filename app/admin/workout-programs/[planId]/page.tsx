@@ -6,7 +6,7 @@ import Link from "next/link";
 import { AdminService } from "@/lib/services/adminService";
 import type { WorkoutProgramRow } from "@/lib/types/workout-builder";
 import type { WorkoutTemplateRow } from "@/lib/types/workout-builder";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
 import { SortableWorkoutsList } from "@/components/admin/workout-builder/SortableWorkoutsList";
 import {
   adminInputClass,
@@ -24,6 +24,7 @@ export default function WorkoutProgramDetailPage() {
   const params = useParams();
   const router = useRouter();
   const planId = decodeURIComponent(String(params.planId || ""));
+  const WORKOUTS_PAGE_SIZE = 10;
 
   const [program, setProgram] = useState<WorkoutProgramRow | null>(null);
   const [workouts, setWorkouts] = useState<WorkoutTemplateRow[]>([]);
@@ -40,6 +41,12 @@ export default function WorkoutProgramDetailPage() {
   );
   const [equipmentSyncing, setEquipmentSyncing] = useState(false);
   const [workoutsRefreshing, setWorkoutsRefreshing] = useState(false);
+
+  const [workoutsPage, setWorkoutsPage] = useState(1);
+  const [workoutsTotal, setWorkoutsTotal] = useState(0);
+  const [workoutsTotalPages, setWorkoutsTotalPages] = useState(1);
+  const workoutsPageRef = useRef(1);
+  workoutsPageRef.current = workoutsPage;
   const planIdRef = useRef(planId);
   planIdRef.current = planId;
 
@@ -69,7 +76,7 @@ export default function WorkoutProgramDetailPage() {
   }, [planId]);
 
   const fetchWorkoutsList = useCallback(
-    async (includeAdapted: boolean) => {
+    async (includeAdapted: boolean, page = workoutsPageRef.current) => {
       if (!planId) return;
       const forPlan = planId;
       setWorkoutsRefreshing(true);
@@ -77,9 +84,26 @@ export default function WorkoutProgramDetailPage() {
         const wr = await AdminService.listWorkoutTemplates({
           plan_id: forPlan,
           include_equipment_adapted: includeAdapted,
+          page,
+          page_size: WORKOUTS_PAGE_SIZE,
         });
         if (planIdRef.current !== forPlan) return;
-        if (wr.success && Array.isArray(wr.workouts)) setWorkouts(wr.workouts);
+        if (wr.success && Array.isArray(wr.workouts)) {
+          const total = wr.count ?? wr.workouts.length;
+          const totalPages = wr.pagination?.total_pages ?? 1;
+          // deleting the last row on a page can strand us past the end
+          if (wr.workouts.length === 0 && page > 1) {
+            const target = Math.min(page - 1, totalPages);
+            setWorkoutsPage(target);
+            workoutsPageRef.current = target;
+            void fetchWorkoutsList(includeAdapted, target);
+            return;
+          }
+          setWorkouts(wr.workouts);
+          setWorkoutsTotal(total);
+          setWorkoutsTotalPages(totalPages);
+          setWorkoutsPage(page);
+        }
       } finally {
         if (planIdRef.current === forPlan) {
           setWorkoutsRefreshing(false);
@@ -95,6 +119,8 @@ export default function WorkoutProgramDetailPage() {
     const forPlan = planId;
     setEquipmentSyncing(false);
     setShowEquipmentAdapted(false);
+    setWorkoutsPage(1);
+    workoutsPageRef.current = 1;
     (async () => {
       setLoading(true);
       setError(null);
@@ -104,10 +130,16 @@ export default function WorkoutProgramDetailPage() {
         AdminService.listWorkoutTemplates({
           plan_id: forPlan,
           include_equipment_adapted: false,
+          page: 1,
+          page_size: WORKOUTS_PAGE_SIZE,
         }),
       ]);
       if (cancelled || planIdRef.current !== forPlan) return;
-      if (wr.success && Array.isArray(wr.workouts)) setWorkouts(wr.workouts);
+      if (wr.success && Array.isArray(wr.workouts)) {
+        setWorkouts(wr.workouts);
+        setWorkoutsTotal(wr.count ?? wr.workouts.length);
+        setWorkoutsTotalPages(wr.pagination?.total_pages ?? 1);
+      }
       if (pr.success && pr.program) {
         setProgram(pr.program);
         setError(null);
@@ -151,7 +183,9 @@ export default function WorkoutProgramDetailPage() {
     if (res.success) {
       setNewTitle("");
       setNewOrder("0");
-      await fetchWorkoutsList(showEquipmentAdapted);
+      setWorkoutsPage(1);
+      workoutsPageRef.current = 1;
+      await fetchWorkoutsList(showEquipmentAdapted, 1);
       void runEquipmentSync();
     } else alert(res.error || "Failed to create workout");
   };
@@ -279,9 +313,7 @@ export default function WorkoutProgramDetailPage() {
                 />
               </label>
             </div>
-            {saving && (
-              <p className="text-xs text-gray-500">Saving…</p>
-            )}
+            {saving && <p className="text-xs text-gray-500">Saving…</p>}
           </section>
 
           <section className="mb-10 rounded-lg border border-gray-200 bg-white p-4 space-y-3">
@@ -356,9 +388,23 @@ export default function WorkoutProgramDetailPage() {
                 />
               )}
             </h2>
-            <p className="text-sm text-gray-600 mb-3">
-              Drag to set <code className="text-xs bg-gray-100 px-1 rounded">order_index</code>. Edit exercises from each workout page. Equipment-adapted copies are hidden by default.
-            </p>
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+              <p className="text-sm text-gray-600">
+                Drag to set{" "}
+                <code className="text-xs bg-gray-100 px-1 rounded">
+                  order_index
+                </code>
+                . Edit exercises from each workout page. Equipment-adapted
+                copies are hidden by default.
+              </p>
+              {workoutsTotal > 0 && (
+                <p className="text-xs text-gray-500 shrink-0">
+                  Showing {(workoutsPage - 1) * WORKOUTS_PAGE_SIZE + 1}–
+                  {Math.min(workoutsPage * WORKOUTS_PAGE_SIZE, workoutsTotal)}{" "}
+                  of {workoutsTotal}
+                </p>
+              )}
+            </div>
             <label className="flex items-center gap-2 text-sm text-gray-700 mb-4 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -367,11 +413,14 @@ export default function WorkoutProgramDetailPage() {
                 onChange={(e) => {
                   const v = e.target.checked;
                   setShowEquipmentAdapted(v);
-                  void fetchWorkoutsList(v);
+                  setWorkoutsPage(1);
+                  workoutsPageRef.current = 1;
+                  void fetchWorkoutsList(v, 1);
                 }}
                 className="rounded border-gray-300 disabled:opacity-50"
               />
-              Show equipment-adapted workouts (titles containing &quot;adapted to your equipment&quot;)
+              Show equipment-adapted workouts (titles containing &quot;adapted
+              to your equipment&quot;)
             </label>
 
             {workouts.length === 0 ? (
@@ -383,19 +432,60 @@ export default function WorkoutProgramDetailPage() {
                 .
                 {!showEquipmentAdapted && (
                   <span className="block mt-2 text-xs text-gray-500">
-                    If you expect more rows, they may be equipment-adapted clones—enable the checkbox above.
+                    If you expect more rows, they may be equipment-adapted
+                    clones—enable the checkbox above.
                   </span>
                 )}
               </div>
             ) : (
-              <div
-                className={`mb-6 transition-opacity ${workoutsRefreshing ? "opacity-60 pointer-events-none" : ""}`}
-              >
-                <SortableWorkoutsList
-                  planId={planId}
-                  workouts={workouts}
-                  onReload={() => fetchWorkoutsList(showEquipmentAdapted)}
-                />
+              <div className="mb-6">
+                <div
+                  className={`transition-opacity ${workoutsRefreshing ? "opacity-60 pointer-events-none" : ""}`}
+                >
+                  <SortableWorkoutsList
+                    planId={planId}
+                    workouts={workouts}
+                    onReload={() => fetchWorkoutsList(showEquipmentAdapted)}
+                  />
+                </div>
+
+                {workoutsTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void fetchWorkoutsList(
+                          showEquipmentAdapted,
+                          Math.max(workoutsPage - 1, 1),
+                        )
+                      }
+                      disabled={workoutsPage <= 1 || workoutsRefreshing}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="h-4 w-4" aria-hidden />
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Page {workoutsPage} of {workoutsTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void fetchWorkoutsList(
+                          showEquipmentAdapted,
+                          Math.min(workoutsPage + 1, workoutsTotalPages),
+                        )
+                      }
+                      disabled={
+                        workoutsPage >= workoutsTotalPages || workoutsRefreshing
+                      }
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

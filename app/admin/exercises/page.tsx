@@ -18,6 +18,10 @@ import {
 } from "@/components/admin/workout-builder/formStyles";
 import { AdminProgramsTabs } from "@/components/admin/AdminSectionTabs";
 import { cn } from "@/lib/utils";
+import {
+  isProgressiveOverloadEligible,
+  progressiveOverloadIncrementLbs,
+} from "@/lib/exercise-progressive-overload";
 
 const PAGE_SIZE = 10;
 
@@ -59,6 +63,8 @@ export default function AdminExercisesLibraryPage() {
   // Pagination
   const [page, setPage] = useState(1); // 1-based
   const [total, setTotal] = useState(0);
+  const [poSavingId, setPoSavingId] = useState<string | null>(null);
+  const [poError, setPoError] = useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -87,6 +93,31 @@ export default function AdminExercisesLibraryPage() {
       setSearchError(res.error || "Search failed");
     }
   }, []);
+
+  const togglePo = async (row: AdminCatalogExercise) => {
+    const next = !row.progressive_overload;
+    setPoSavingId(row.id);
+    setPoError(null);
+    setHits((prev) =>
+      prev.map((r) =>
+        r.id === row.id ? { ...r, progressive_overload: next } : r,
+      ),
+    );
+
+    const res = await AdminService.setExerciseProgressiveOverload(row.id, next);
+    setPoSavingId(null);
+
+    if (!res.success) {
+      setHits((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? { ...r, progressive_overload: row.progressive_overload }
+            : r,
+        ),
+      );
+      setPoError(res.error || "Could not update progressive overload");
+    }
+  };
 
   // Reset to page 1 whenever the query changes (debounced)
   useEffect(() => {
@@ -134,6 +165,7 @@ export default function AdminExercisesLibraryPage() {
       instructions: instructions.trim() || null,
       equipment: equipmentLabels.length > 0 ? equipmentLabels : null,
       form_video_url: formVideoUrl.trim() || null,
+      progressive_overload: false,
     });
     setSaving(false);
     if (res.success && res.exercise) {
@@ -151,7 +183,7 @@ export default function AdminExercisesLibraryPage() {
   const to = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-8 ">
       <AdminProgramsTabs />
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -364,7 +396,7 @@ export default function AdminExercisesLibraryPage() {
         {searchError && (
           <p className="px-4 py-2 text-sm text-red-600">{searchError}</p>
         )}
-        <div className="overflow-x-auto">
+        <div className="">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
@@ -375,6 +407,7 @@ export default function AdminExercisesLibraryPage() {
                 <th className="px-4 py-2 font-medium">Equipment</th>
                 <th className="px-4 py-2 font-medium">Instructions</th>
                 <th className="px-4 py-2 font-medium">Video / form</th>
+                <th className="px-4 py-2 font-medium">Progressive overload</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -436,6 +469,56 @@ export default function AdminExercisesLibraryPage() {
                       ) : (
                         "—"
                       )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {(() => {
+                        const eligible = isProgressiveOverloadEligible(row);
+                        const inc = progressiveOverloadIncrementLbs(row);
+                        const on = Boolean(row.progressive_overload);
+                        const busy = poSavingId === row.id;
+
+                        if (!eligible) {
+                          return (
+                            <span
+                              className="text-xs text-gray-400"
+                              title="Only machine, barbell, and dumbbell exercises logged by weight support progressive overload."
+                            >
+                              n/a
+                            </span>
+                          );
+                        }
+
+                        return (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={on}
+                              aria-label={`Progressive overload for ${row.name}`}
+                              disabled={busy}
+                              onClick={() => void togglePo(row)}
+                              className={cn(
+                                "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50",
+                                on ? "bg-blue-600" : "bg-gray-300",
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  "inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform",
+                                  on ? "translate-x-5" : "translate-x-1",
+                                )}
+                              />
+                            </button>
+                            {busy ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
+                            ) : (
+                              <span className="text-xs text-gray-500 tabular-nums">
+                                {on && inc ? `+${inc} lb` : "off"}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))

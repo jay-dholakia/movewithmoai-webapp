@@ -57,6 +57,7 @@ export interface AdminCatalogExercise {
   form_video_url?: string | null;
   log_type?: string | null;
   instructions?: string | null;
+  progressive_overload?: boolean | null;
 }
 
 export interface WorkoutExerciseRow {

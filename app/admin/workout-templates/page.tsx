@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminService } from "@/lib/services/adminService";
 import type { WorkoutTemplateRow } from "@/lib/types/workout-builder";
-import { Loader2, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Search } from "lucide-react";
 import {
   adminInputClass,
   adminSelectClass,
@@ -12,50 +12,68 @@ import {
 import { AdminListSkeleton } from "@/components/admin/AdminLoadingSkeleton";
 import { AdminProgramsTabs } from "@/components/admin/AdminSectionTabs";
 
+const PAGE_SIZE = 10;
+
 export default function WorkoutTemplatesLibraryPage() {
-  const [unassigned, setUnassigned] = useState<WorkoutTemplateRow[]>([]);
+  const [workouts, setWorkouts] = useState<WorkoutTemplateRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+
   const [bootstrapping, setBootstrapping] = useState(true);
   const [listRefreshing, setListRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEquipmentAdapted, setShowEquipmentAdapted] = useState(false);
   const hasLoadedOnce = useRef(false);
+  const reqIdRef = useRef(0);
 
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<WorkoutTemplateRow["type"]>("full");
   const [filterQ, setFilterQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
 
-  const filteredWorkouts = useMemo(() => {
-    const q = filterQ.trim().toLowerCase();
-    if (!q) return unassigned;
-    return unassigned.filter((w) => {
-      const title = (w.title ?? "").toLowerCase();
-      const wType = (w.type ?? "").toLowerCase();
-      return title.includes(q) || wType.includes(q);
-    });
-  }, [unassigned, filterQ]);
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQ(filterQ.trim()), 300);
+    return () => clearTimeout(t);
+  }, [filterQ]);
+
+  // any filter change invalidates the current page number
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQ, showEquipmentAdapted]);
 
   const load = useCallback(async () => {
     const first = !hasLoadedOnce.current;
     if (first) setBootstrapping(true);
     else setListRefreshing(true);
     setError(null);
+
+    const reqId = ++reqIdRef.current;
     const res = await AdminService.listWorkoutTemplates({
-      unassigned_only: true,
+      unassigned_only: false,
       include_equipment_adapted: showEquipmentAdapted,
+      page,
+      page_size: PAGE_SIZE,
+      q: debouncedQ || undefined,
     });
+    if (reqId !== reqIdRef.current) return; // a newer request superseded this one
+
     if (res.success && Array.isArray(res.workouts)) {
-      setUnassigned(res.workouts);
+      setWorkouts(res.workouts);
+      setTotal(res.count ?? res.workouts.length);
+      setTotalPages(res.pagination?.total_pages ?? 1);
     } else {
       setError(res.error || "Failed to load");
     }
+
     if (first) {
       setBootstrapping(false);
       hasLoadedOnce.current = true;
     } else {
       setListRefreshing(false);
     }
-  }, [showEquipmentAdapted]);
+  }, [showEquipmentAdapted, page, debouncedQ]);
 
   useEffect(() => {
     load();
@@ -73,9 +91,13 @@ export default function WorkoutTemplatesLibraryPage() {
     setCreating(false);
     if (res.success) {
       setTitle("");
+      setPage(1);
       load();
     } else alert(res.error || "Failed");
   };
+
+  const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
   return (
     <div className="p-8 max-w-4xl">
@@ -86,8 +108,7 @@ export default function WorkoutTemplatesLibraryPage() {
             Workout library
           </h1>
           <p className="text-sm text-gray-600 mt-1">
-            Templates with no program (<code className="text-xs bg-gray-100 px-1 rounded">plan_id</code>{" "}
-            empty). Assign a program from the workout editor.
+            Public workout templates. Assign a program from the workout editor.
           </p>
         </div>
         <Link
@@ -170,9 +191,11 @@ export default function WorkoutTemplatesLibraryPage() {
             autoComplete="off"
           />
         </label>
-        {!bootstrapping && unassigned.length > 0 && filterQ.trim() && (
+        {!bootstrapping && (
           <p className="text-xs text-gray-500 mt-1">
-            Showing {filteredWorkouts.length} of {unassigned.length}
+            {total === 0
+              ? "No results"
+              : `Showing ${rangeStart}–${rangeEnd} of ${total}`}
           </p>
         )}
       </div>
@@ -186,35 +209,63 @@ export default function WorkoutTemplatesLibraryPage() {
       {bootstrapping ? (
         <AdminListSkeleton rows={6} />
       ) : (
-      <ul
-        className={`border border-gray-200 rounded-lg divide-y bg-white transition-opacity ${listRefreshing ? "opacity-60" : ""}`}
-        aria-busy={listRefreshing}
-      >
-        {filteredWorkouts.map((w) => (
-          <li key={w.id} className="flex items-center justify-between px-4 py-3">
-            <div>
-              <p className="font-medium text-gray-900">{w.title}</p>
-              <p className="text-xs text-gray-500">{w.type}</p>
+        <>
+          <ul
+            className={`border border-gray-200 rounded-lg divide-y bg-white transition-opacity ${listRefreshing ? "opacity-60" : ""}`}
+            aria-busy={listRefreshing}
+          >
+            {workouts.map((w) => (
+              <li
+                key={w.id}
+                className="flex items-center justify-between px-4 py-3"
+              >
+                <div>
+                  <p className="font-medium text-gray-900">{w.title}</p>
+                  <p className="text-xs text-gray-500">{w.type}</p>
+                </div>
+                <Link
+                  href={`/admin/workout-templates/${w.id}`}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Edit →
+                </Link>
+              </li>
+            ))}
+            {workouts.length === 0 && (
+              <li className="px-4 py-8 text-sm text-gray-500 text-center">
+                {debouncedQ
+                  ? `No workouts match "${debouncedQ}". Try a different search.`
+                  : "No workouts found."}
+              </li>
+            )}
+          </ul>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                disabled={page <= 1 || listRefreshing}
+                className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden />
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                disabled={page >= totalPages || listRefreshing}
+                className="inline-flex items-center gap-1 px-3 py-2 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </button>
             </div>
-            <Link
-              href={`/admin/workout-templates/${w.id}`}
-              className="text-sm text-blue-600 hover:text-blue-800"
-            >
-              Edit →
-            </Link>
-          </li>
-        ))}
-        {unassigned.length === 0 && (
-          <li className="px-4 py-8 text-sm text-gray-500 text-center">
-            No unassigned workouts.
-          </li>
-        )}
-        {unassigned.length > 0 && filteredWorkouts.length === 0 && (
-          <li className="px-4 py-8 text-sm text-gray-500 text-center">
-            No workouts match &quot;{filterQ.trim()}&quot;. Try a different search.
-          </li>
-        )}
-      </ul>
+          )}
+        </>
       )}
     </div>
   );
