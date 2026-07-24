@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     let query = admin
       .from("exercises")
       .select(
-        "id, name, category, muscle_group, equipment, form_video_url, log_type, instructions",
+        "id, name, category, muscle_group, equipment, form_video_url, log_type, instructions, progressive_overload",
         { count: "exact" },
       )
       .order("name", { ascending: true });
