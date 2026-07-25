@@ -20,6 +20,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { AdminService } from "@/lib/services/adminService";
+import { isProgressiveOverloadEligible } from "@/lib/exercise-progressive-overload";
 
 export type ExRow = {
   id: string;
@@ -34,7 +35,14 @@ export type ExRow = {
   notes: string | null;
   group_id: number | null;
   group_type: string | null;
-  exercises?: { id: string; name: string } | null;
+  exercises?: {
+    id: string;
+    name: string;
+    progressive_overload?: boolean | null;
+    equipment?: unknown;
+    exercise_type?: string | null;
+    log_type?: string | null;
+  } | null;
 };
 
 function SortableExerciseRow({
@@ -109,9 +117,7 @@ function SortableExerciseRow({
           type="number"
           min={1}
           value={local.sets}
-          onChange={(e) =>
-            setLocal({ ...local, sets: Number(e.target.value) })
-          }
+          onChange={(e) => setLocal({ ...local, sets: Number(e.target.value) })}
         />
       </td>
       <td className="px-2 py-1">
@@ -157,8 +163,7 @@ function SortableExerciseRow({
           onChange={(e) =>
             setLocal({
               ...local,
-              group_id:
-                e.target.value === "" ? null : Number(e.target.value),
+              group_id: e.target.value === "" ? null : Number(e.target.value),
             })
           }
         />
@@ -192,6 +197,32 @@ function SortableExerciseRow({
         >
           Remove
         </button>
+      </td>
+      <td className="px-2 py-1 whitespace-nowrap">
+        {(() => {
+          const ex = row.exercises;
+          if (!ex) return <span className="text-xs text-gray-400">—</span>;
+          const eligible = isProgressiveOverloadEligible({
+            name: ex.name,
+            equipment: ex.equipment,
+            exercise_type: ex.exercise_type,
+            log_type: ex.log_type,
+          });
+          if (!eligible)
+            return (
+              <span
+                className="text-xs text-gray-400"
+                title="Not machine/barbell/dumbbell weight-logged"
+              >
+                n/a
+              </span>
+            );
+          return ex.progressive_overload ? (
+            <span className="text-xs font-medium text-green-700">On</span>
+          ) : (
+            <span className="text-xs text-gray-500">Off</span>
+          );
+        })()}
       </td>
     </tr>
   );
@@ -287,6 +318,7 @@ export function SortableExerciseTable({
                   <th className="px-2 py-2">Group #</th>
                   <th className="px-2 py-2">Rest (s)</th>
                   <th className="px-2 py-2" />
+                  <th className="px-2 py-2">Overload</th>
                 </tr>
               </thead>
               <tbody>
@@ -309,8 +341,8 @@ export function SortableExerciseTable({
           </DndContext>
           <p className="text-xs text-gray-500 px-2 pb-2">
             Drag the grip to reorder. Order is saved as{" "}
-            <code className="bg-gray-100 px-1 rounded">order_index</code> (0,
-            1, 2…).
+            <code className="bg-gray-100 px-1 rounded">order_index</code> (0, 1,
+            2…).
           </p>
         </>
       )}

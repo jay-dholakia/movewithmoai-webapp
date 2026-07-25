@@ -32,6 +32,7 @@ export default function WorkoutTemplateEditorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingMeta, setSavingMeta] = useState(false);
+  const [poBulkBusy, setPoBulkBusy] = useState(false);
 
   const [meta, setMeta] = useState({
     title: "",
@@ -99,6 +100,28 @@ export default function WorkoutTemplateEditorPage() {
     if (ex.success && Array.isArray(ex.exercises))
       setRows(ex.exercises as ExRow[]);
   }, []);
+
+  const bulkSetPo = async (enabled: boolean) => {
+    if (
+      !confirm(
+        `${enabled ? "Enable" : "Disable"} progressive overload for the eligible exercises in this workout?\n\n` +
+          "This changes those exercises everywhere they're used, not just here.",
+      )
+    )
+      return;
+    setPoBulkBusy(true);
+    const res = await AdminService.setWorkoutProgressiveOverloadBulk(
+      id,
+      enabled,
+    );
+    setPoBulkBusy(false);
+    if (res.success) {
+      alert(`Updated ${res.updated} exercise${res.updated === 1 ? "" : "s"}.`);
+      await reloadExercises();
+    } else {
+      alert(res.error || "Bulk update failed");
+    }
+  };
 
   useEffect(() => {
     load();
@@ -355,6 +378,28 @@ export default function WorkoutTemplateEditorPage() {
               <strong>group_type</strong> (circuit / superset) and optional{" "}
               <strong>group_id</strong> to pair movements.
             </p>
+
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-sm text-gray-600">
+                Progressive overload (eligible exercises):
+              </span>
+              <button
+                type="button"
+                disabled={poBulkBusy}
+                onClick={() => void bulkSetPo(true)}
+                className="cursor-pointer px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                Enable all
+              </button>
+              <button
+                type="button"
+                disabled={poBulkBusy}
+                onClick={() => void bulkSetPo(false)}
+                className="cursor-pointer px-3 py-1.5 text-sm rounded-lg border border-gray-300 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                Disable all
+              </button>
+            </div>
 
             <div className="overflow-x-auto border border-gray-200 rounded-lg">
               <SortableExerciseTable

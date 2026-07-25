@@ -2624,4 +2624,23 @@ export class AdminService {
     });
     return res.json();
   }
+
+  static async setWorkoutProgressiveOverloadBulk(
+    workoutId: string,
+    enabled: boolean,
+  ) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/admin/workout-templates/${encodeURIComponent(
+        workoutId,
+      )}/bulk-progressive-overload`,
+      {
+        method: "POST",
+        headers: { ...h, "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      },
+    );
+    return res.json();
+  }
 }

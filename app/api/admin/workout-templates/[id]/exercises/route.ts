@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, context: Ctx) {
     const { data: rows, error } = await admin
       .from("workout_exercises")
       .select(
-        "id, workout_template_id, exercise_id, order_index, sets, reps, reps_display, rest_seconds, rest_display, notes, group_id, group_type",
+        "id, workout_template_id,  exercise_id, order_index, sets, reps, reps_display, rest_seconds, rest_display, notes, group_id, group_type",
       )
       .eq("workout_template_id", workoutId)
       .order("order_index", { ascending: true });
@@ -34,25 +34,23 @@ export async function GET(request: NextRequest, context: Ctx) {
 
     const list = rows ?? [];
     const exIds = [
-      ...new Set(
-        list.map((r) => r.exercise_id).filter(Boolean) as string[],
-      ),
+      ...new Set(list.map((r) => r.exercise_id).filter(Boolean) as string[]),
     ];
-    let nameById = new Map<string, string>();
+    let exById = new Map<string, any>();
     if (exIds.length > 0) {
       const { data: exRows } = await admin
         .from("exercises")
-        .select("id, name")
+        .select(
+          "id, name, progressive_overload, equipment, exercise_type, log_type",
+        )
         .in("id", exIds);
-      nameById = new Map(
-        (exRows ?? []).map((e) => [e.id, e.name as string]),
-      );
+      exById = new Map((exRows ?? []).map((e) => [e.id, e]));
     }
 
     const exercises = list.map((r) => ({
       ...r,
       exercises: r.exercise_id
-        ? { id: r.exercise_id, name: nameById.get(r.exercise_id) ?? "?" }
+        ? (exById.get(r.exercise_id) ?? { id: r.exercise_id, name: "?" })
         : null,
     }));
 
@@ -106,7 +104,10 @@ export async function POST(request: NextRequest, context: Ctx) {
     if (group_type != null && group_type !== "") {
       if (!GROUP_TYPES.has(String(group_type))) {
         return NextResponse.json(
-          { success: false, error: "group_type must be circuit, superset, or empty" },
+          {
+            success: false,
+            error: "group_type must be circuit, superset, or empty",
+          },
           { status: 400 },
         );
       }
@@ -152,8 +153,7 @@ export async function POST(request: NextRequest, context: Ctx) {
           : Number(rest_seconds),
       rest_display,
       notes,
-      group_id:
-        group_id === null || group_id === "" ? null : Number(group_id),
+      group_id: group_id === null || group_id === "" ? null : Number(group_id),
       group_type: gt,
     };
 
