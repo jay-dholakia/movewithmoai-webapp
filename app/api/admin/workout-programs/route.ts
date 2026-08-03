@@ -11,8 +11,7 @@ export async function GET(request: NextRequest) {
 
     const admin = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
-    const includeDeprecated =
-      searchParams.get("include_deprecated") === "true";
+    const includeDeprecated = searchParams.get("include_deprecated") === "true";
 
     let q = admin
       .from("workout_programs")
@@ -60,6 +59,7 @@ export async function POST(request: NextRequest) {
       equipment_required = [],
       base_plan_id = null,
       month_active = null,
+      is_paid = false,
     } = body;
 
     if (!plan_id || typeof plan_id !== "string" || !plan_id.trim()) {
@@ -75,6 +75,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const minAge = Number(min_age);
+    const maxAge = Number(max_age);
+    const daysPerWeek = Number(days_per_week);
+    if ([minAge, maxAge, daysPerWeek].some(Number.isNaN)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "min_age, max_age and days_per_week must be numbers",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (!["All", "M", "F"].includes(gender)) {
+      return NextResponse.json(
+        { success: false, error: "invalid gender" },
+        { status: 400 },
+      );
+    }
+    if (
+      difficulty_level !== null &&
+      !["Beginner", "Intermediate", "Advanced"].includes(difficulty_level)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "invalid difficulty_level" },
+        { status: 400 },
+      );
+    }
+
     const admin = getSupabaseAdmin();
     const { data, error } = await admin
       .from("workout_programs")
@@ -82,9 +111,9 @@ export async function POST(request: NextRequest) {
         plan_id: plan_id.trim(),
         plan_name: plan_name.trim(),
         gender,
-        min_age: Number(min_age),
-        max_age: Number(max_age),
-        days_per_week: Number(days_per_week),
+        min_age: minAge,
+        max_age: maxAge,
+        days_per_week: daysPerWeek,
         description,
         difficulty_level,
         equipment_required: Array.isArray(equipment_required)
@@ -92,6 +121,7 @@ export async function POST(request: NextRequest) {
           : [],
         base_plan_id,
         month_active,
+        is_paid: Boolean(is_paid),
         is_deprecated: false,
       })
       .select()
@@ -99,6 +129,15 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("[workout-programs POST]", error);
+      if (error.code === "23505") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "A program with this plan_id already exists.",
+          },
+          { status: 409 },
+        );
+      }
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 400 },
