@@ -152,20 +152,23 @@ export default function WorkoutTemplateEditorPage() {
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (!searchQ.trim()) {
+    const q = searchQ.trim();
+    if (!q) {
       setSearchHits([]);
       return;
     }
-    searchTimer.current = setTimeout(async (q: string, pageArg: number) => {
+    searchTimer.current = setTimeout(async () => {
       setSearching(true);
       const res = await AdminService.searchExercisesCatalog(q, {
-        page: pageArg,
+        page: 1,
         pageSize: PAGE_SIZE,
       });
       setSearching(false);
       if (res.success && Array.isArray(res.exercises)) {
         setSearchHits(res.exercises);
-      } else setSearchHits([]);
+      } else {
+        setSearchHits([]);
+      }
     }, 300);
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -432,8 +435,10 @@ export default function WorkoutTemplateEditorPage() {
                 <li key={h.id}>
                   <button
                     type="button"
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
-                      pickExerciseId === h.id ? "bg-blue-50" : ""
+                    className={`cursor-pointer w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${
+                      pickExerciseId === h.id
+                        ? "bg-blue-200 hover:bg-gray-200"
+                        : ""
                     }`}
                     onClick={() => setPickExerciseId(h.id)}
                   >
