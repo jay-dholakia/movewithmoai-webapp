@@ -45,6 +45,7 @@ export default function WorkoutProgramDetailPage() {
   const [workoutsPage, setWorkoutsPage] = useState(1);
   const [workoutsTotal, setWorkoutsTotal] = useState(0);
   const [workoutsTotalPages, setWorkoutsTotalPages] = useState(1);
+  const [addingWorkout, setAddingWorkout] = useState(false);
   const workoutsPageRef = useRef(1);
   workoutsPageRef.current = workoutsPage;
   const planIdRef = useRef(planId);
@@ -172,6 +173,7 @@ export default function WorkoutProgramDetailPage() {
   };
 
   const addWorkoutToProgram = async (e: React.FormEvent) => {
+    setAddingWorkout(true);
     e.preventDefault();
     if (!newTitle.trim()) return;
     const res = await AdminService.createWorkoutTemplate({
@@ -184,10 +186,14 @@ export default function WorkoutProgramDetailPage() {
       setNewTitle("");
       setNewOrder("0");
       setWorkoutsPage(1);
+      setAddingWorkout(false);
       workoutsPageRef.current = 1;
       await fetchWorkoutsList(showEquipmentAdapted, 1);
       void runEquipmentSync();
-    } else alert(res.error || "Failed to create workout");
+    } else {
+      setAddingWorkout(false);
+      alert(res.error || "Failed to create workout");
+    }
   };
 
   const deleteProgram = async () => {
@@ -533,9 +539,10 @@ export default function WorkoutProgramDetailPage() {
                 </label>
                 <button
                   type="submit"
+                  disabled={addingWorkout}
                   className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
                 >
-                  Add workout
+                  {addingWorkout ? "Adding..." : "Add workout"}
                 </button>
               </div>
             </form>
