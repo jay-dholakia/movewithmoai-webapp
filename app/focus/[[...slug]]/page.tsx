@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { DeepLinkLanding } from "@/components/deeplink-landing";
 
 const IOS_STORE_URL = "https://apps.apple.com/app/id0000000000";
 const ANDROID_STORE_URL =
@@ -11,7 +12,6 @@ export default function FocusMoaiPage() {
   const openAppRef = useRef<HTMLAnchorElement>(null);
   const iosLinkRef = useRef<HTMLAnchorElement>(null);
   const androidLinkRef = useRef<HTMLAnchorElement>(null);
-  const copyHintRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     // Extract slug from path /focus/<slug>
@@ -41,7 +41,6 @@ export default function FocusMoaiPage() {
     }
     if (iosLinkRef.current) iosLinkRef.current.href = IOS_STORE_URL;
     if (androidLinkRef.current) androidLinkRef.current.href = ANDROID_STORE_URL;
-    if (copyHintRef.current) copyHintRef.current.textContent = location.href;
 
     // Auto-attempt open after a short delay so the page renders first.
     // iOS: universal link takes over before this fires if the app is installed.
@@ -57,41 +56,12 @@ export default function FocusMoaiPage() {
   }, []);
 
   return (
-    <div className="font-sans m-0 px-6 py-6 max-w-[480px] mx-auto leading-relaxed text-[#1c1c1e]">
-      <h1 className="text-2xl font-bold mb-3">View this Focus Moai on Moai</h1>
-      <p className="mb-4 text-[#3c3c43]">
-        We&apos;re opening the Moai app. If nothing happens, install the app or
-        use the buttons below.
-      </p>
-
-      <div className="flex flex-col gap-3">
-        <a
-          ref={openAppRef}
-          href="#"
-          className="block px-4 py-3 rounded-[10px] text-center font-semibold no-underline bg-[#007aff] text-white border border-[#007aff]"
-        >
-          Open in app
-        </a>
-        <a
-          ref={iosLinkRef}
-          href="#"
-          className="block px-4 py-3 rounded-[10px] text-center font-semibold no-underline bg-[#f2f2f7] text-[#1c1c1e] border border-[#c7c7cc]"
-        >
-          Download on the App Store
-        </a>
-        <a
-          ref={androidLinkRef}
-          href="#"
-          className="block px-4 py-3 rounded-[10px] text-center font-semibold no-underline bg-[#f2f2f7] text-[#1c1c1e] border border-[#c7c7cc]"
-        >
-          Get it on Google Play
-        </a>
-      </div>
-
-      <p className="text-[13px] text-[#636366] mt-5">
-        Copy link:{" "}
-        <code ref={copyHintRef} className="text-[12px] break-all" />
-      </p>
-    </div>
+    <DeepLinkLanding
+      title="View this Focus Moai"
+      description="We're opening the Moai app. If nothing happens, install the app or use the buttons below."
+      openAppRef={openAppRef}
+      iosLinkRef={iosLinkRef}
+      androidLinkRef={androidLinkRef}
+    />
   );
 }
