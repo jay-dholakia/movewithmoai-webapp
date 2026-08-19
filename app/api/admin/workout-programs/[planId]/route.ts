@@ -56,11 +56,25 @@ export async function PATCH(request: NextRequest, context: Ctx) {
       "base_plan_id",
       "is_deprecated",
       "month_active",
+      "status",
+      "is_paid",
     ] as const;
 
     const patch: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in body) patch[key] = body[key];
+    }
+
+    delete (patch as Record<string, unknown>).created_by;
+
+    if ("status" in patch) {
+      const s = patch.status;
+      if (s !== "draft" && s !== "published") {
+        return NextResponse.json(
+          { success: false, error: "Invalid status" },
+          { status: 400 },
+        );
+      }
     }
 
     if (Object.keys(patch).length === 0) {

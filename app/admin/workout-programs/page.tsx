@@ -8,6 +8,10 @@ import {
   ArrowRight,
   BookOpen,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Layers,
   Plus,
   Target,
@@ -18,163 +22,30 @@ import { cn } from "@/lib/utils";
 import { Shimmer } from "@/components/admin/AdminLoadingSkeleton";
 import { AdminProgramsTabs } from "@/components/admin/AdminSectionTabs";
 
-function ProgramsGridSkeleton() {
+function TableSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      <div className="border-b border-gray-100 bg-gray-50/60 px-5 py-3">
+        <Shimmer className="h-4 w-full max-w-[60%]" />
+      </div>
+      {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="rounded-xl border border-gray-200 bg-white p-5 space-y-4"
+          className="flex items-center gap-4 border-b border-gray-100 px-5 py-3.5 last:border-b-0"
         >
-          <div className="flex justify-between gap-3">
-            <Shimmer className="h-6 flex-1 max-w-[70%]" />
-            <Shimmer className="h-5 w-5 shrink-0 rounded" />
-          </div>
-          <Shimmer className="h-4 w-full max-w-[90%]" />
-          <div className="flex flex-wrap gap-2">
-            <Shimmer className="h-6 w-20 rounded-full" />
-            <Shimmer className="h-6 w-16 rounded-full" />
-            <Shimmer className="h-6 w-24 rounded-full" />
-          </div>
+          <Shimmer className="h-4 flex-[2] max-w-[200px]" />
+          <Shimmer className="h-4 flex-1 max-w-[120px]" />
+          <Shimmer className="h-4 w-14" />
+          <Shimmer className="h-4 w-10" />
+          <Shimmer className="h-5 w-16 rounded-full" />
+          <Shimmer className="h-4 w-12" />
         </div>
       ))}
     </div>
   );
 }
 
-function ProgramCard({
-  program: p,
-  onMoaiPillClick,
-}: {
-  program: EnrichedWorkoutProgramRow;
-  onMoaiPillClick: (focusMoaiId: string) => void;
-}) {
-  const href = `/admin/workout-programs/${encodeURIComponent(p.plan_id)}`;
-  const deprecated = Boolean(p.is_deprecated);
-
-  return (
-    <li className="h-full min-h-0">
-      <div
-        className={cn(
-          "flex h-full min-h-[220px] flex-col rounded-xl border bg-white p-5 shadow-sm transition-all duration-200",
-          deprecated
-            ? "border-amber-200/80"
-            : "border-gray-200 hover:border-blue-200 hover:shadow-md",
-        )}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <Link
-              href={href}
-              className={cn(
-                "group/title inline-flex items-start gap-2 text-lg font-semibold leading-snug transition-colors",
-                deprecated
-                  ? "text-gray-700 hover:text-amber-900"
-                  : "text-gray-900 hover:text-blue-700",
-              )}
-            >
-              <span>{p.plan_name}</span>
-              <ArrowRight
-                className={cn(
-                  "h-5 w-5 shrink-0 mt-0.5 opacity-0 transition-all group-hover/title:opacity-100 group-hover/title:translate-x-0.5",
-                  deprecated
-                    ? "text-amber-500"
-                    : "text-gray-400 group-hover/title:text-blue-500",
-                )}
-                aria-hidden
-              />
-            </Link>
-            {deprecated && (
-              <span className="mt-1.5 inline-block rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-900">
-                Deprecated
-              </span>
-            )}
-          </div>
-        </div>
-
-        <Link
-          href={href}
-          className="mt-2 truncate font-mono text-xs text-gray-500 hover:text-blue-600 hover:underline"
-          title={p.plan_id}
-        >
-          {p.plan_id}
-        </Link>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-800 border border-violet-100">
-            <Users className="h-3.5 w-3.5 text-violet-600" aria-hidden />
-            {p.assigned_user_count} user
-            {p.assigned_user_count === 1 ? "" : "s"} assigned
-          </span>
-        </div>
-
-        {p.focus_moais.length > 0 && (
-          <div className="mt-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 mb-1.5">
-              Focus Moais
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {p.focus_moais.map((fm) => (
-                <button
-                  key={fm.id}
-                  type="button"
-                  onClick={() => onMoaiPillClick(fm.id)}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors",
-                    fm.status === "active"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100",
-                  )}
-                  title="Filter programs by this Focus Moai"
-                >
-                  <Target className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
-                  {fm.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-            <CalendarDays className="h-3.5 w-3.5 text-gray-500" aria-hidden />
-            {p.days_per_week} days/wk
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-            <UserCircle className="h-3.5 w-3.5 text-gray-500" aria-hidden />
-            {p.gender}
-          </span>
-          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-            Ages {p.min_age}–{p.max_age}
-          </span>
-          {p.difficulty_level ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-800">
-              <Layers className="h-3.5 w-3.5 text-blue-600" aria-hidden />
-              {p.difficulty_level}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="mt-4 min-h-[2.75rem] flex-1">
-          {p.description ? (
-            <Link href={href} className="block">
-              <p className="line-clamp-2 text-sm leading-relaxed text-gray-600 hover:text-gray-900">
-                {p.description}
-              </p>
-            </Link>
-          ) : null}
-        </div>
-
-        <Link
-          href={href}
-          className="mt-4 border-t border-gray-100 pt-4 text-sm font-medium text-blue-600 hover:text-blue-700"
-        >
-          Open program →
-        </Link>
-      </div>
-    </li>
-  );
-}
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
 
 export default function WorkoutProgramsPage() {
   const [programs, setPrograms] = useState<EnrichedWorkoutProgramRow[]>([]);
@@ -182,23 +53,38 @@ export default function WorkoutProgramsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filterMoaiId, setFilterMoaiId] = useState<string | null>(null);
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [total, setTotal] = useState(0);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await AdminService.listWorkoutProgramsEnriched(true);
+    const res = await AdminService.listWorkoutProgramsEnriched(
+      true,
+      page,
+      pageSize,
+    );
     if (res.success && Array.isArray(res.programs)) {
       setPrograms(res.programs as EnrichedWorkoutProgramRow[]);
+      setTotal(res.total ?? res.programs.length);
     } else {
-      setError(
-        (res as { error?: string }).error || "Failed to load programs",
-      );
+      setError((res as { error?: string }).error || "Failed to load programs");
     }
     setLoading(false);
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Reset to page 1 when page size changes
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPage(1);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const sortedPrograms = useMemo(() => {
     return [...programs].sort((a, b) => {
@@ -237,6 +123,9 @@ export default function WorkoutProgramsPage() {
     [programs],
   );
   const deprecatedCount = programs.length - activeCount;
+
+  const rangeStart = (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, total);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -277,7 +166,7 @@ export default function WorkoutProgramsPage() {
             <Shimmer className="h-8 w-48" />
             <Shimmer className="h-10 w-32 rounded-lg" />
           </div>
-          <ProgramsGridSkeleton />
+          <TableSkeleton />
         </div>
       )}
 
@@ -294,19 +183,14 @@ export default function WorkoutProgramsPage() {
         <div className="mt-8 space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-gray-600">
-              <span className="font-semibold text-gray-900">
-                {programs.length}
-              </span>{" "}
-              program{programs.length === 1 ? "" : "s"}
+              <span className="font-semibold text-gray-900">{total}</span>{" "}
+              program{total === 1 ? "" : "s"}
               {deprecatedCount > 0 ? (
                 <>
                   {" "}
                   ·{" "}
                   <span className="text-gray-500">
-                    {activeCount} active
-                    {deprecatedCount > 0
-                      ? `, ${deprecatedCount} deprecated`
-                      : ""}
+                    {activeCount} active, {deprecatedCount} deprecated
                   </span>
                 </>
               ) : null}
@@ -343,15 +227,13 @@ export default function WorkoutProgramsPage() {
                     key={opt.id}
                     type="button"
                     onClick={() =>
-                      setFilterMoaiId((cur) =>
-                        cur === opt.id ? null : opt.id,
-                      )
+                      setFilterMoaiId((cur) => (cur === opt.id ? null : opt.id))
                     }
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium border transition-colors",
                       filterMoaiId === opt.id
-                        ? "bg-emerald-600 text-white border-emerald-600"
-                        : "bg-white text-gray-800 border-gray-200 hover:border-emerald-300",
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "bg-white text-gray-700 border-gray-200 hover:border-gray-300",
                     )}
                   >
                     <Target className="h-3 w-3" aria-hidden />
@@ -374,25 +256,286 @@ export default function WorkoutProgramsPage() {
               </button>
             </p>
           ) : (
-            <ul className="grid gap-4 sm:grid-cols-2">
-              {visiblePrograms.map((p) => (
-                <ProgramCard
-                  key={p.plan_id}
-                  program={p}
-                  onMoaiPillClick={(id) => setFilterMoaiId(id)}
-                />
-              ))}
-            </ul>
+            <>
+              {/* ── Table ── */}
+              <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50/80 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <th className="py-3 pl-5 pr-3">Program</th>
+                      <th className="px-3 py-3 hidden md:table-cell">
+                        Plan ID
+                      </th>
+                      <th className="px-3 py-3 hidden lg:table-cell">
+                        Schedule
+                      </th>
+                      <th className="px-3 py-3 hidden sm:table-cell">Gender</th>
+                      <th className="px-3 py-3 hidden lg:table-cell">Ages</th>
+                      <th className="px-3 py-3">Level</th>
+                      <th className="px-3 py-3">Users</th>
+                      <th className="px-3 py-3 hidden lg:table-cell">
+                        Equipment
+                      </th>
+                      <th className="px-3 py-3 hidden md:table-cell">
+                        Focus Moais
+                      </th>
+                      <th className="py-3 pl-3 pr-5">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {visiblePrograms.map((p) => {
+                      const deprecated = Boolean(p.is_deprecated);
+                      const href = `/admin/workout-programs/${encodeURIComponent(p.plan_id)}`;
+
+                      return (
+                        <tr
+                          key={p.plan_id}
+                          className={cn(
+                            "group transition-colors",
+                            deprecated
+                              ? "bg-amber-50/40"
+                              : "hover:bg-gray-50/60",
+                          )}
+                        >
+                          {/* Program name */}
+                          <td className="py-3 pl-5 pr-3">
+                            <div className="flex flex-col gap-1">
+                              <Link
+                                href={href}
+                                className={cn(
+                                  "font-medium transition-colors",
+                                  deprecated
+                                    ? "text-gray-600 hover:text-amber-900"
+                                    : "text-gray-900 hover:text-blue-700",
+                                )}
+                              >
+                                {p.plan_name}
+                              </Link>
+                              {deprecated && (
+                                <span className="inline-block w-fit rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800">
+                                  Deprecated
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Plan ID */}
+                          <td className="px-3 py-3 hidden md:table-cell">
+                            <Link
+                              href={href}
+                              className="font-mono text-xs text-gray-500 hover:text-blue-600 hover:underline"
+                              title={p.plan_id}
+                            >
+                              <span className="inline-block max-w-[160px] truncate">
+                                {p.plan_id}
+                              </span>
+                            </Link>
+                          </td>
+
+                          {/* Schedule */}
+                          <td className="px-3 py-3 hidden lg:table-cell">
+                            <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                              <CalendarDays
+                                className="h-3.5 w-3.5 text-gray-400"
+                                aria-hidden
+                              />
+                              {p.days_per_week}d/wk
+                            </span>
+                          </td>
+
+                          {/* Gender */}
+                          <td className="px-3 py-3 hidden sm:table-cell">
+                            <span className="inline-flex items-center gap-1 text-xs text-gray-600">
+                              <UserCircle
+                                className="h-3.5 w-3.5 text-gray-400"
+                                aria-hidden
+                              />
+                              {p.gender}
+                            </span>
+                          </td>
+
+                          {/* Ages */}
+                          <td className="px-3 py-3 hidden lg:table-cell whitespace-nowrap text-xs text-gray-600">
+                            {p.min_age}–{p.max_age}
+                          </td>
+
+                          {/* Difficulty */}
+                          <td className="px-3 py-3">
+                            {p.difficulty_level ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
+                                <Layers
+                                  className="h-3 w-3 text-blue-500"
+                                  aria-hidden
+                                />
+                                {p.difficulty_level}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+
+                          {/* Users */}
+                          <td className="px-3 py-3">
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-700">
+                              <Users
+                                className="h-3.5 w-3.5 text-violet-500"
+                                aria-hidden
+                              />
+                              {p.assigned_user_count}
+                            </span>
+                          </td>
+
+                          {/* Equipment */}
+                          <td className="px-3 py-3 hidden lg:table-cell">
+                            {Array.isArray(p.equipment_required) &&
+                            p.equipment_required.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {p.equipment_required.map((eq: string) => (
+                                  <span
+                                    key={eq}
+                                    className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600"
+                                  >
+                                    {eq}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+
+                          {/* Focus Moais */}
+                          <td className="px-3 py-3 hidden md:table-cell">
+                            {p.focus_moais.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {p.focus_moais.map((fm) => (
+                                  <button
+                                    key={fm.id}
+                                    type="button"
+                                    onClick={() => setFilterMoaiId(fm.id)}
+                                    className={cn(
+                                      "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium border transition-colors",
+                                      fm.status === "active"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                        : "bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100",
+                                    )}
+                                    title="Filter by this Focus Moai"
+                                  >
+                                    <Target
+                                      className="h-2.5 w-2.5 opacity-60"
+                                      aria-hidden
+                                    />
+                                    {fm.name}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
+
+                          {/* Action */}
+                          <td className="py-3 pl-3 pr-5">
+                            <Link
+                              href={href}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                            >
+                              Open
+                              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ── Pagination ── */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-gray-500">
+                  Showing {rangeStart}–{rangeEnd} of {total}
+                </p>
+
+                <div className="flex items-center gap-3">
+                  {/* Page size select */}
+                  <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                    Rows
+                    <select
+                      value={pageSize}
+                      onChange={(e) =>
+                        handlePageSizeChange(Number(e.target.value))
+                      }
+                      className="rounded-md border border-gray-200 bg-white py-1 pl-2 pr-6 text-xs text-gray-700 shadow-sm focus:border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-300"
+                    >
+                      {PAGE_SIZE_OPTIONS.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {/* Page buttons */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => setPage(1)}
+                      className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label="First page"
+                    >
+                      <ChevronsLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+
+                    <span className="px-2 text-xs tabular-nums text-gray-700">
+                      {page}
+                      <span className="text-gray-400"> / </span>
+                      {totalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage(totalPages)}
+                      className="rounded-md border border-gray-200 p-1.5 text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label="Last page"
+                    >
+                      <ChevronsRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
 
       {!loading && !error && programs.length === 0 && (
         <div className="mt-12 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/60 px-6 py-14 text-center sm:px-12">
-          <Layers
-            className="mx-auto h-10 w-10 text-gray-400"
-            aria-hidden
-          />
+          <Layers className="mx-auto h-10 w-10 text-gray-400" aria-hidden />
           <h2 className="mt-4 text-lg font-semibold text-gray-900">
             No programs yet
           </h2>

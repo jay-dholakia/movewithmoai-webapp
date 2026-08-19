@@ -2325,20 +2325,39 @@ export class AdminService {
     };
   }
 
-  static async listWorkoutPrograms(includeDeprecated = false) {
+  static async listWorkoutPrograms(
+    includeDeprecated = false,
+    page = 1,
+    pageSize = 20,
+  ) {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
-    const q = includeDeprecated ? "?include_deprecated=true" : "";
-    const res = await fetch(`/api/admin/workout-programs${q}`, { headers: h });
+    const params = new URLSearchParams();
+    if (includeDeprecated) params.set("include_deprecated", "true");
+    params.set("page", String(page));
+    params.set("page_size", String(pageSize));
+    const res = await fetch(`/api/admin/workout-programs?${params}`, {
+      headers: h,
+    });
     return res.json();
   }
 
-  /** Programs + focus moais (via `workout_focus`) + assigned user counts. */
-  static async listWorkoutProgramsEnriched(includeDeprecated = false) {
+  static async listWorkoutProgramsEnriched(
+    includeDeprecated = false,
+    page = 1,
+    pageSize = 20,
+    opts?: { scope?: "all" | "general"; focusMoaiId?: string; userId?: string },
+  ) {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
-    const q = includeDeprecated ? "?include_deprecated=true" : "";
-    const res = await fetch(`/api/admin/workout-programs/enriched${q}`, {
+    const params = new URLSearchParams();
+    if (includeDeprecated) params.set("include_deprecated", "true");
+    params.set("page", String(page));
+    params.set("page_size", String(pageSize));
+    if (opts?.scope === "general") params.set("scope", "general");
+    if (opts?.focusMoaiId) params.set("focus_moai_id", opts.focusMoaiId);
+    if (opts?.userId) params.set("user_id", opts.userId);
+    const res = await fetch(`/api/admin/workout-programs/enriched?${params}`, {
       headers: h,
     });
     return res.json();
@@ -2474,6 +2493,21 @@ export class AdminService {
     return res.json();
   }
 
+  static async duplicateWorkoutTemplate(body: {
+    source_workout_id: string;
+    target_plan_id: string;
+    order_index: number;
+  }) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/admin/workout-templates/duplicate", {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
   static async getWorkoutTemplate(id: string) {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
@@ -2567,7 +2601,12 @@ export class AdminService {
 
   static async searchExercisesCatalog(
     q: string,
-    opts: { page: number; pageSize: number },
+    opts: {
+      page: number;
+      pageSize: number;
+      equipment?: string | null;
+      muscle?: string | null;
+    },
   ): Promise<{
     success: boolean;
     exercises?: any[];
@@ -2582,6 +2621,8 @@ export class AdminService {
       pageSize: String(opts.pageSize),
     });
     if (q.trim()) sp.set("q", q.trim());
+    if (opts.equipment) sp.set("equipment", opts.equipment);
+    if (opts.muscle) sp.set("muscle", opts.muscle);
 
     try {
       const res = await fetch(`/api/admin/exercises-catalog?${sp}`, {
@@ -2640,6 +2681,55 @@ export class AdminService {
         headers: { ...h, "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
       },
+    );
+    return res.json();
+  }
+
+  static async generateWorkoutProgram(body: {
+    prompt: string;
+    difficulty_level?: string;
+    is_paid?: boolean;
+  }) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/admin/workout-programs/generate", {
+      method: "POST",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async duplicateWorkoutProgram(body: {
+    source_program_id: string;
+    new_plan_name: string;
+    new_plan_id: string;
+  }) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/admin/workout-programs/duplicate", {
+      method: "POST",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async listProgramAssignments(opts?: {
+    includeDeprecated?: boolean;
+    includeUnassigned?: boolean;
+    q?: string;
+  }) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const sp = new URLSearchParams();
+    if (opts?.includeDeprecated) sp.set("include_deprecated", "true");
+    if (opts?.includeUnassigned) sp.set("include_unassigned", "true");
+    if (opts?.q?.trim()) sp.set("q", opts.q.trim());
+    const query = sp.toString();
+    const res = await fetch(
+      `/api/admin/assignments${query ? `?${query}` : ""}`,
+      { headers: h },
     );
     return res.json();
   }

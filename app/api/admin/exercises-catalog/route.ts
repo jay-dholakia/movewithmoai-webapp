@@ -11,6 +11,9 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get("q") || "").trim();
+    const equipment = (searchParams.get("equipment") || "").trim();
+    const muscle = (searchParams.get("muscle") || "").trim();
+
     const page = Math.max(Number(searchParams.get("page") || "1") || 1, 1);
     const pageSize = Math.min(
       Number(searchParams.get("pageSize") || "20") || 20,
@@ -29,6 +32,14 @@ export async function GET(request: NextRequest) {
 
     if (q.length > 0) {
       query = query.ilike("name", `%${q}%`);
+    }
+
+    if (equipment.length > 0) {
+      query = query.contains("equipment", [equipment]);
+    }
+
+    if (muscle.length > 0) {
+      query = query.ilike("muscle_group", muscle);
     }
 
     const { data, error, count } = await query.range(

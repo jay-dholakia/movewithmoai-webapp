@@ -100,7 +100,7 @@ export default function WorkoutTemplatesLibraryPage() {
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-8 max-w-6xl mx-auto">
       <AdminProgramsTabs />
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -127,7 +127,7 @@ export default function WorkoutTemplatesLibraryPage() {
           <Plus className="h-4 w-4" />
           New workout (no program yet)
         </h2>
-        <label className="flex-1 min-w-[200px]">
+        <label className="flex-1 min-w-50">
           <span className="text-xs text-gray-600">Title</span>
           <input
             className={adminInputClass}

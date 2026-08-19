@@ -18,6 +18,8 @@ export interface WorkoutProgramRow {
   month_active: string | null;
   created_at: string | null;
   updated_at: string | null;
+  status?: string | null;
+  is_paid?: Boolean;
 }
 
 /** Focus Moai rows linked to this program via `workout_focus`. */
@@ -75,3 +77,17 @@ export interface WorkoutExerciseRow {
   group_type: ExerciseGroupType | null;
   exercises?: { id: string; name: string } | null;
 }
+
+export type WorkoutBlock =
+  | {
+      kind: "individual";
+      key: string;
+      exercise: WorkoutExerciseRow;
+    }
+  | {
+      kind: "group";
+      key: string;
+      groupId: number;
+      groupType: ExerciseGroupType;
+      exercises: WorkoutExerciseRow[];
+    };
