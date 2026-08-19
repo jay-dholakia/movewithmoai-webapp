@@ -331,7 +331,6 @@ export default function WorkoutTemplateEditorPage() {
         ? [block.exercise.id]
         : block.exercises.map((e) => e.id);
 
-    // Fire deletes in parallel; a full API would ideally be one bulk call
     const results = await Promise.all(
       ids.map((rid) => AdminService.deleteWorkoutExerciseRow(rid)),
     );
