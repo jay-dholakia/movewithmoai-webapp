@@ -34,3 +34,11 @@ export interface AssignmentStats {
   total_focus_moais_assigned: number;
   total_users_assigned: number;
 }
+
+export interface CoachProgramAssignmentRow extends ProgramAssignmentRow {
+  is_mine: boolean;
+}
+
+export interface CoachAssignmentStats extends AssignmentStats {
+  programs_i_created: number;
+}

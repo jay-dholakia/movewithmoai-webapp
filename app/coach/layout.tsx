@@ -18,7 +18,9 @@ export default function CoachLayout({
     pathname === "/coach/login" ||
     pathname === "/coach/test" ||
     pathname === "/coach/debug" ||
-    pathname === "/coach/setup-password"
+    pathname === "/coach/setup-password" ||
+    pathname === "/coach/forgot-password" ||
+    pathname === "/coach/reset-password"
   ) {
     return <>{children}</>;
   }
@@ -45,16 +47,16 @@ export default function CoachLayout({
       !pathname.startsWith("/coach/profile"));
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="min-h-screen bg-gray-50">
+      {/* Sidebar - fixed to viewport */}
+      <aside className="fixed top-0 left-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col z-40">
         {/* Logo/Brand */}
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-xl font-bold text-gray-900">Coach Portal</h1>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <Link
             href="/coach"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
@@ -104,6 +106,18 @@ export default function CoachLayout({
           </Link>
 
           <Link
+            href="/coach/workout-programs"
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive("/coach/workout-programs")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            <User className="h-5 w-5" />
+            <span>Programs & Workouts</span>
+          </Link>
+
+          <Link
             href="/coach/profile"
             className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
               isActive("/coach/profile")
@@ -128,8 +142,8 @@ export default function CoachLayout({
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      {/* Main Content - offset by sidebar width */}
+      <main className="ml-64 min-h-screen">{children}</main>
     </div>
   );
 }

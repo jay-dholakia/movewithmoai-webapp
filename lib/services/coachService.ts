@@ -18,6 +18,17 @@ export class CoachService {
   /**
    * Get all clients for a coach with their metrics
    */
+
+  private static async headers(): Promise<Record<string, string> | null> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) return null;
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    };
+  }
   static async getClients(coachId: string): Promise<ClientMetrics[]> {
     try {
       // Query the view directly (RLS should allow coaches to see their clients)
@@ -1853,5 +1864,372 @@ export class CoachService {
       console.error("Error in getMoaiLeaderboard:", error);
       return [];
     }
+  }
+
+  static async listWorkoutProgramsEnriched(
+    includeDeprecated = false,
+    page = 1,
+    pageSize = 20,
+  ) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const params = new URLSearchParams();
+    if (includeDeprecated) params.set("include_deprecated", "true");
+    params.set("page", String(page));
+    params.set("page_size", String(pageSize));
+    const res = await fetch(`/api/coach/workout-programs/enriched?${params}`, {
+      headers: h,
+    });
+    return res.json();
+  }
+
+  static async listProgramAssignments(opts?: {
+    includeDeprecated?: boolean;
+    includeUnassigned?: boolean;
+    q?: string;
+  }) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const sp = new URLSearchParams();
+    if (opts?.includeDeprecated) sp.set("include_deprecated", "true");
+    if (opts?.includeUnassigned) sp.set("include_unassigned", "true");
+    if (opts?.q?.trim()) sp.set("q", opts.q.trim());
+    const query = sp.toString();
+    const res = await fetch(
+      `/api/coach/assignments${query ? `?${query}` : ""}`,
+      { headers: h },
+    );
+    return res.json();
+  }
+  static async createWorkoutProgram(body: Record<string, unknown>) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/coach/workout-programs", {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async getWorkoutProgram(planId: string) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-programs/${encodeURIComponent(planId)}`,
+      { headers: h },
+    );
+    return res.json();
+  }
+
+  static async updateWorkoutProgram(
+    planId: string,
+    body: Record<string, unknown>,
+  ) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-programs/${encodeURIComponent(planId)}`,
+      { method: "PATCH", headers: h, body: JSON.stringify(body) },
+    );
+    return res.json();
+  }
+
+  /** Rebuild `equipment_required` from exercises in program workouts (server). */
+  static async recomputeProgramEquipment(planId: string) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-programs/${encodeURIComponent(planId)}/recompute-equipment`,
+      { method: "POST", headers: h },
+    );
+    return res.json();
+  }
+
+  static async deleteWorkoutProgram(planId: string) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-programs/${encodeURIComponent(planId)}`,
+      { method: "DELETE", headers: h },
+    );
+    return res.json();
+  }
+
+  static async listWorkoutTemplates(params?: {
+    plan_id?: string;
+    unassigned_only?: boolean;
+    include_equipment_adapted?: boolean;
+    page?: number;
+    page_size?: number;
+    q?: string;
+  }) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const sp = new URLSearchParams();
+    if (params?.plan_id) sp.set("plan_id", params.plan_id);
+    if (params?.unassigned_only) sp.set("unassigned_only", "true");
+    if (params?.include_equipment_adapted) {
+      sp.set("include_equipment_adapted", "true");
+    }
+    if (params?.page && params.page > 1) sp.set("page", String(params.page));
+    if (params?.page_size) sp.set("page_size", String(params.page_size));
+    if (params?.q?.trim()) sp.set("q", params.q.trim());
+    const query = sp.toString();
+    const res = await fetch(
+      `/api/coach/workout-templates${query ? `?${query}` : ""}`,
+      { headers: h },
+    );
+    return res.json();
+  }
+
+  static async reorderWorkoutsInProgram(planId: string, workoutIds: string[]) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-programs/${encodeURIComponent(planId)}/reorder-workouts`,
+      {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ workout_ids: workoutIds }),
+      },
+    );
+    return res.json();
+  }
+
+  static async reorderTemplateExercises(workoutId: string, rowIds: string[]) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-templates/${workoutId}/reorder-exercises`,
+      {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ row_ids: rowIds }),
+      },
+    );
+    return res.json();
+  }
+
+  static async createWorkoutTemplate(body: Record<string, unknown>) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/coach/workout-templates", {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async duplicateWorkoutTemplate(body: {
+    source_workout_id: string;
+    target_plan_id: string;
+    order_index: number;
+  }) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/coach/workout-templates/duplicate", {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async getWorkoutTemplate(id: string) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/coach/workout-templates/${id}`, {
+      headers: h,
+    });
+    return res.json();
+  }
+
+  static async updateWorkoutTemplate(
+    id: string,
+    body: Record<string, unknown>,
+  ) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/coach/workout-templates/${id}`, {
+      method: "PATCH",
+      headers: h,
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async deleteWorkoutTemplate(id: string) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/coach/workout-templates/${id}`, {
+      method: "DELETE",
+      headers: h,
+    });
+    return res.json();
+  }
+
+  static async listTemplateExercises(workoutId: string) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-templates/${workoutId}/exercises`,
+      { headers: h },
+    );
+    return res.json();
+  }
+
+  static async addTemplateExercise(
+    workoutId: string,
+    body: Record<string, unknown>,
+  ) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-templates/${workoutId}/exercises`,
+      { method: "POST", headers: h, body: JSON.stringify(body) },
+    );
+    return res.json();
+  }
+
+  static async updateWorkoutExerciseRow(
+    rowId: string,
+    body: Record<string, unknown>,
+  ) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/coach/workout-exercises/${rowId}`, {
+      method: "PATCH",
+      headers: h,
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async deleteWorkoutExerciseRow(rowId: string) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/coach/workout-exercises/${rowId}`, {
+      method: "DELETE",
+      headers: h,
+    });
+    return res.json();
+  }
+
+  static async searchExercisesCatalog(
+    q: string,
+    opts: {
+      page: number;
+      pageSize: number;
+      equipment?: string | null;
+      muscle?: string | null;
+    },
+  ): Promise<{
+    success: boolean;
+    exercises?: any[];
+    total?: number;
+    error?: string;
+  }> {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+
+    const sp = new URLSearchParams({
+      page: String(opts.page),
+      pageSize: String(opts.pageSize),
+    });
+    if (q.trim()) sp.set("q", q.trim());
+    if (opts.equipment) sp.set("equipment", opts.equipment);
+    if (opts.muscle) sp.set("muscle", opts.muscle);
+
+    try {
+      const res = await fetch(`/api/admin/exercises-catalog?${sp}`, {
+        headers: h,
+      });
+      if (!res.ok) return { success: false, error: "Search failed" };
+      return res.json();
+    } catch {
+      return { success: false, error: "Network error" };
+    }
+  }
+
+  static async createExercise(body: {
+    name: string;
+    category?: string | null;
+    muscle_group?: string | null;
+    log_type?: string | null;
+    instructions?: string | null;
+    equipment?: string[] | null;
+    form_video_url?: string | null;
+    progressive_overload?: boolean | null;
+  }) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/coach/exercises", {
+      method: "POST",
+      headers: h,
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async setExerciseProgressiveOverload(id: string, enabled: boolean) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/coach/exercises/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify({ progressive_overload: enabled }),
+    });
+    return res.json();
+  }
+
+  static async setWorkoutProgressiveOverloadBulk(
+    workoutId: string,
+    enabled: boolean,
+  ) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/coach/workout-templates/${encodeURIComponent(
+        workoutId,
+      )}/bulk-progressive-overload`,
+      {
+        method: "POST",
+        headers: { ...h, "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      },
+    );
+    return res.json();
+  }
+
+  static async generateWorkoutProgram(body: {
+    prompt: string;
+    difficulty_level?: string;
+    is_paid?: boolean;
+  }) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/coach/workout-programs/generate", {
+      method: "POST",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  static async duplicateWorkoutProgram(body: {
+    source_program_id: string;
+    new_plan_name: string;
+    new_plan_id: string;
+  }) {
+    const h = await this.headers();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch("/api/coach/workout-programs/duplicate", {
+      method: "POST",
+      headers: { ...h, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.json();
   }
 }

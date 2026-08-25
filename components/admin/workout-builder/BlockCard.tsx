@@ -22,12 +22,31 @@ import type {
   WorkoutBlock,
   WorkoutExerciseRow,
 } from "@/lib/types/workout-builder";
+import { formatRest, groupLetter } from "@/lib/utils/workoutBlocks";
 import {
-  formatRest,
-  formatSetsReps,
-  groupLetter,
-} from "@/lib/utils/workoutBlocks";
+  formatSetsAndMetric,
+  isTimeBased,
+  isWeighted,
+  metricLabel,
+  metricPlaceholder,
+  type LogType,
+} from "@/lib/utils/exercise-log-type";
 import { adminInputClass } from "./formStyles";
+
+/**
+ * The joined `row.exercises` object may carry these fields alongside `name`.
+ * If your select on workout_exercises doesn't already include them, add
+ * `log_type` and `is_unilateral` so the row can render itself correctly.
+ */
+type JoinedExerciseMeta = {
+  name?: string | null;
+  log_type?: LogType;
+  is_unilateral?: boolean | null;
+};
+
+function exerciseMeta(row: WorkoutExerciseRow): JoinedExerciseMeta {
+  return (row as unknown as { exercises?: JoinedExerciseMeta }).exercises ?? {};
+}
 
 type Props = {
   block: WorkoutBlock;
@@ -541,12 +560,35 @@ function ExerciseLine({
 }) {
   const [editing, setEditing] = useState(false);
   const [showMore, setShowMore] = useState(false);
-  const name = row.exercises?.name ?? "(unknown exercise)";
 
-  const setsRepsLine = formatSetsReps(row.sets, row.reps, row.reps_display);
+  const meta = exerciseMeta(row);
+  const name = meta.name ?? "(unknown exercise)";
+  const logType = meta.log_type;
+  const unilateral = meta.is_unilateral === true;
+  const weighted = isWeighted(logType);
+  const timeBased = isTimeBased(logType);
+
+  const setsMetricLine = formatSetsAndMetric(
+    row.sets,
+    row.reps,
+    row.reps_display,
+    logType,
+  );
   const restLine = hideRest
     ? null
     : formatRest(row.rest_seconds, row.rest_display);
+
+  const nameNode = (
+    <span className="inline-flex items-center gap-1.5">
+      {labelPrefix && (
+        <span className="font-mono text-xs text-gray-400">{labelPrefix}</span>
+      )}
+      <span>{name}</span>
+      {unilateral && <UnilateralChip />}
+      {weighted && <WeightedChip />}
+      {timeBased && <TimeChip />}
+    </span>
+  );
 
   if (!editing) {
     return (
@@ -556,16 +598,9 @@ function ExerciseLine({
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-gray-900">
-              {labelPrefix && (
-                <span className="font-mono text-xs text-gray-400 mr-1.5">
-                  {labelPrefix}
-                </span>
-              )}
-              {name}
-            </p>
+            <p className="text-sm font-medium text-gray-900">{nameNode}</p>
             <p className="mt-0.5 text-sm text-gray-600 tabular-nums">
-              {setsRepsLine}
+              {setsMetricLine}
               {restLine && (
                 <>
                   <span className="mx-1.5 text-gray-300">·</span>
@@ -593,14 +628,7 @@ function ExerciseLine({
   return (
     <div className="rounded-md border border-blue-200 bg-blue-50/20 p-3 space-y-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium text-gray-900">
-          {labelPrefix && (
-            <span className="font-mono text-xs text-gray-400 mr-1.5">
-              {labelPrefix}
-            </span>
-          )}
-          {name}
-        </p>
+        <p className="text-sm font-medium text-gray-900">{nameNode}</p>
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
@@ -634,12 +662,12 @@ function ExerciseLine({
           }}
         />
         <MiniField
-          label="Reps"
+          label={metricLabel(logType)}
           type="text"
           width="w-24"
           defaultValue={row.reps_display ?? row.reps ?? ""}
           keyProp={`r-${row.id}-${row.reps_display ?? row.reps ?? ""}`}
-          placeholder="8 or 8-10"
+          placeholder={metricPlaceholder(logType)}
           onBlurValue={(v) => {
             const raw = v.trim();
             const asNum = /^\d+$/.test(raw) ? Number(raw) : null;
@@ -673,6 +701,30 @@ function ExerciseLine({
           More options
         </button>
       </div>
+
+      {(unilateral || weighted || timeBased) && (
+        <p className="text-[11px] text-gray-500 leading-relaxed">
+          {unilateral && (
+            <>
+              This is a <span className="font-medium">unilateral</span> movement
+              — the rep count is per side.{" "}
+            </>
+          )}
+          {weighted && (
+            <>
+              Weight is logged by the client at execution time; use coach notes
+              below for prescribed load (e.g. &ldquo;RPE 7&rdquo; or &ldquo;70%
+              1RM&rdquo;).{" "}
+            </>
+          )}
+          {timeBased && (
+            <>
+              Enter duration in seconds — this exercise is time-based, not
+              rep-based.
+            </>
+          )}
+        </p>
+      )}
 
       {showMore && (
         <div className="pt-3 border-t border-gray-100 space-y-3">
@@ -716,6 +768,41 @@ function ExerciseLine({
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------------- Small chips ---------------- */
+
+function UnilateralChip() {
+  return (
+    <span
+      className="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 border border-indigo-100"
+      title="Unilateral — rep count applies to each side"
+    >
+      L / R
+    </span>
+  );
+}
+
+function WeightedChip() {
+  return (
+    <span
+      className="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600"
+      title="Weighted exercise — client logs load at execution"
+    >
+      Weighted
+    </span>
+  );
+}
+
+function TimeChip() {
+  return (
+    <span
+      className="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-700 border border-emerald-100"
+      title="Time-based — enter duration in seconds"
+    >
+      Time
+    </span>
   );
 }
 

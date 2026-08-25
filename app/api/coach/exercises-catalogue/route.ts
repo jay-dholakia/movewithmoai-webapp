@@ -23,22 +23,14 @@ export async function GET(request: NextRequest) {
     let query = admin
       .from("exercises")
       .select(
-        "id, name, category, muscle_group, equipment, form_video_url, log_type, instructions, progressive_overload",
+        "id, name, category, muscle_group, equipment, form_video_url, log_type, instructions, progressive_overload, created_by",
         { count: "exact" },
       )
       .order("name", { ascending: true });
 
-    if (q.length > 0) {
-      query = query.ilike("name", `%${q}%`);
-    }
-
-    if (equipment.length > 0) {
-      query = query.contains("equipment", [equipment]);
-    }
-
-    if (muscle.length > 0) {
-      query = query.ilike("muscle_group", muscle);
-    }
+    if (q.length > 0) query = query.ilike("name", `%${q}%`);
+    if (equipment.length > 0) query = query.contains("equipment", [equipment]);
+    if (muscle.length > 0) query = query.ilike("muscle_group", muscle);
 
     const { data, error, count } = await query.range(
       offset,
@@ -52,9 +44,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const exercises = (data || []).map((ex) => {
+      const cb = (ex as { created_by?: string | null }).created_by ?? null;
+      return {
+        ...ex,
+        can_edit: cb === auth.userId,
+        is_mine: cb === auth.userId,
+      };
+    });
+
     return NextResponse.json({
       success: true,
-      exercises: data ?? [],
+      exercises,
       total: count ?? 0,
     });
   } catch (e: unknown) {
