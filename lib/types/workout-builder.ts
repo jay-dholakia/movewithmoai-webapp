@@ -18,6 +18,30 @@ export interface WorkoutProgramRow {
   month_active: string | null;
   created_at: string | null;
   updated_at: string | null;
+  status?: string | null;
+  is_paid?: Boolean;
+}
+
+export interface CoachWorkoutProgramRow {
+  id: string;
+  plan_id: string;
+  plan_name: string;
+  gender: string;
+  min_age: number;
+  max_age: number;
+  days_per_week: number;
+  description: string | null;
+  difficulty_level: string | null;
+  equipment_required: string[];
+  base_plan_id: string | null;
+  is_deprecated: boolean | null;
+  month_active: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  status?: string | null;
+  is_paid?: Boolean;
+  is_mine?: Boolean;
+  can_edit?: Boolean;
 }
 
 /** Focus Moai rows linked to this program via `workout_focus`. */
@@ -74,4 +98,23 @@ export interface WorkoutExerciseRow {
   group_id: number | null;
   group_type: ExerciseGroupType | null;
   exercises?: { id: string; name: string } | null;
+}
+
+export type WorkoutBlock =
+  | {
+      kind: "individual";
+      key: string;
+      exercise: WorkoutExerciseRow;
+    }
+  | {
+      kind: "group";
+      key: string;
+      groupId: number;
+      groupType: ExerciseGroupType;
+      exercises: WorkoutExerciseRow[];
+    };
+
+export interface CoachEnrichedWorkoutProgramRow extends EnrichedWorkoutProgramRow {
+  can_edit: boolean;
+  is_mine: boolean;
 }

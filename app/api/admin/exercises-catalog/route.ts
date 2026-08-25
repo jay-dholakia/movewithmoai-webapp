@@ -1,16 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
-import {
-  getSupabaseAdmin,
-  verifyAdminRequest,
-} from "@/lib/server/supabase-admin";
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
+import { verifyCoachRequest } from "@/lib/server/coach-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await verifyAdminRequest(request);
+    const auth = await verifyCoachRequest(request);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get("q") || "").trim();
+    const equipment = (searchParams.get("equipment") || "").trim();
+    const muscle = (searchParams.get("muscle") || "").trim();
+
     const page = Math.max(Number(searchParams.get("page") || "1") || 1, 1);
     const pageSize = Math.min(
       Number(searchParams.get("pageSize") || "20") || 20,
@@ -29,6 +30,14 @@ export async function GET(request: NextRequest) {
 
     if (q.length > 0) {
       query = query.ilike("name", `%${q}%`);
+    }
+
+    if (equipment.length > 0) {
+      query = query.contains("equipment", [equipment]);
+    }
+
+    if (muscle.length > 0) {
+      query = query.ilike("muscle_group", muscle);
     }
 
     const { data, error, count } = await query.range(

@@ -13,7 +13,8 @@ const PROGRAMS_TABS = [
   { href: "/admin/workout-programs", label: "Programs" },
   { href: "/admin/workout-templates", label: "Workout library" },
   { href: "/admin/exercises", label: "Exercises" },
-  { href: "/admin/ai-program-generator", label: "AI generator" },
+  { href: "/admin/assignments", label: "Assignments" },
+  {href: "/admin/free-programs", label:"Free User Programs"}
 ] as const;
 
 function focusTabActive(pathname: string, href: string): boolean {

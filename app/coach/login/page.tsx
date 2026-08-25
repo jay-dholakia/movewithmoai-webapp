@@ -1,97 +1,105 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function CoachLoginPage() {
-  const router = useRouter()
-  const [usernameOrEmail, setUsernameOrEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false)
+  const router = useRouter();
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true)
-    
-    // Check if we have an invitation token in the URL (redirect from email)
-    // Supports both implicit flow (hash) and PKCE flow (query params)
-    const hash = window.location.hash
-    const hasHashToken = hash && (hash.includes('access_token') || hash.includes('token_hash') || hash.includes('type=invite'))
-    const hasQueryToken = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('token_hash')
+    setMounted(true);
+
+    const hash = window.location.hash;
+    const hasHashToken =
+      hash &&
+      (hash.includes("access_token") ||
+        hash.includes("token_hash") ||
+        hash.includes("type=invite"));
+    const hasQueryToken =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("token_hash");
     if (hasHashToken || hasQueryToken) {
-      router.replace(`/coach/setup-password${window.location.search}${hash}`)
-      return
+      router.replace(`/coach/setup-password${window.location.search}${hash}`);
+      return;
     }
-  }, [router])
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
     try {
       // Dynamically import to avoid SSR issues
-      const { supabase } = await import('@/lib/supabase')
-      const { CoachService } = await import('@/lib/services/coachService')
+      const { supabase } = await import("@/lib/supabase");
+      const { CoachService } = await import("@/lib/services/coachService");
 
       // Determine if input is email or username
-      const isEmail = usernameOrEmail.includes('@')
-      let emailToUse = usernameOrEmail
+      const isEmail = usernameOrEmail.includes("@");
+      let emailToUse = usernameOrEmail;
 
       // If it's a username, look up the email
       if (!isEmail) {
         const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('email')
-          .eq('username', usernameOrEmail)
-          .single()
+          .from("users")
+          .select("email")
+          .eq("username", usernameOrEmail)
+          .single();
 
         if (userError || !userData) {
-          setError('Invalid username or email')
-          setLoading(false)
-          return
+          setError("Invalid username or email");
+          setLoading(false);
+          return;
         }
 
-        emailToUse = userData.email
+        emailToUse = userData.email;
       }
 
       // Sign in
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: emailToUse,
-        password,
-      })
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email: emailToUse,
+          password,
+        });
 
       if (authError) {
-        setError(authError.message)
-        setLoading(false)
-        return
+        setError(authError.message);
+        setLoading(false);
+        return;
       }
 
       if (!authData.user) {
-        setError('Login failed')
-        setLoading(false)
-        return
+        setError("Login failed");
+        setLoading(false);
+        return;
       }
 
       // Check if user is a coach
-      const coachProfile = await CoachService.getCoachProfileByUserId(authData.user.id)
+      const coachProfile = await CoachService.getCoachProfileByUserId(
+        authData.user.id,
+      );
 
       if (!coachProfile) {
-        await supabase.auth.signOut()
-        setError('Access denied. This account is not a coach.')
-        setLoading(false)
-        return
+        await supabase.auth.signOut();
+        setError("Access denied. This account is not a coach.");
+        setLoading(false);
+        return;
       }
 
       // Redirect to dashboard
-      router.push('/coach')
+      router.push("/coach");
     } catch (err: any) {
-      console.error('Login error:', err)
-      setError(err.message || 'An error occurred')
-      setLoading(false)
+      console.error("Login error:", err);
+      setError(err.message || "An error occurred");
+      setLoading(false);
     }
-  }
+  };
 
   if (!mounted) {
     return (
@@ -101,11 +109,11 @@ export default function CoachLoginPage() {
           <p className="mt-4 text-slate-600">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 via-blue-50 to-slate-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           {/* Logo */}
@@ -121,7 +129,7 @@ export default function CoachLoginPage() {
             Sign in to access your coach dashboard
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        <form className="mt-8 space-y-2" onSubmit={handleLogin}>
           {error && (
             <div className="rounded-md bg-red-50 border border-red-200 p-4">
               <div className="flex">
@@ -165,6 +173,14 @@ export default function CoachLoginPage() {
               />
             </div>
           </div>
+          <div className="text-right">
+            <Link
+              href="/coach/forgot-password"
+              className="text-sm text-[#1e3a8a] hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
           <div>
             <button
@@ -172,12 +188,11 @@ export default function CoachLoginPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-[#1e3a8a] hover:bg-[#1e40af] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1e3a8a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md hover:shadow-lg"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? "Signing in..." : "Sign in"}
             </button>
           </div>
         </form>
       </div>
     </div>
-  )
+  );
 }
-
