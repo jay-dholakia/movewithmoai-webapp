@@ -1,3 +1,5 @@
+// app/api/admin/workout-programs/route.ts
+
 import { type NextRequest, NextResponse } from "next/server";
 import {
   getSupabaseAdmin,
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
     let q = admin
       .from("workout_programs")
       .select(
-        "id, plan_id, plan_name, gender, min_age, max_age, days_per_week, description, difficulty_level, is_deprecated, is_paid, status, month_active, assigned_focus_moai_id, assigned_user_id, created_at",
+        "id, plan_id, plan_name, gender, min_age, max_age, days_per_week, description, difficulty_level, is_deprecated, is_paid, status, month_active, assigned_focus_moai_id, assigned_user_id, created_by, created_at",
         { count: "exact" },
       )
       .order("is_deprecated", { ascending: true, nullsFirst: true })
@@ -99,8 +101,7 @@ export async function POST(request: NextRequest) {
       base_plan_id = null,
       month_active = null,
       is_paid = false,
-      status = "draft",
-      assign_type = null, // "focus_moai" | "user" | null
+      assign_type = null, // "focus_moai" | "user" | null — recorded as intent only
       assign_to_id = null, // UUID of focus_moai or user
     } = body;
 
@@ -146,6 +147,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Programs are ALWAYS created as draft — publishing (and the resulting
+    // focus_moai/user assignment) is a separate, explicit action taken via
+    // PATCH /[planId] once the program's workouts actually exist. Any
+    // "status" field in the request body is intentionally ignored here.
     const admin = getSupabaseAdmin();
     const { data, error } = await admin
       .from("workout_programs")
@@ -165,7 +170,7 @@ export async function POST(request: NextRequest) {
         month_active,
         is_paid: Boolean(is_paid),
         is_deprecated: false,
-        status: status === "published" ? "published" : "draft",
+        status: "draft",
         assigned_focus_moai_id:
           assign_type === "focus_moai" && assign_to_id ? assign_to_id : null,
         assigned_user_id:
@@ -190,51 +195,6 @@ export async function POST(request: NextRequest) {
         { success: false, error: error.message },
         { status: 400 },
       );
-    }
-
-    // Handle assignment side effects
-    if (assign_type && assign_to_id && data?.id) {
-      try {
-        if (assign_type === "focus_moai") {
-          // 1. Link workout_focus → this program
-          const { data: fm } = await admin
-            .from("focus_moais")
-            .select("workout_focus_id")
-            .eq("id", assign_to_id)
-            .single();
-
-          if (fm?.workout_focus_id) {
-            await admin
-              .from("workout_focus")
-              .update({ workout_program_id: data.id })
-              .eq("id", fm.workout_focus_id);
-          }
-
-          // 2. Assign current_plan to all active members of this focus moai
-          const { data: members } = await admin
-            .from("focus_moai_members")
-            .select("user_id")
-            .eq("focus_moai_id", assign_to_id)
-            .eq("status", "active");
-
-          const memberIds = (members || []).map((m) => m.user_id as string);
-          if (memberIds.length > 0) {
-            await admin
-              .from("users")
-              .update({ current_plan: data.id })
-              .in("id", memberIds);
-          }
-        } else if (assign_type === "user") {
-          // Assign current_plan to the individual user
-          await admin
-            .from("users")
-            .update({ current_plan: data.id })
-            .eq("id", assign_to_id);
-        }
-      } catch (assignErr) {
-        // Log but don't fail — program was created successfully
-        console.warn("[workout-programs POST] assignment failed:", assignErr);
-      }
     }
 
     return NextResponse.json({ success: true, program: data });

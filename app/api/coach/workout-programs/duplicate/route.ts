@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      source_program_id, // UUID of the program to clone from
+      source_program_id,
       new_plan_name,
       new_plan_id,
       assign_type = null, // "focus_moai" | "user"
@@ -100,7 +100,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Insert new program row (draft, unpublished, owned by coach)
+    // Insert new program row (draft, unpublished, owned by coach).
+    // assigned_focus_moai_id / assigned_user_id are recorded as INTENT only —
+    // no workout_focus linking or users.current_plan update happens here.
+    // That side effect fires later, only when this program is actually
+    // published (see PATCH /api/coach/workout-programs/[planId]), since a
+    // freshly-duplicated program may still need edits before it's ready
+    // for members to see.
     const { data: newProgram, error: insErr } = await admin
       .from("workout_programs")
       .insert({
@@ -189,45 +195,6 @@ export async function POST(request: NextRequest) {
           notes: row.notes,
         });
       }
-    }
-
-    // Same side-effects as create
-    try {
-      if (assign_type === "focus_moai") {
-        const { data: fm } = await admin
-          .from("focus_moais")
-          .select("workout_focus_id")
-          .eq("id", assign_to_id)
-          .single();
-        if (fm?.workout_focus_id) {
-          await admin
-            .from("workout_focus")
-            .update({ workout_program_id: newProgram.id })
-            .eq("id", fm.workout_focus_id);
-        }
-        const { data: members } = await admin
-          .from("focus_moai_members")
-          .select("user_id")
-          .eq("focus_moai_id", assign_to_id)
-          .eq("status", "active");
-        const memberIds = (members || []).map((m) => m.user_id as string);
-        if (memberIds.length > 0) {
-          await admin
-            .from("users")
-            .update({ current_plan: newProgram.id })
-            .in("id", memberIds);
-        }
-      } else {
-        await admin
-          .from("users")
-          .update({ current_plan: newProgram.id })
-          .eq("id", assign_to_id);
-      }
-    } catch (assignErr) {
-      console.warn(
-        "[coach duplicate] assignment side-effect failed:",
-        assignErr,
-      );
     }
 
     return NextResponse.json({ success: true, program: newProgram });

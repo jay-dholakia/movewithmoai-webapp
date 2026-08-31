@@ -1,3 +1,5 @@
+// app/api/coach/workout-programs/[planId]/route.ts
+
 import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { verifyCoachRequest } from "@/lib/server/coach-auth";
@@ -6,6 +8,7 @@ import {
   coachCanSeeProgram,
   getCoachScope,
 } from "@/lib/server/coach-scope";
+import { applyProgramAssignment } from "@/lib/services/program-assignment";
 
 type Ctx = { params: Promise<{ planId: string }> };
 
@@ -68,8 +71,11 @@ export async function PATCH(request: NextRequest, context: Ctx) {
 
     const { planId } = await context.params;
     const decoded = decodeURIComponent(planId);
-    const program = await loadProgramOr404(decoded);
-    if (!program) {
+
+    // This is our pre-patch snapshot — used both for the edit-permission
+    // check and to know whether we're crossing draft → published.
+    const before = await loadProgramOr404(decoded);
+    if (!before) {
       return NextResponse.json(
         { success: false, error: "Program not found" },
         { status: 404 },
@@ -79,7 +85,7 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     if (
       !coachCanEditProgram(scope, {
         created_by:
-          (program as { created_by?: string | null }).created_by ?? null,
+          (before as { created_by?: string | null }).created_by ?? null,
       })
     ) {
       return NextResponse.json(
@@ -113,7 +119,10 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     for (const key of allowed) {
       if (key in body) patch[key] = body[key];
     }
-    // Never allow ownership fields to be overwritten via PATCH
+    // Never allow ownership/assignment-target fields to be overwritten via PATCH.
+    // Coaches set their assignment target once at creation; changing it isn't
+    // exposed here (unlike the admin route), so re-publish just re-syncs the
+    // same original target.
     delete (patch as Record<string, unknown>).created_by;
     delete (patch as Record<string, unknown>).assigned_focus_moai_id;
     delete (patch as Record<string, unknown>).assigned_user_id;
@@ -135,6 +144,8 @@ export async function PATCH(request: NextRequest, context: Ctx) {
       );
     }
 
+    patch.updated_at = new Date().toISOString();
+
     const admin = getSupabaseAdmin();
     const { data, error } = await admin
       .from("workout_programs")
@@ -150,7 +161,25 @@ export async function PATCH(request: NextRequest, context: Ctx) {
       );
     }
 
-    return NextResponse.json({ success: true, program: data });
+    const wasPublished = before.status === "published";
+    const isNowPublished = data.status === "published";
+
+    if (isNowPublished && !wasPublished) {
+      await applyProgramAssignment(admin, {
+        id: data.id,
+        assigned_focus_moai_id: data.assigned_focus_moai_id,
+        assigned_user_id: data.assigned_user_id,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      program: data,
+      can_edit: coachCanEditProgram(scope, {
+        created_by: data.created_by ?? null,
+      }),
+      is_mine: data.created_by === scope.userId,
+    });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error";
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

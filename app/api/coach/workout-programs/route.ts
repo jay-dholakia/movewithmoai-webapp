@@ -20,9 +20,6 @@ export async function GET(request: NextRequest) {
 
     const admin = getSupabaseAdmin();
 
-    // Pull enough to filter — we do coach-visibility filtering in memory so the
-    // combination of "own OR general OR scoped-to-my-things" stays one query.
-    // If your programs count grows very large, move this to a SQL OR clause.
     let q = admin
       .from("workout_programs")
       .select(
@@ -138,6 +135,10 @@ export async function POST(request: NextRequest) {
 
     // Coach-only rule: coaches MUST assign the program to a focus moai or user
     // in their scope. They can't create general/unassigned programs.
+    // NOTE: this only records *intent* — the actual linking of workout_focus
+    // and users.current_plan happens later, only once the program is
+    // published (see the PATCH /[planId] route). A freshly created program
+    // may still be missing workouts and shouldn't be pushed to members yet.
     if (!assign_type || !assign_to_id) {
       return NextResponse.json(
         {
@@ -175,6 +176,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Coach programs can only be created as drafts — publishing (and the
+    // resulting assignment) happens as a separate, explicit action once the
+    // program actually has its workouts.
+    if (status === "published") {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "New programs must be created as drafts; publish separately once workouts are added.",
+        },
+        { status: 400 },
+      );
+    }
+
     const admin = getSupabaseAdmin();
     const { data, error } = await admin
       .from("workout_programs")
@@ -192,9 +207,9 @@ export async function POST(request: NextRequest) {
           : [],
         base_plan_id,
         month_active,
-        is_paid: Boolean(is_paid),
+        is_paid: true,
         is_deprecated: false,
-        status: status === "published" ? "published" : "draft",
+        status: "draft",
         assigned_focus_moai_id:
           assign_type === "focus_moai" ? assign_to_id : null,
         assigned_user_id: assign_type === "user" ? assign_to_id : null,
@@ -219,48 +234,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Assignment side effects — same behavior as the admin create route
-    if (data?.id) {
-      try {
-        if (assign_type === "focus_moai") {
-          const { data: fm } = await admin
-            .from("focus_moais")
-            .select("workout_focus_id")
-            .eq("id", assign_to_id)
-            .single();
-
-          if (fm?.workout_focus_id) {
-            await admin
-              .from("workout_focus")
-              .update({ workout_program_id: data.id })
-              .eq("id", fm.workout_focus_id);
-          }
-
-          const { data: members } = await admin
-            .from("focus_moai_members")
-            .select("user_id")
-            .eq("focus_moai_id", assign_to_id)
-            .eq("status", "active");
-          const memberIds = (members || []).map((m) => m.user_id as string);
-          if (memberIds.length > 0) {
-            await admin
-              .from("users")
-              .update({ current_plan: data.id })
-              .in("id", memberIds);
-          }
-        } else if (assign_type === "user") {
-          await admin
-            .from("users")
-            .update({ current_plan: data.id })
-            .eq("id", assign_to_id);
-        }
-      } catch (assignErr) {
-        console.warn(
-          "[coach workout-programs POST] assignment side-effect failed:",
-          assignErr,
-        );
-      }
-    }
+    // No assignment side effects here — they run only on publish
+    // (see PATCH /[planId] which calls applyProgramAssignment).
 
     return NextResponse.json({ success: true, program: data });
   } catch (e: unknown) {
