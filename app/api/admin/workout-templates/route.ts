@@ -1,3 +1,5 @@
+// app/api/admin/workout-templates/route.ts
+
 import { type NextRequest, NextResponse } from "next/server";
 import {
   getSupabaseAdmin,
@@ -63,10 +65,20 @@ export async function GET(request: NextRequest) {
     let q = admin
       .from("workoutss")
       .select(SELECT_COLS, { count: "exact" })
-      .eq("is_public", true)
       .order("order_index", { ascending: true, nullsFirst: false })
       .order("title", { ascending: true })
       .order("id", { ascending: true }); // stable tiebreaker
+
+    // FIX: is_public should only gate the general workout LIBRARY listing
+    // (no plan_id — browsing all reusable templates). It must NOT hide
+    // workouts that already belong to a specific program: coach-created
+    // workouts are always is_public:false, and the old unconditional
+    // .eq("is_public", true) below silently emptied every coach program's
+    // workout list here.
+    const scopingToProgram = Boolean(planId) || unassignedOnly;
+    if (!scopingToProgram) {
+      q = q.eq("is_public", true);
+    }
 
     if (unassignedOnly) {
       q = q.is("plan_id", null);

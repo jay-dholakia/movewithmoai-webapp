@@ -1,10 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
-import { verifyCoachRequest } from "@/lib/server/coach-auth";
+import {
+  getSupabaseAdmin,
+  verifyAdminRequest,
+} from "@/lib/server/supabase-admin";
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await verifyCoachRequest(request);
+    const auth = await verifyAdminRequest(request);
     if ("error" in auth) return auth.error;
 
     const { searchParams } = new URL(request.url);
