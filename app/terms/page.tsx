@@ -45,7 +45,7 @@ export default function TermsPage() {
       <div className="border-b border-border bg-background/95 backdrop-blur">
         <div className="max-w-6xl mx-auto px-6 py-6">
           <h1 className="text-3xl font-bold text-foreground">Terms of Use</h1>
-          <p className="text-muted-foreground mt-2">Last Updated: January 2025</p>
+          <p className="text-muted-foreground mt-2">Last Updated: September 1, 2026</p>
         </div>
       </div>
 
