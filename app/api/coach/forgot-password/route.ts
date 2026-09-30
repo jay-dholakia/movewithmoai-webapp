@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 
 function getAppUrl(): string {
-  const isProd = process.env.ENV?.trim().toLowerCase() === "production";
+  const isProd = process.env.NODE_ENV?.trim().toLowerCase() === "production";
   const raw = isProd
     ? process.env.NEXT_PUBLIC_APP_URL_PROD?.trim()
     : process.env.NEXT_PUBLIC_APP_URL_DEV?.trim();

@@ -11,10 +11,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Admin (service-role) client — server-side only, never exposed to the browser
+    const isDev = process.env.NODE_ENV === "development";
+
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      isDev
+        ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!
+        : process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      isDev
+        ? process.env.SUPABASE_SERVICE_ROLE_KEY_STAGING!
+        : process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 

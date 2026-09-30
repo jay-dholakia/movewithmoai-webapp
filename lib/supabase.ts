@@ -1,7 +1,14 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pujlrdfgpbbnfffuzwep.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1amxyZGZncGJibmZmZnV6d2VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkyMDY1MjksImV4cCI6MjA4NDc4MjUyOX0.6C7e9o1NnA-4LDsTB2DTaKwmXHzdA4Bp_HdQhw9Q4A4'
+const isDev = process.env.NODE_ENV === "development";
+
+const supabaseUrl = isDev
+  ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!
+  : process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+const supabaseAnonKey = isDev
+  ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_STAGING!
+  : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 // Lazy initialization to avoid SSR issues
 let supabaseInstance: SupabaseClient | null = null;

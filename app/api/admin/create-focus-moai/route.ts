@@ -2,8 +2,15 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const isDev = process.env.NODE_ENV === "development";
+
+const supabaseUrl = isDev
+  ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!
+  : process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+const supabaseServiceKey = isDev
+  ? process.env.SUPABASE_SERVICE_ROLE_KEY_STAGING!
+  : process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY!;
 
 function getSupabaseAdmin() {

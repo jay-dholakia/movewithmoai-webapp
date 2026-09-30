@@ -1,11 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-/** Prefer server-only `SUPABASE_SERVICE_ROLE_KEY` (e.g. Vercel). Falls back for local .env that only has the public-prefixed var. */
-const supabaseServiceKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
-  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY?.trim();
+const isDev = process.env.NODE_ENV === "development";
+
+const supabaseUrl = isDev
+  ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING?.trim()
+  : process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+
+const supabaseServiceKey = isDev
+  ? process.env.SUPABASE_SERVICE_ROLE_KEY_STAGING?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY_STAGING?.trim()
+  : process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY?.trim();
 
 export function getSupabaseAdmin() {
   if (!supabaseUrl || !supabaseServiceKey) {
