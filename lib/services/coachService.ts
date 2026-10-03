@@ -2232,4 +2232,19 @@ export class CoachService {
     });
     return res.json();
   }
+
+  static async getClientDetail(userId: string) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return null;
+
+    const res = await fetch(`/api/coach/users/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    return json.success ? json : null;
+  }
 }

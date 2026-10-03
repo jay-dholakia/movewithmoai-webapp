@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   ArrowLeft,
   Target,
+  ChevronRight,
 } from "lucide-react";
 import { FocusMoaiEntry, FocusMoaiMember } from "@/types/focusmoai";
 
@@ -943,11 +944,12 @@ export default function MoaisPage() {
                         ) : (
                           <div className="bg-white rounded-lg border border-gray-200 p-4">
                             <button
+                              type="button"
                               onClick={() => {
                                 handleSelectChat(fm.id, "focus-moai");
                                 setShowChat(true);
                               }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 mb-3 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 transition-colors cursor-pointer"
                             >
                               <MessageSquare className="h-3.5 w-3.5" />
                               Open Chat
@@ -967,11 +969,12 @@ export default function MoaisPage() {
                                   "M"
                                 ).toUpperCase();
                                 return (
-                                  <div
+                                  <Link
                                     key={member.id}
-                                    className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-b-0"
+                                    href={`/coach/users/${member.user_id}`}
+                                    className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-lg border-b border-gray-100 last:border-b-0 hover:bg-purple-50 transition-colors cursor-pointer"
                                   >
-                                    <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center overflow-hidden shrink-0">
                                       {user?.profile_picture_url ? (
                                         <img
                                           src={user.profile_picture_url}
@@ -1002,7 +1005,8 @@ export default function MoaisPage() {
                                     <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
                                       {member.status}
                                     </span>
-                                  </div>
+                                    <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+                                  </Link>
                                 );
                               })}
                             </div>
