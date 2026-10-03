@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const isDev = process.env.NODE_ENV === "development";
+const isDev = process.env.NEXT_PUBLIC_APP_ENV === "development";
 
 const supabaseUrl = isDev
   ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!
@@ -9,6 +9,10 @@ const supabaseUrl = isDev
 const supabaseAnonKey = isDev
   ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_STAGING!
   : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+console.log("NODE_ENV:", process.env.NEXT_PUBLIC_APP_ENV);
+console.log("URL:", supabaseUrl);
+console.log("KEY set?", !!supabaseAnonKey);
 
 // Lazy initialization to avoid SSR issues
 let supabaseInstance: SupabaseClient | null = null;

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
-const isDev = process.env.NODE_ENV === "development";
+const isDev = process.env.NEXT_PUBLIC_APP_ENV === "development";
 
 const supabaseUrl = isDev
   ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!
@@ -106,6 +106,8 @@ export async function POST(request: NextRequest) {
       coach_id,
       max_members,
       price_monthly,
+      is_public,
+      is_published,
     } = body;
 
     // Validate
@@ -167,6 +169,8 @@ export async function POST(request: NextRequest) {
         stripe_product_id: product.id,
         stripe_price_id: price.id,
         status: "active",
+        is_public: Boolean(is_public),
+        is_published: Boolean(is_published),
       })
       .select("id")
       .single();

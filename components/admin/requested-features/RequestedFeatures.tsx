@@ -9,7 +9,7 @@ import {
   Inbox,
 } from "lucide-react";
 
-const isDev = process.env.NODE_ENV === "development";
+const isDev = process.env.NEXT_PUBLIC_APP_ENV === "development";
 
 const supabase = createClient(
   isDev

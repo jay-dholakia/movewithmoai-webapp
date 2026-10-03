@@ -20,6 +20,8 @@ export interface FocusMoai {
   } | null;
   member_count?: number;
   revenue?: number;
+  is_public: boolean;
+  is_published: boolean;
 }
 
 export interface FocusMoaiForm {
@@ -29,6 +31,8 @@ export interface FocusMoaiForm {
   coach_id: string;
   max_members: number;
   price_monthly: number;
+  is_public: boolean;
+  is_published: boolean;
 }
 
 export const EMPTY_FORM: FocusMoaiForm = {
@@ -38,6 +42,8 @@ export const EMPTY_FORM: FocusMoaiForm = {
   coach_id: "",
   max_members: 10,
   price_monthly: 0,
+  is_public: false,
+  is_published: false,
 };
 
 export const PAGE_SIZE = 20;

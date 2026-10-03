@@ -13,6 +13,42 @@ interface FocusMoaiModalProps {
   supabase: any;
 }
 
+function Toggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="text-sm font-medium text-slate-700">{label}</p>
+        <p className="text-xs text-slate-500">{description}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+          checked ? "bg-[#1e3a8a]" : "bg-slate-300"
+        }`}
+      >
+        <span
+          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0.5"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
 export function FocusMoaiModal({
   mode,
   initial,
@@ -29,6 +65,8 @@ export function FocusMoaiModal({
           coach_id: initial.coach_id || "",
           max_members: initial.max_members,
           price_monthly: initial.price_monthly,
+          is_public: initial.is_public ?? false,
+          is_published: initial.is_published ?? false,
         }
       : EMPTY_FORM,
   );
@@ -47,7 +85,6 @@ export function FocusMoaiModal({
 
     try {
       if (mode === "create") {
-
         if (form.workout_focus_id) {
           const { data: existing } = await supabase
             .from("focus_moais")
@@ -82,6 +119,8 @@ export function FocusMoaiModal({
             coach_id: form.coach_id || null,
             max_members: form.max_members,
             price_monthly: form.price_monthly,
+            is_public: form.is_public,
+            is_published: form.is_published,
           }),
         });
 
@@ -101,6 +140,8 @@ export function FocusMoaiModal({
             workout_focus_id: form.workout_focus_id || null,
             coach_id: form.coach_id || null,
             max_members: form.max_members,
+            is_public: form.is_public,
+            is_published: form.is_published,
           })
           .eq("id", initial!.id);
 
@@ -254,6 +295,22 @@ export function FocusMoaiModal({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Visibility */}
+          <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+            <Toggle
+              label="Published"
+              description="Live and visible in the app."
+              checked={form.is_published}
+              onChange={(v) => setForm({ ...form, is_published: v })}
+            />
+            <Toggle
+              label="Public"
+              description="Anyone can discover and join without an invite."
+              checked={form.is_public}
+              onChange={(v) => setForm({ ...form, is_public: v })}
+            />
           </div>
 
           {mode === "create" && (

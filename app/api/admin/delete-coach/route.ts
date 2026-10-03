@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
-const isDev = process.env.NODE_ENV === "development";
+const isDev = process.env.NEXT_PUBLIC_APP_ENV === "development";
 
 const supabaseUrl = isDev
   ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!

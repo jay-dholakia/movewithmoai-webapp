@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
     if (!getOpenAIApiKey()) {
       const dev =
-        process.env.NODE_ENV === "development" ||
+        process.env.NEXT_PUBLIC_APP_ENV === "development" ||
         process.env.VERCEL_ENV === "preview";
       const envDebug = dev ? getOpenAIEnvDebugInfo() : undefined;
       return NextResponse.json(
@@ -199,9 +199,7 @@ export async function POST(request: NextRequest) {
       const zr = programDraftSchema.safeParse(parsed);
       if (!zr.success) {
         validationErrors.push(
-          ...zr.error.errors.map(
-            (e) => `${e.path.join(".")}: ${e.message}`,
-          ),
+          ...zr.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
         );
       } else {
         draft = zr.data;
@@ -225,9 +223,7 @@ export async function POST(request: NextRequest) {
       const zr = workoutDraftSchema.safeParse(parsed);
       if (!zr.success) {
         validationErrors.push(
-          ...zr.error.errors.map(
-            (e) => `${e.path.join(".")}: ${e.message}`,
-          ),
+          ...zr.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`),
         );
       } else {
         draft = zr.data;
@@ -281,8 +277,7 @@ export async function POST(request: NextRequest) {
       validationErrors,
       resolvedNames,
       candidateCount: candidates.length,
-      note:
-        "Review and edit the JSON below before using Apply — nothing is saved until you confirm Apply.",
+      note: "Review and edit the JSON below before using Apply — nothing is saved until you confirm Apply.",
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error";
