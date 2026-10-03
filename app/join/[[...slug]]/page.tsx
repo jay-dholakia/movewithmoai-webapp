@@ -49,22 +49,12 @@ const JoinMoaiPage = () => {
       openAppRef.current.href = isAndroid ? androidIntent : deep;
     if (iosLinkRef.current) iosLinkRef.current.href = iosStoreUrl;
     if (androidLinkRef.current) androidLinkRef.current.href = androidStoreUrl;
-
-    const timer = setTimeout(() => {
-      if (!isAndroid) {
-        window.location.href = deep;
-      } else {
-        window.location.href = androidIntent;
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
   }, []);
 
   return (
     <DeepLinkLanding
       title="Join your moai"
-      description="We're opening the Moai app. If nothing happens, install the app or use the buttons below."
+      description="Tap Open in app to join in Moai. Don't have the app yet? Download it below."
       openAppRef={openAppRef}
       iosLinkRef={iosLinkRef}
       androidLinkRef={androidLinkRef}

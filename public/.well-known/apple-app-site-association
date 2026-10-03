@@ -4,7 +4,7 @@
     "details": [
       {
         "appID": "X9SNJKG4LM.com.jaydholakia.movewithmoai",
-        "paths": ["/invite/*"]
+        "paths": ["/invite/*", "/join/*", "/focus/*"]
       }
     ]
   }

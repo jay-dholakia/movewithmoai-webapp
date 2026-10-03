@@ -22,10 +22,10 @@ export default function FocusMoaiPage() {
 
     const ua = navigator.userAgent || "";
     const isAndroid = /Android/i.test(ua);
-    const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
-    // iOS universal link fires automatically if the app is installed.
-    // Custom scheme fallback for when it doesn't (e.g. in-app browsers).
+    // No automatic redirect: a non-gesture navigation to intent:// is unreliable in
+    // Chrome and can fall through to the Play Store even when the app is installed.
+    // The "Open in app" button (a real tap) launches the app instead.
     const deepLink = slug
       ? `${APP_SCHEME}://focus/${encodeURIComponent(slug)}`
       : `${APP_SCHEME}://`;
@@ -41,24 +41,12 @@ export default function FocusMoaiPage() {
     }
     if (iosLinkRef.current) iosLinkRef.current.href = IOS_STORE_URL;
     if (androidLinkRef.current) androidLinkRef.current.href = ANDROID_STORE_URL;
-
-    // Auto-attempt open after a short delay so the page renders first.
-    // iOS: universal link takes over before this fires if the app is installed.
-    // Android: intent handles the fallback to Play Store automatically.
-    // Desktop: nothing happens (user sees the manual buttons).
-    if (!isIOS && !isAndroid) return;
-
-    const timer = setTimeout(() => {
-      window.location.href = isAndroid ? androidIntent : deepLink;
-    }, 400);
-
-    return () => clearTimeout(timer);
   }, []);
 
   return (
     <DeepLinkLanding
       title="View this Focus Moai"
-      description="We're opening the Moai app. If nothing happens, install the app or use the buttons below."
+      description="Tap Open in app to view it in Moai. Don't have the app yet? Download it below."
       openAppRef={openAppRef}
       iosLinkRef={iosLinkRef}
       androidLinkRef={androidLinkRef}
