@@ -6,7 +6,7 @@ import { FocusMoai } from "./components/types";
 import { ConfirmationModal } from "@/components/global/ConfirmationModal";
 import { FocusMoaiModal } from "./components/FocusMoaiModal";
 import { AdminService } from "@/lib/services/adminService";
-import { ChevronDown } from "lucide-react";
+import { BarChart3, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FocusMoaiMemberRow = {
@@ -175,25 +175,34 @@ const FocusMoaiPage = () => {
             {moais.length} total · {activeMoais} active
           </p>
         </div>
-        <button
-          onClick={() => setModal("create")}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1e3a8a] text-white rounded-lg text-sm font-medium hover:bg-[#1e40af] transition-colors shadow-sm"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/focus-referrals"
+            className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          New Focus Moai
-        </button>
+            <BarChart3 className="w-4 h-4" />
+            Link stats
+          </Link>
+          <button
+            onClick={() => setModal("create")}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1e3a8a] text-white rounded-lg text-sm font-medium hover:bg-[#1e40af] transition-colors shadow-sm"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            New Focus Moai
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

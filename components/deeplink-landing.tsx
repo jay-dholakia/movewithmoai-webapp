@@ -17,12 +17,14 @@ export function DeepLinkLanding({
   openAppRef,
   iosLinkRef,
   androidLinkRef,
+  onStoreClick,
 }: {
   title: string
   description: string
   openAppRef: RefObject<HTMLAnchorElement | null>
   iosLinkRef: RefObject<HTMLAnchorElement | null>
   androidLinkRef: RefObject<HTMLAnchorElement | null>
+  onStoreClick?: (store: "ios" | "android") => void
 }) {
   return (
     <div className="min-h-screen bg-[#e8edf5]">
@@ -79,6 +81,7 @@ export function DeepLinkLanding({
             <a
               ref={iosLinkRef}
               href="#"
+              onClick={() => onStoreClick?.("ios")}
               className="flex items-center justify-center gap-2 px-6 py-3.5 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
               aria-label="Download Moai on the App Store"
             >
@@ -90,6 +93,7 @@ export function DeepLinkLanding({
             <a
               ref={androidLinkRef}
               href="#"
+              onClick={() => onStoreClick?.("android")}
               className="flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
               aria-label="Get Moai on Google Play"
             >

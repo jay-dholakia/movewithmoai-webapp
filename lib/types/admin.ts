@@ -133,3 +133,22 @@ export interface MoaiDetail {
   weeks_active: number
 }
 
+
+/** One row per focus moai with a share slug — from get_focus_moai_slug_stats(). */
+export interface FocusSlugStat {
+  focus_moai_id: string
+  focus_moai_name: string
+  focus_moai_status: string | null
+  join_slug: string
+  coach_id: string | null
+  coach_name: string | null
+  link_opens: number
+  codes_entered: number
+  app_store_clicks: number
+  play_store_clicks: number
+  join_taps: number
+  joins: number
+  /** Signed-in users who used the slug but never subscribed through it. */
+  users_left: number
+  last_event_at: string | null
+}

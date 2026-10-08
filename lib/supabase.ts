@@ -2,11 +2,11 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const isDev = process.env.NEXT_PUBLIC_APP_ENV === "development";
 
-const supabaseUrl = isDev
+export const supabaseUrl = isDev
   ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!
   : process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
-const supabaseAnonKey = isDev
+export const supabaseAnonKey = isDev
   ? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY_STAGING!
   : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
