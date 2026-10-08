@@ -5,8 +5,9 @@ import Link from "next/link";
 import { FocusMoai } from "./components/types";
 import { ConfirmationModal } from "@/components/global/ConfirmationModal";
 import { FocusMoaiModal } from "./components/FocusMoaiModal";
+import { ShareFocusMoaiModal } from "@/components/focus-moai/ShareFocusMoaiModal";
 import { AdminService } from "@/lib/services/adminService";
-import { BarChart3, ChevronDown } from "lucide-react";
+import { BarChart3, ChevronDown, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FocusMoaiMemberRow = {
@@ -28,6 +29,9 @@ const FocusMoaiPage = () => {
   const [modal, setModal] = useState<"create" | "edit" | null>(null);
   const [editTarget, setEditTarget] = useState<FocusMoai | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<FocusMoai | null>(null);
+  const [shareTarget, setShareTarget] = useState<
+    (FocusMoai & { join_slug: string }) | null
+  >(null);
   const [deleting, setDeleting] = useState(false);
   const [expandedMoaiId, setExpandedMoaiId] = useState<string | null>(null);
   const [membersByMoai, setMembersByMoai] = useState<
@@ -439,6 +443,21 @@ const FocusMoaiPage = () => {
                       <div className="flex items-center gap-1 justify-end">
                         <button
                           type="button"
+                          onClick={() => {
+                            const joinSlug = moai.join_slug;
+                            if (joinSlug)
+                              setShareTarget({ ...moai, join_slug: joinSlug });
+                          }}
+                          disabled={!moai.join_slug}
+                          className="p-1.5 text-slate-400 hover:text-[#1e3a8a] hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400 disabled:cursor-not-allowed"
+                          title={
+                            moai.join_slug ? "Share invite link" : "No share link yet"
+                          }
+                        >
+                          <Share2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleEdit(moai)}
                           className="p-1.5 text-slate-400 hover:text-[#1e3a8a] hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
@@ -541,6 +560,14 @@ const FocusMoaiPage = () => {
           onClose={closeModal}
           onSave={handleSaved}
           supabase={supabase}
+        />
+      )}
+
+      {shareTarget && (
+        <ShareFocusMoaiModal
+          name={shareTarget.name}
+          joinSlug={shareTarget.join_slug}
+          onClose={() => setShareTarget(null)}
         />
       )}
 

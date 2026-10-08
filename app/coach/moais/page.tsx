@@ -22,7 +22,9 @@ import {
   ArrowLeft,
   Target,
   ChevronRight,
+  Share2,
 } from "lucide-react";
+import { ShareFocusMoaiModal } from "@/components/focus-moai/ShareFocusMoaiModal";
 import { FocusMoaiEntry, FocusMoaiMember } from "@/types/focusmoai";
 
 export default function MoaisPage() {
@@ -52,6 +54,10 @@ export default function MoaisPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [focusMoais, setFocusMoais] = useState<FocusMoaiEntry[]>([]);
   const [focusMoaisLoading, setFocusMoaisLoading] = useState(true);
+  const [sharingFocusMoai, setSharingFocusMoai] = useState<{
+    name: string;
+    joinSlug: string;
+  } | null>(null);
   const [expandedFocusMoaiId, setExpandedFocusMoaiId] = useState<string | null>(
     null,
   );
@@ -113,7 +119,7 @@ export default function MoaisPage() {
       const { data, error } = await supabase
         .from("focus_moais")
         .select(
-          `id, name, description, status, max_members, price_monthly, created_at, workout_focus(name)`,
+          `id, name, description, status, max_members, price_monthly, created_at, join_slug, workout_focus(name)`,
         )
         .eq("coach_id", coachId)
         .order("created_at", { ascending: false });
@@ -913,7 +919,22 @@ export default function MoaisPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="ml-4">
+                        <div className="ml-4 flex items-center gap-1">
+                          {fm.join_slug ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const joinSlug = fm.join_slug;
+                                if (joinSlug)
+                                  setSharingFocusMoai({ name: fm.name, joinSlug });
+                              }}
+                              className="p-2 text-gray-400 hover:text-purple-600 transition-colors"
+                              title="Share invite link"
+                              aria-label={`Share ${fm.name} invite link`}
+                            >
+                              <Share2 className="h-5 w-5" />
+                            </button>
+                          ) : null}
                           <button
                             onClick={() => handleToggleFocusMoai(fm.id)}
                             className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
@@ -1416,6 +1437,14 @@ export default function MoaisPage() {
           </div>
         )}
       </div>
+
+      {sharingFocusMoai && (
+        <ShareFocusMoaiModal
+          name={sharingFocusMoai.name}
+          joinSlug={sharingFocusMoai.joinSlug}
+          onClose={() => setSharingFocusMoai(null)}
+        />
+      )}
 
       {/* Overlay when chat is open on mobile */}
       {showChat && (

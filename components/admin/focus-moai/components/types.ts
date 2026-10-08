@@ -22,6 +22,8 @@ export interface FocusMoai {
   revenue?: number;
   is_public: boolean;
   is_published: boolean;
+  /** Share slug for /focus/<slug> links; also the typeable invite code. */
+  join_slug: string | null;
 }
 
 export interface FocusMoaiForm {
