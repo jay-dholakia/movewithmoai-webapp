@@ -8,6 +8,8 @@ export interface FocusMoaiEntry {
   created_at: string;
   workout_focus: { name: string } | null;
   member_count: number;
+  /** Share slug for /focus/<slug> links; also the typeable invite code. */
+  join_slug: string | null;
 }
 
 export interface FocusMoaiMember {

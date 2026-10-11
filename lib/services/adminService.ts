@@ -6,6 +6,7 @@ import type {
   AdminCoachDetail,
   AdminCoachWithStatus,
   AdminMoai,
+  FocusSlugStat,
   LoginActivity,
 } from "../types/admin";
 
@@ -2732,5 +2733,28 @@ export class AdminService {
       { headers: h },
     );
     return res.json();
+  }
+
+  /**
+   * Focus moai share-slug click stats (admin API, service role). `from` is inclusive;
+   * omit it for all-time.
+   */
+  static async getFocusSlugStats(from?: Date): Promise<FocusSlugStat[]> {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) throw new Error("Not signed in");
+
+    const params = new URLSearchParams();
+    if (from) params.set("from", from.toISOString());
+
+    const response = await fetch(`/api/admin/focus-slug-stats?${params}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body?.error || "Failed to load focus referral stats");
+    }
+    return body.stats ?? [];
   }
 }

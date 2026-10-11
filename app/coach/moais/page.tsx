@@ -23,7 +23,9 @@ import {
   Target,
   ChevronRight,
   BarChart2,
+  Share2,
 } from "lucide-react";
+import { ShareFocusMoaiModal } from "@/components/focus-moai/ShareFocusMoaiModal";
 import { FocusMoaiEntry, FocusMoaiMember } from "@/types/focusmoai";
 
 export default function MoaisPage() {
@@ -53,6 +55,10 @@ export default function MoaisPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [focusMoais, setFocusMoais] = useState<FocusMoaiEntry[]>([]);
   const [focusMoaisLoading, setFocusMoaisLoading] = useState(true);
+  const [sharingFocusMoai, setSharingFocusMoai] = useState<{
+    name: string;
+    joinSlug: string;
+  } | null>(null);
   const [expandedFocusMoaiId, setExpandedFocusMoaiId] = useState<string | null>(
     null,
   );
@@ -114,7 +120,7 @@ export default function MoaisPage() {
       const { data, error } = await supabase
         .from("focus_moais")
         .select(
-          `id, name, description, status, max_members, price_monthly, created_at, workout_focus(name)`,
+          `id, name, description, status, max_members, price_monthly, created_at, join_slug, workout_focus(name)`,
         )
         .eq("coach_id", coachId)
         .order("created_at", { ascending: false });
@@ -736,7 +742,7 @@ export default function MoaisPage() {
                                       key={member.user_id}
                                       className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-b-0"
                                     >
-                                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden shrink-0">
                                         {member.profile_picture_url ? (
                                           <img
                                             src={member.profile_picture_url}
@@ -924,6 +930,24 @@ export default function MoaisPage() {
                               Analytics
                             </Link>
                           )}
+                          {fm.join_slug ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const joinSlug = fm.join_slug;
+                                if (joinSlug)
+                                  setSharingFocusMoai({
+                                    name: fm.name,
+                                    joinSlug,
+                                  });
+                              }}
+                              className="p-2 text-gray-400 hover:text-purple-600 transition-colors"
+                              title="Share invite link"
+                              aria-label={`Share ${fm.name} invite link`}
+                            >
+                              <Share2 className="h-5 w-5" />
+                            </button>
+                          ) : null}
                           <button
                             onClick={() => handleToggleFocusMoai(fm.id)}
                             className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
@@ -1030,219 +1054,324 @@ export default function MoaisPage() {
             )}
           </div>
         </div>
-      </div>
 
-      {/* Chat Panel - Messenger Style */}
-      <div
-        className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-          showChat ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        {!selectedChatMoaiId ? (
-          /* Chat List View */
-          <div className="h-full flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-200 bg-white sticky top-0 z-10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Messages
-                </h2>
-                <button
-                  onClick={() => setShowChat(false)}
-                  className="text-gray-500 hover:text-gray-700 p-1"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+        {/* Chat Panel - Messenger Style */}
+        <div
+          className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+            showChat ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          {!selectedChatMoaiId ? (
+            /* Chat List View */
+            <div className="h-full flex flex-col">
+              <div className="px-6 py-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Messages
+                  </h2>
+                  <button
+                    onClick={() => setShowChat(false)}
+                    className="text-gray-500 hover:text-gray-700 p-1"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search conversations..."
+                    className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                  />
+                </div>
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search conversations..."
-                  className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                />
+              <div className="flex-1 overflow-y-auto">
+                {moais.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8 px-6">
+                    <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p>No Moais found</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {moais
+                      .sort((a, b) => {
+                        // Sort by unread count first, then by last message
+                        if (
+                          a.unread_messages_count !== b.unread_messages_count
+                        ) {
+                          return (
+                            b.unread_messages_count - a.unread_messages_count
+                          );
+                        }
+                        return 0;
+                      })
+                      .map((moai) => (
+                        <button
+                          key={moai.moai_id}
+                          onClick={() => handleSelectChat(moai.moai_id)}
+                          className="w-full px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                              <Users className="h-6 w-6 text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                  {moai.moai_name}
+                                </h3>
+                                {moai.unread_messages_count > 0 && (
+                                  <span className="shrink-0 ml-2 px-2 py-0.5 bg-blue-600 text-white text-xs font-medium rounded-full">
+                                    {moai.unread_messages_count}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 truncate">
+                                {moai.member_count}{" "}
+                                {moai.member_count === 1 ? "member" : "members"}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                )}
+                {focusMoais
+                  .filter((fm) => fm.member_count > 0)
+                  .map((fm) => (
+                    <button
+                      key={`focus-${fm.id}`}
+                      onClick={() => handleSelectChat(fm.id, "focus-moai")}
+                      className="w-full px-6 py-4 hover:bg-gray-50 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                          <Target className="h-6 w-6 text-purple-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">
+                            {fm.name}
+                          </h3>
+                          <p className="text-xs text-gray-500 truncate">
+                            {fm.member_count}{" "}
+                            {fm.member_count === 1 ? "member" : "members"} ·
+                            Focus Moai
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              {moais.length === 0 ? (
-                <div className="text-center text-gray-500 py-8 px-6">
-                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p>No Moais found</p>
+          ) : (
+            /* Conversation View */
+            <div className="h-full flex flex-col">
+              {/* Chat Header */}
+              <div className="px-6 py-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSelectedChatMoaiId(null)}
+                    className="text-gray-500 hover:text-gray-700 p-1"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                  <div
+                    className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
+                      selectedChatType === "focus-moai"
+                        ? "bg-purple-100"
+                        : "bg-blue-100"
+                    }`}
+                  >
+                    {selectedChatType === "focus-moai" ? (
+                      <Target className="h-5 w-5 text-purple-600" />
+                    ) : (
+                      <Users className="h-5 w-5 text-blue-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg font-semibold text-gray-900 truncate">
+                      {selectedChatType === "focus-moai"
+                        ? focusMoais.find((fm) => fm.id === selectedChatMoaiId)
+                            ?.name || "Focus Moai Chat"
+                        : moais.find((m) => m.moai_id === selectedChatMoaiId)
+                            ?.moai_name || "Moai Chat"}
+                    </h2>
+                    <p className="text-xs text-gray-500">
+                      {selectedChatType === "focus-moai"
+                        ? `${focusMoais.find((fm) => fm.id === selectedChatMoaiId)?.member_count || 0} members · Focus Moai`
+                        : `${moais.find((m) => m.moai_id === selectedChatMoaiId)?.member_count || 0} members`}
+                    </p>
+                  </div>
                 </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {moais
-                    .sort((a, b) => {
-                      // Sort by unread count first, then by last message
-                      if (a.unread_messages_count !== b.unread_messages_count) {
-                        return (
-                          b.unread_messages_count - a.unread_messages_count
-                        );
-                      }
-                      return 0;
-                    })
-                    .map((moai) => (
-                      <button
-                        key={moai.moai_id}
-                        onClick={() => handleSelectChat(moai.moai_id)}
-                        className="w-full px-6 py-4 hover:bg-gray-50 transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <Users className="h-6 w-6 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h3 className="text-sm font-semibold text-gray-900 truncate">
-                                {moai.moai_name}
-                              </h3>
-                              {moai.unread_messages_count > 0 && (
-                                <span className="flex-shrink-0 ml-2 px-2 py-0.5 bg-blue-600 text-white text-xs font-medium rounded-full">
-                                  {moai.unread_messages_count}
-                                </span>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-4 py-6 bg-gray-100">
+                {selectedChatType === "focus-moai" ? (
+                  !focusMoaiChatData[selectedChatMoaiId] ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    </div>
+                  ) : currentFocusMessages.length === 0 ? (
+                    <div className="text-center text-gray-500 py-8">
+                      <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <p className="mb-2">No messages yet.</p>
+                      <p className="text-sm">
+                        Start the conversation with your Focus Moai.
+                      </p>
+                    </div>
+                  ) : (
+                    currentFocusMessages.map((message: any, index: number) => {
+                      const prevMessage =
+                        index > 0 ? currentFocusMessages[index - 1] : null;
+                      const nextMessage =
+                        index < currentFocusMessages.length - 1
+                          ? currentFocusMessages[index + 1]
+                          : null;
+                      const isCoach = message.is_coach === true;
+                      const senderName = message.users
+                        ? `${message.users.first_name || ""} ${message.users.last_name || ""}`.trim()
+                        : "User";
+                      const senderAvatar = message.users?.profile_picture_url;
+                      const isSameSender =
+                        prevMessage &&
+                        prevMessage.sender_id === message.sender_id &&
+                        !isCoach;
+                      const timeDiff = prevMessage
+                        ? new Date(message.created_at).getTime() -
+                          new Date(prevMessage.created_at).getTime()
+                        : Infinity;
+                      const showAvatar =
+                        !isCoach && (!isSameSender || timeDiff > 300000);
+                      const showTimestamp =
+                        !nextMessage ||
+                        new Date(nextMessage.created_at).getTime() -
+                          new Date(message.created_at).getTime() >
+                          300000 ||
+                        nextMessage.sender_id !== message.sender_id;
+
+                      return (
+                        <div
+                          key={message.id}
+                          className={`flex items-end gap-2 mb-1 ${isCoach ? "justify-end" : "justify-start"}`}
+                        >
+                          {!isCoach && (
+                            <div className="w-8 h-8 shrink-0">
+                              {showAvatar ? (
+                                senderAvatar ? (
+                                  <img
+                                    src={senderAvatar}
+                                    alt={senderName}
+                                    className="h-8 w-8 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="h-8 w-8 rounded-full bg-purple-200 flex items-center justify-center">
+                                    <span className="text-xs font-medium text-purple-700">
+                                      {(senderName?.[0] || "U").toUpperCase()}
+                                    </span>
+                                  </div>
+                                )
+                              ) : (
+                                <div className="w-8" />
                               )}
                             </div>
-                            <p className="text-xs text-gray-500 truncate">
-                              {moai.member_count}{" "}
-                              {moai.member_count === 1 ? "member" : "members"}
-                            </p>
+                          )}
+                          <div
+                            className={`flex flex-col ${isCoach ? "items-end" : "items-start"} max-w-[75%]`}
+                          >
+                            {!isCoach && !isSameSender && (
+                              <span className="text-xs text-gray-600 mb-1 px-1">
+                                {senderName}
+                              </span>
+                            )}
+                            <div
+                              className={`px-4 py-2 rounded-2xl ${isCoach ? "bg-blue-500 text-white rounded-tr-sm" : "bg-white text-gray-900 rounded-tl-sm shadow-sm"}`}
+                              style={{
+                                borderRadius: isCoach
+                                  ? "18px 18px 4px 18px"
+                                  : "18px 18px 18px 4px",
+                              }}
+                            >
+                              <p className="text-sm whitespace-pre-wrap wrap-break-word leading-relaxed">
+                                {message.content}
+                              </p>
+                            </div>
+                            {showTimestamp && (
+                              <span className="text-xs mt-1 px-1 text-gray-500">
+                                {new Date(
+                                  message.created_at,
+                                ).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            )}
                           </div>
+                          {isCoach && <div className="w-8 shrink-0" />}
                         </div>
-                      </button>
-                    ))}
-                </div>
-              )}
-              {focusMoais
-                .filter((fm) => fm.member_count > 0)
-                .map((fm) => (
-                  <button
-                    key={`focus-${fm.id}`}
-                    onClick={() => handleSelectChat(fm.id, "focus-moai")}
-                    className="w-full px-6 py-4 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
-                        <Target className="h-6 w-6 text-purple-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-gray-900 truncate">
-                          {fm.name}
-                        </h3>
-                        <p className="text-xs text-gray-500 truncate">
-                          {fm.member_count}{" "}
-                          {fm.member_count === 1 ? "member" : "members"} · Focus
-                          Moai
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-            </div>
-          </div>
-        ) : (
-          /* Conversation View */
-          <div className="h-full flex flex-col">
-            {/* Chat Header */}
-            <div className="px-6 py-4 border-b border-gray-200 bg-white sticky top-0 z-10">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setSelectedChatMoaiId(null)}
-                  className="text-gray-500 hover:text-gray-700 p-1"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </button>
-                <div
-                  className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
-                    selectedChatType === "focus-moai"
-                      ? "bg-purple-100"
-                      : "bg-blue-100"
-                  }`}
-                >
-                  {selectedChatType === "focus-moai" ? (
-                    <Target className="h-5 w-5 text-purple-600" />
-                  ) : (
-                    <Users className="h-5 w-5 text-blue-600" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-lg font-semibold text-gray-900 truncate">
-                    {selectedChatType === "focus-moai"
-                      ? focusMoais.find((fm) => fm.id === selectedChatMoaiId)
-                          ?.name || "Focus Moai Chat"
-                      : moais.find((m) => m.moai_id === selectedChatMoaiId)
-                          ?.moai_name || "Moai Chat"}
-                  </h2>
-                  <p className="text-xs text-gray-500">
-                    {selectedChatType === "focus-moai"
-                      ? `${focusMoais.find((fm) => fm.id === selectedChatMoaiId)?.member_count || 0} members · Focus Moai`
-                      : `${moais.find((m) => m.moai_id === selectedChatMoaiId)?.member_count || 0} members`}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-6 bg-gray-100">
-              {selectedChatType === "focus-moai" ? (
-                !focusMoaiChatData[selectedChatMoaiId] ? (
+                      );
+                    })
+                  )
+                ) : !chatMessages[selectedChatMoaiId] ? (
                   <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
-                ) : currentFocusMessages.length === 0 ? (
+                ) : chatMessages[selectedChatMoaiId].length === 0 ? (
                   <div className="text-center text-gray-500 py-8">
                     <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <p className="mb-2">No messages yet.</p>
                     <p className="text-sm">
-                      Start the conversation with your Focus Moai.
+                      Messages from before you were added to this Moai are not
+                      shown.
                     </p>
                   </div>
                 ) : (
-                  currentFocusMessages.map((message: any, index: number) => {
+                  chatMessages[selectedChatMoaiId].map((message, index) => {
                     const prevMessage =
-                      index > 0 ? currentFocusMessages[index - 1] : null;
-                    const nextMessage =
-                      index < currentFocusMessages.length - 1
-                        ? currentFocusMessages[index + 1]
+                      index > 0
+                        ? chatMessages[selectedChatMoaiId][index - 1]
                         : null;
-                    const isCoach = message.is_coach === true;
-                    const senderName = message.users
-                      ? `${message.users.first_name || ""} ${message.users.last_name || ""}`.trim()
-                      : "User";
-                    const senderAvatar = message.users?.profile_picture_url;
+                    const nextMessage =
+                      index < chatMessages[selectedChatMoaiId].length - 1
+                        ? chatMessages[selectedChatMoaiId][index + 1]
+                        : null;
                     const isSameSender =
                       prevMessage &&
                       prevMessage.sender_id === message.sender_id &&
-                      !isCoach;
+                      !message.is_coach;
                     const timeDiff = prevMessage
-                      ? new Date(message.created_at).getTime() -
-                        new Date(prevMessage.created_at).getTime()
+                      ? new Date(message.timestamp).getTime() -
+                        new Date(prevMessage.timestamp).getTime()
                       : Infinity;
                     const showAvatar =
-                      !isCoach && (!isSameSender || timeDiff > 300000);
+                      !message.is_coach && (!isSameSender || timeDiff > 300000);
                     const showTimestamp =
                       !nextMessage ||
-                      new Date(nextMessage.created_at).getTime() -
-                        new Date(message.created_at).getTime() >
+                      new Date(nextMessage.timestamp).getTime() -
+                        new Date(message.timestamp).getTime() >
                         300000 ||
                       nextMessage.sender_id !== message.sender_id;
 
                     return (
                       <div
                         key={message.id}
-                        className={`flex items-end gap-2 mb-1 ${isCoach ? "justify-end" : "justify-start"}`}
+                        className={`flex items-end gap-2 mb-1 ${message.is_coach ? "justify-end" : "justify-start"}`}
                       >
-                        {!isCoach && (
-                          <div className="w-8 h-8 flex-shrink-0">
+                        {!message.is_coach && (
+                          <div className="w-8 h-8 shrink-0">
                             {showAvatar ? (
-                              senderAvatar ? (
+                              message.sender_profile_picture_url ? (
                                 <img
-                                  src={senderAvatar}
-                                  alt={senderName}
+                                  src={message.sender_profile_picture_url}
+                                  alt={message.sender_name || "User"}
                                   className="h-8 w-8 rounded-full object-cover"
                                 />
                               ) : (
-                                <div className="h-8 w-8 rounded-full bg-purple-200 flex items-center justify-center">
-                                  <span className="text-xs font-medium text-purple-700">
-                                    {(senderName?.[0] || "U").toUpperCase()}
+                                <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
+                                  <span className="text-xs font-medium text-gray-600">
+                                    {(
+                                      message.sender_name?.[0] || "U"
+                                    ).toUpperCase()}
                                   </span>
                                 </div>
                               )
@@ -1252,188 +1381,95 @@ export default function MoaisPage() {
                           </div>
                         )}
                         <div
-                          className={`flex flex-col ${isCoach ? "items-end" : "items-start"} max-w-[75%]`}
+                          className={`flex flex-col ${message.is_coach ? "items-end" : "items-start"} max-w-[75%]`}
                         >
-                          {!isCoach && !isSameSender && (
+                          {!message.is_coach && !isSameSender && (
                             <span className="text-xs text-gray-600 mb-1 px-1">
-                              {senderName}
+                              {message.sender_name || "User"}
                             </span>
                           )}
                           <div
-                            className={`px-4 py-2 rounded-2xl ${isCoach ? "bg-blue-500 text-white rounded-tr-sm" : "bg-white text-gray-900 rounded-tl-sm shadow-sm"}`}
+                            className={`px-4 py-2 rounded-2xl ${message.is_coach ? "bg-blue-500 text-white rounded-tr-sm" : "bg-white text-gray-900 rounded-tl-sm shadow-sm"}`}
                             style={{
-                              borderRadius: isCoach
+                              borderRadius: message.is_coach
                                 ? "18px 18px 4px 18px"
                                 : "18px 18px 18px 4px",
                             }}
                           >
-                            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                              {message.content}
+                            <p className="text-sm whitespace-pre-wrap wrap-break-words leading-relaxed">
+                              {(message as any).message ||
+                                (message as any).content}
                             </p>
                           </div>
                           {showTimestamp && (
                             <span className="text-xs mt-1 px-1 text-gray-500">
-                              {new Date(message.created_at).toLocaleTimeString(
+                              {new Date(message.timestamp).toLocaleTimeString(
                                 [],
                                 { hour: "2-digit", minute: "2-digit" },
                               )}
                             </span>
                           )}
                         </div>
-                        {isCoach && <div className="w-8 flex-shrink-0" />}
+                        {message.is_coach && <div className="w-8 shrink-0" />}
                       </div>
                     );
                   })
-                )
-              ) : !chatMessages[selectedChatMoaiId] ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : chatMessages[selectedChatMoaiId].length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="mb-2">No messages yet.</p>
-                  <p className="text-sm">
-                    Messages from before you were added to this Moai are not
-                    shown.
-                  </p>
-                </div>
-              ) : (
-                chatMessages[selectedChatMoaiId].map((message, index) => {
-                  const prevMessage =
-                    index > 0
-                      ? chatMessages[selectedChatMoaiId][index - 1]
-                      : null;
-                  const nextMessage =
-                    index < chatMessages[selectedChatMoaiId].length - 1
-                      ? chatMessages[selectedChatMoaiId][index + 1]
-                      : null;
-                  const isSameSender =
-                    prevMessage &&
-                    prevMessage.sender_id === message.sender_id &&
-                    !message.is_coach;
-                  const timeDiff = prevMessage
-                    ? new Date(message.timestamp).getTime() -
-                      new Date(prevMessage.timestamp).getTime()
-                    : Infinity;
-                  const showAvatar =
-                    !message.is_coach && (!isSameSender || timeDiff > 300000);
-                  const showTimestamp =
-                    !nextMessage ||
-                    new Date(nextMessage.timestamp).getTime() -
-                      new Date(message.timestamp).getTime() >
-                      300000 ||
-                    nextMessage.sender_id !== message.sender_id;
+                )}
+                <div ref={messagesEndRef} />
+              </div>
 
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex items-end gap-2 mb-1 ${message.is_coach ? "justify-end" : "justify-start"}`}
-                    >
-                      {!message.is_coach && (
-                        <div className="w-8 h-8 shrink-0">
-                          {showAvatar ? (
-                            message.sender_profile_picture_url ? (
-                              <img
-                                src={message.sender_profile_picture_url}
-                                alt={message.sender_name || "User"}
-                                className="h-8 w-8 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
-                                <span className="text-xs font-medium text-gray-600">
-                                  {(
-                                    message.sender_name?.[0] || "U"
-                                  ).toUpperCase()}
-                                </span>
-                              </div>
-                            )
-                          ) : (
-                            <div className="w-8" />
-                          )}
-                        </div>
-                      )}
-                      <div
-                        className={`flex flex-col ${message.is_coach ? "items-end" : "items-start"} max-w-[75%]`}
-                      >
-                        {!message.is_coach && !isSameSender && (
-                          <span className="text-xs text-gray-600 mb-1 px-1">
-                            {message.sender_name || "User"}
-                          </span>
-                        )}
-                        <div
-                          className={`px-4 py-2 rounded-2xl ${message.is_coach ? "bg-blue-500 text-white rounded-tr-sm" : "bg-white text-gray-900 rounded-tl-sm shadow-sm"}`}
-                          style={{
-                            borderRadius: message.is_coach
-                              ? "18px 18px 4px 18px"
-                              : "18px 18px 18px 4px",
-                          }}
-                        >
-                          <p className="text-sm whitespace-pre-wrap wrap-break-words leading-relaxed">
-                            {(message as any).message ||
-                              (message as any).content}
-                          </p>
-                        </div>
-                        {showTimestamp && (
-                          <span className="text-xs mt-1 px-1 text-gray-500">
-                            {new Date(message.timestamp).toLocaleTimeString(
-                              [],
-                              { hour: "2-digit", minute: "2-digit" },
-                            )}
-                          </span>
-                        )}
-                      </div>
-                      {message.is_coach && <div className="w-8 shrink-0" />}
-                    </div>
-                  );
-                })
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="border-t border-gray-200 p-4 bg-white">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={chatInputText}
-                    onChange={(e) => setChatInputText(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder="Type a message..."
-                    className="w-full px-4 py-3 pr-12 bg-gray-100 border-0 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-                  />
+              {/* Input */}
+              <div className="border-t border-gray-200 p-4 bg-white">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={chatInputText}
+                      onChange={(e) => setChatInputText(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type a message..."
+                      className="w-full px-4 py-3 pr-12 bg-gray-100 border-0 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={!chatInputText.trim() || sendingMessage}
+                    className="shrink-0 h-10 w-10 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    aria-label="Send message"
+                  >
+                    {sendingMessage ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                    ) : (
+                      <MessageSquare className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!chatInputText.trim() || sendingMessage}
-                  className="shrink-0 h-10 w-10 rounded-full bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  aria-label="Send message"
-                >
-                  {sendingMessage ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
-                  ) : (
-                    <MessageSquare className="h-5 w-5" />
-                  )}
-                </button>
               </div>
             </div>
-          </div>
+          )}
+        </div>
+
+        {sharingFocusMoai && (
+          <ShareFocusMoaiModal
+            name={sharingFocusMoai.name}
+            joinSlug={sharingFocusMoai.joinSlug}
+            onClose={() => setSharingFocusMoai(null)}
+          />
+        )}
+
+        {/* Overlay when chat is open on mobile */}
+        {showChat && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-30 z-40 md:hidden"
+            onClick={() => setShowChat(false)}
+          />
         )}
       </div>
-
-      {/* Overlay when chat is open on mobile */}
-      {showChat && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-30 z-40 md:hidden"
-          onClick={() => setShowChat(false)}
-        />
-      )}
     </div>
   );
 }

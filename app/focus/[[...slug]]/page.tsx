@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { DeepLinkLanding } from "@/components/deeplink-landing";
+import { logFocusSlugEvent } from "@/lib/focus-slug-events";
 
 const IOS_STORE_URL = "https://apps.apple.com/app/id0000000000";
 const ANDROID_STORE_URL =
@@ -12,6 +13,7 @@ export default function FocusMoaiPage() {
   const openAppRef = useRef<HTMLAnchorElement>(null);
   const iosLinkRef = useRef<HTMLAnchorElement>(null);
   const androidLinkRef = useRef<HTMLAnchorElement>(null);
+  const slugRef = useRef("");
 
   useEffect(() => {
     // Extract slug from path /focus/<slug>
@@ -19,6 +21,7 @@ export default function FocusMoaiPage() {
     const slug = pathMatch?.[1]
       ? decodeURIComponent(pathMatch[1])
       : new URLSearchParams(location.search).get("slug")?.trim() ?? "";
+    slugRef.current = slug;
 
     const ua = navigator.userAgent || "";
     const isAndroid = /Android/i.test(ua);
@@ -50,6 +53,12 @@ export default function FocusMoaiPage() {
       openAppRef={openAppRef}
       iosLinkRef={iosLinkRef}
       androidLinkRef={androidLinkRef}
+      onStoreClick={(store) =>
+        logFocusSlugEvent(
+          slugRef.current,
+          store === "ios" ? "app_store_clicked" : "play_store_clicked",
+        )
+      }
     />
   );
 }

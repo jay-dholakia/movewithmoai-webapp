@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const FOCUS_TABS = [
   { href: "/admin/workout-focus", label: "Workout focus" },
   { href: "/admin/focus-moai", label: "Focus Moai" },
+  { href: "/admin/focus-referrals", label: "Referrals" },
 ] as const;
 
 const PROGRAMS_TABS = [
