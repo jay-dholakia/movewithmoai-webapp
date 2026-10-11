@@ -316,7 +316,7 @@ export default function FocusMoaiChatPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        <div className="h-9 w-9 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+        <div className="h-9 w-9 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
           <Users className="h-5 w-5 text-purple-600" />
         </div>
 
@@ -380,7 +380,7 @@ export default function FocusMoaiChatPage() {
                     >
                       {/* Avatar for members */}
                       {!isCoach && (
-                        <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-xs font-medium text-slate-600 overflow-hidden">
+                        <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-xs font-medium text-slate-600 overflow-hidden">
                           {msg.users?.profile_picture_url ? (
                             <img
                               src={msg.users.profile_picture_url}
@@ -416,7 +416,7 @@ export default function FocusMoaiChatPage() {
                       </div>
 
                       {/* Spacer for coach messages */}
-                      {isCoach && <div className="w-7 flex-shrink-0" />}
+                      {isCoach && <div className="w-7 shrink-0" />}
                     </div>
                   );
                 })}
@@ -455,7 +455,7 @@ export default function FocusMoaiChatPage() {
             <button
               onClick={handleSend}
               disabled={!input.trim() || sending}
-              className="h-10 w-10 rounded-full bg-[#1e3a8a] text-white flex items-center justify-center hover:bg-[#1e40af] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0 mb-0.5"
+              className="h-10 w-10 rounded-full bg-[#1e3a8a] text-white flex items-center justify-center hover:bg-[#1e40af] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shrink-0 mb-0.5"
             >
               {sending ? (
                 <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

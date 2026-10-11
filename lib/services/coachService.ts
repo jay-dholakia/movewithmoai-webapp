@@ -2247,4 +2247,23 @@ export class CoachService {
     const json = await res.json();
     return json.success ? json : null;
   }
+  static async getFocusMoaiDetail(focusMoaiId: string) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return null;
+
+    const res = await fetch(
+      `/api/coach/focus-moais/${encodeURIComponent(focusMoaiId)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.success ? json.focusMoai : null;
+  }
 }

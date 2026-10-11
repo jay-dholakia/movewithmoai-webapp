@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   Target,
   ChevronRight,
+  BarChart2,
 } from "lucide-react";
 import { FocusMoaiEntry, FocusMoaiMember } from "@/types/focusmoai";
 
@@ -759,7 +760,7 @@ export default function MoaisPage() {
                                           </span>
                                           {hasCompletedToday && (
                                             <CheckCircle2
-                                              className="h-4 w-4 text-green-600 flex-shrink-0"
+                                              className="h-4 w-4 text-green-600 shrink-0"
                                               aria-label="Completed workout today"
                                             />
                                           )}
@@ -913,7 +914,16 @@ export default function MoaisPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="ml-4">
+                        <div className="ml-4 flex items-center gap-2">
+                          {fm.member_count > 0 && (
+                            <Link
+                              href={`/coach/focus-moai/analytics/${fm.id}`}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors cursor-pointer"
+                            >
+                              <BarChart2 className="h-3.5 w-3.5" />
+                              Analytics
+                            </Link>
+                          )}
                           <button
                             onClick={() => handleToggleFocusMoai(fm.id)}
                             className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
