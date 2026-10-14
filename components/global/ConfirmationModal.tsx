@@ -106,14 +106,14 @@ export function ConfirmationModal({
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            className="cursor-pointer flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             disabled={loading}
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors ${styles.confirmBtn}`}
+            className={`cursor-pointer flex-1 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 transition-colors ${styles.confirmBtn}`}
           >
             {loading ? "Please wait..." : confirmLabel}
           </button>

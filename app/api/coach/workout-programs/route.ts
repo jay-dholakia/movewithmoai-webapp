@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       .select(
         "id, plan_id, plan_name, gender, min_age, max_age, days_per_week, description, difficulty_level, equipment_required, base_plan_id, is_deprecated, is_paid, status, month_active, assigned_focus_moai_id, assigned_user_id, created_at, updated_at, created_by",
       )
+      .is("parent_program_id", null)
       .order("plan_name", { ascending: true });
 
     if (!includeDeprecated) {
@@ -133,47 +134,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Coach-only rule: coaches MUST assign the program to a focus moai or user
-    // in their scope. They can't create general/unassigned programs.
-    // NOTE: this only records *intent* — the actual linking of workout_focus
-    // and users.current_plan happens later, only once the program is
-    // published (see the PATCH /[planId] route). A freshly created program
-    // may still be missing workouts and shouldn't be pushed to members yet.
-    if (!assign_type || !assign_to_id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Coaches must assign the program to a focus moai or a user in their scope.",
-        },
-        { status: 400 },
-      );
-    }
-    if (assign_type === "focus_moai") {
-      if (!scope.focusMoaiIds.includes(assign_to_id)) {
+    // Assignment is optional for coaches — they can assign later via PATCH.
+    // If provided, validate it's in their scope.
+    if (assign_type && assign_to_id) {
+      if (assign_type === "focus_moai") {
+        if (!scope.focusMoaiIds.includes(assign_to_id)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "You are not assigned to that focus moai.",
+            },
+            { status: 403 },
+          );
+        }
+      } else if (assign_type === "user") {
+        if (!scope.allAssignableUserIds.includes(assign_to_id)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "That user is not in your coaching scope.",
+            },
+            { status: 403 },
+          );
+        }
+      } else {
         return NextResponse.json(
-          {
-            success: false,
-            error: "You are not assigned to that focus moai.",
-          },
-          { status: 403 },
+          { success: false, error: "invalid assign_type" },
+          { status: 400 },
         );
       }
-    } else if (assign_type === "user") {
-      if (!scope.allAssignableUserIds.includes(assign_to_id)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "That user is not in your coaching scope.",
-          },
-          { status: 403 },
-        );
-      }
-    } else {
-      return NextResponse.json(
-        { success: false, error: "invalid assign_type" },
-        { status: 400 },
-      );
     }
 
     // Coach programs can only be created as drafts — publishing (and the
@@ -207,7 +196,7 @@ export async function POST(request: NextRequest) {
           : [],
         base_plan_id,
         month_active,
-        is_paid: true,
+        is_paid: !!(assign_type && assign_to_id),
         is_deprecated: false,
         status: "draft",
         assigned_focus_moai_id:

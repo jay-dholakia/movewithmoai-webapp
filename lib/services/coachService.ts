@@ -2266,4 +2266,40 @@ export class CoachService {
     const json = await res.json();
     return json.success ? json.focusMoai : null;
   }
+  static async createVariants(planId: string) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return { success: false, error: "Not authenticated" };
+
+    const res = await fetch(
+      `/api/coach/workout-programs/${encodeURIComponent(planId)}/variants`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+
+    return res.json();
+  }
+
+  static async getVariants(planId: string) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return { success: false, variants: [] };
+
+    const res = await fetch(
+      `/api/coach/workout-programs/${encodeURIComponent(planId)}/variants`,
+      {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      },
+    );
+
+    return res.json();
+  }
 }

@@ -80,12 +80,11 @@ export function ManualCreateForm() {
     form.plan_name.trim().length > 0 &&
     trimmedId.length > 0 &&
     !idExists &&
-    !!assignment &&
     !loading;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || !assignment) return;
+    if (!canSubmit) return;
 
     setLoading(true);
     setError(null);
@@ -100,9 +99,11 @@ export function ManualCreateForm() {
       description: form.description.trim() || null,
       equipment_required: [],
       status: "draft",
-      assign_type: assignment.type,
-      assign_to_id: assignment.id,
     };
+    if (assignment) {
+      body.assign_type = assignment.type;
+      body.assign_to_id = assignment.id;
+    }
     if (form.difficulty_level) body.difficulty_level = form.difficulty_level;
 
     const res = await CoachService.createWorkoutProgram(body);
@@ -203,19 +204,22 @@ export function ManualCreateForm() {
         />
       </div>
 
-      {/* Assignment (required for coach) */}
-      <CoachAssignmentSection value={assignment} onChange={setAssignment} />
+      <CoachAssignmentSection
+        value={assignment}
+        onChange={setAssignment}
+        required={false}
+      />
 
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? "Creating…" : "Create program"}
       </button>
       {!assignment && !loading && (
         <p className="text-center text-xs text-gray-500">
-          Pick a focus moai or user above to enable creation.
+          Assignment is optional you can assign to a focus moai or user later.
         </p>
       )}
     </form>

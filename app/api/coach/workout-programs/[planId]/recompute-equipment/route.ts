@@ -42,11 +42,20 @@ export async function POST(request: NextRequest, context: Ctx) {
       );
     }
 
-    // 1. Get workouts in this program (excluding equipment-adapted clones)
+    // 1. Get workouts in this program AND its variants (excluding equipment-adapted clones)
+    const planIds = [decoded];
+    const { data: variantRows } = await admin
+      .from("workout_programs")
+      .select("plan_id")
+      .eq("parent_program_id", program.id);
+    if (variantRows) {
+      for (const v of variantRows) planIds.push(v.plan_id);
+    }
+
     const { data: workouts } = await admin
       .from("workoutss")
       .select("id, title")
-      .eq("plan_id", decoded);
+      .in("plan_id", planIds);
 
     const workoutIds = (workouts || [])
       .filter(

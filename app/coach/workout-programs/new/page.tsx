@@ -31,7 +31,7 @@ export default function NewCoachWorkoutProgramPage() {
           Create a new program
         </h1>
         <p className="mt-1 text-sm text-gray-500">
-          Every program has 5 workouts. Pick how you want to start — build from
+          Every program has 5 workouts. Pick how you want to start build from
           scratch, generate with AI, or duplicate an existing one from the
           shared library.
         </p>
