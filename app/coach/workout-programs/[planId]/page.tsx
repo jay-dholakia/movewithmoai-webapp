@@ -722,6 +722,10 @@ import {
 import { CoachProgramsTabs } from "@/components/coach/CoachSectionTabs/CoachSectionTabs";
 import { AddWorkoutDrawer } from "@/components/coach/workout-builder/CoachWorkoutDrawer";
 import { ConfirmationModal } from "@/components/global/ConfirmationModal";
+import {
+  CoachAssignment,
+  CoachAssignmentSection,
+} from "@/components/coach/program-creation/CoachAssignmentSection";
 
 type Slot = { day: number; workout: WorkoutTemplateRow | null };
 
@@ -799,12 +803,36 @@ export default function CoachWorkoutProgramDetailPage() {
   const [variantsLoading, setVariantsLoading] = useState(false);
   const [creatingVariants, setCreatingVariants] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
+  const [assignment, setAssignment] = useState<CoachAssignment>(null);
+  const [assignSaving, setAssignSaving] = useState(false);
 
   const hasVariants = variants.length > 0;
 
   useEffect(() => {
     if (program) setDraft(draftFromProgram(program));
   }, [program]);
+
+  const handleAssign = async () => {
+    if (!planId || !assignment || readOnly) return;
+    setAssignSaving(true);
+    try {
+      const res = await CoachService.updateWorkoutProgram(planId, {
+        assign_type: assignment.type,
+        assign_to_id: assignment.id,
+      });
+      if (res.success && res.program) {
+        setProgram((prev) => ({
+          ...res.program,
+          is_mine: res.is_mine ?? prev?.is_mine,
+          can_edit: res.can_edit ?? prev?.can_edit,
+        }));
+      } else {
+        alert(res.error || "Assignment failed");
+      }
+    } finally {
+      setAssignSaving(false);
+    }
+  };
 
   const isMine = program?.is_mine ?? false;
   const readOnly = !!program && (program.can_edit === false || !isMine);
@@ -922,6 +950,24 @@ export default function CoachWorkoutProgramDetailPage() {
       cancelled = true;
     };
   }, [planId, runEquipmentSync]);
+
+  useEffect(() => {
+    if (!program) return;
+    const p = program as any;
+    if (p.assigned_user_id) {
+      setAssignment({
+        type: "user",
+        id: p.assigned_user_id,
+        label: p.assigned_user_id,
+      });
+    } else if (p.assigned_focus_moai_id) {
+      setAssignment({
+        type: "focus_moai",
+        id: p.assigned_focus_moai_id,
+        label: p.assigned_focus_moai_id,
+      });
+    }
+  }, [program]);
 
   useEffect(() => {
     if (program && !loading && !variantsFetched.current) {
@@ -1216,6 +1262,42 @@ export default function CoachWorkoutProgramDetailPage() {
               </div>
             )}
           </div>
+
+          {/* ── Assignment ── */}
+          {!readOnly && (
+            <section className="rounded-xl border border-gray-200 bg-white p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">
+                    Assign Program
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Assign this program to a user or Focus Moai.
+                    {program.is_paid && (
+                      <span className="ml-1 text-violet-700 font-medium">
+                        Currently assigned (paid).
+                      </span>
+                    )}
+                  </p>
+                </div>
+                {assignment && (
+                  <button
+                    type="button"
+                    onClick={handleAssign}
+                    disabled={assignSaving}
+                    className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {assignSaving ? "Assigning…" : "Save Assignment"}
+                  </button>
+                )}
+              </div>
+              <CoachAssignmentSection
+                value={assignment}
+                onChange={setAssignment}
+                required={false}
+              />
+            </section>
+          )}
 
           {/* Metadata */}
           <section className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">

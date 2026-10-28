@@ -55,6 +55,8 @@ export function CoachAssignmentSection({
   onChange: (v: CoachAssignment) => void;
   required?: boolean;
 }) {
+  console.log("[Assignment] Component render. value =", JSON.stringify(value));
+
   const [assignType, setAssignType] = useState<AssignType | null>(
     value?.type ?? "focus_moai",
   );
@@ -81,6 +83,10 @@ export function CoachAssignmentSection({
       if (res.success) {
         setMoais(res.focus_moais ?? []);
         setMoaiTotal(res.total ?? 0);
+        console.log(
+          "[Assignment] Moais loaded:",
+          (res.focus_moais ?? []).map((m: FocusMoai) => m.id),
+        );
       }
     } catch {
       /* ignore */
@@ -101,6 +107,13 @@ export function CoachAssignmentSection({
       if (res.success) {
         setUsers(res.users ?? []);
         setUserTotal(res.total ?? 0);
+        console.log(
+          "[Assignment] Users loaded:",
+          (res.users ?? []).map((u: AssignableUser) => ({
+            id: u.id,
+            name: u.display_name || u.first_name,
+          })),
+        );
       }
     } catch {
       /* ignore */
@@ -108,6 +121,25 @@ export function CoachAssignmentSection({
       setUserLoading(false);
     }
   }, [userPage, userSearch]);
+
+  // When the external value changes, sync the tab
+  useEffect(() => {
+    console.log(
+      "[Assignment] Tab-sync effect. value?.type =",
+      value?.type,
+      "assignType =",
+      assignType,
+    );
+    if (value?.type && value.type !== assignType) {
+      console.log(
+        "[Assignment] Switching tab from",
+        assignType,
+        "to",
+        value.type,
+      );
+      setAssignType(value.type);
+    }
+  }, [value?.type]);
 
   useEffect(() => {
     if (assignType === "focus_moai") loadMoais();
@@ -121,9 +153,46 @@ export function CoachAssignmentSection({
     setUserPage(1);
   }, [userSearch]);
 
+  // Once moais load, upgrade a UUID-only label to the real name
+  useEffect(() => {
+    if (value?.type === "focus_moai" && moais.length > 0) {
+      const match = moais.find((m) => m.id === value.id);
+      console.log(
+        "[Assignment] Moai label upgrade check. value.id =",
+        value.id,
+        "match =",
+        match?.name ?? "NOT FOUND",
+      );
+      if (match && value.label !== match.name) {
+        onChange({ ...value, label: match.name });
+      }
+    }
+  }, [moais, value]);
+
+  // Once users load, upgrade a UUID-only label to the real name
+  useEffect(() => {
+    if (value?.type === "user" && users.length > 0) {
+      const match = users.find((u) => u.id === value.id);
+      console.log(
+        "[Assignment] User label upgrade check. value.id =",
+        value.id,
+        "match =",
+        match ? match.display_name || match.first_name : "NOT FOUND",
+      );
+      if (match) {
+        const name =
+          match.display_name ||
+          [match.first_name, match.last_name].filter(Boolean).join(" ") ||
+          match.email;
+        if (value.label !== name) {
+          onChange({ ...value, label: name });
+        }
+      }
+    }
+  }, [users, value]);
+
   const handleTypeChange = (t: AssignType) => {
     setAssignType(t);
-    onChange(null);
   };
 
   const moaiPages = Math.max(1, Math.ceil(moaiTotal / PAGE_SIZE));
@@ -243,13 +312,17 @@ export function CoachAssignmentSection({
                   u.display_name ||
                   [u.first_name, u.last_name].filter(Boolean).join(" ") ||
                   u.email;
+                const isSelected = value?.id === u.id;
+                console.log(
+                  `[Assignment] PickerRow render: u.id="${u.id}" value?.id="${value?.id}" match=${isSelected} name="${name}"`,
+                );
                 return (
                   <PickerRow
                     key={u.id}
-                    selected={value?.id === u.id}
+                    selected={isSelected}
                     onClick={() =>
                       onChange(
-                        value?.id === u.id
+                        isSelected
                           ? null
                           : { type: "user", id: u.id, label: name },
                       )
@@ -274,8 +347,7 @@ export function CoachAssignmentSection({
 
       {value && (
         <p className="text-xs text-blue-700">
-          Will assign to <span className="font-medium">{value.label}</span>{" "}
-          after creation.
+          Selected: <span className="font-medium">{value.label}</span>
         </p>
       )}
     </div>

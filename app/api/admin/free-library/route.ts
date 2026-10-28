@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
         { count: "exact" },
       )
       .eq("is_paid", false)
+      .is("parent_program_id", null)
       .or("is_deprecated.is.null,is_deprecated.eq.false")
       .order("is_free_library", { ascending: false })
       .order("plan_name", { ascending: true })

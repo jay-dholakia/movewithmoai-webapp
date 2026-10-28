@@ -72,8 +72,6 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     const { planId } = await context.params;
     const decoded = decodeURIComponent(planId);
 
-    // This is our pre-patch snapshot — used both for the edit-permission
-    // check and to know whether we're crossing draft → published.
     const before = await loadProgramOr404(decoded);
     if (!before) {
       return NextResponse.json(
@@ -99,6 +97,28 @@ export async function PATCH(request: NextRequest, context: Ctx) {
 
     const body = await request.json();
 
+    // ── Handle assignment (assign_type + assign_to_id) ──
+    const { assign_type, assign_to_id } = body as {
+      assign_type?: string;
+      assign_to_id?: string;
+    };
+    let assignmentPatch: Record<string, unknown> = {};
+    if (assign_type && assign_to_id) {
+      if (assign_type === "user") {
+        assignmentPatch = {
+          assigned_user_id: assign_to_id,
+          assigned_focus_moai_id: null,
+          is_paid: true,
+        };
+      } else if (assign_type === "focus_moai") {
+        assignmentPatch = {
+          assigned_focus_moai_id: assign_to_id,
+          assigned_user_id: null,
+          is_paid: true,
+        };
+      }
+    }
+
     const allowed = [
       "plan_name",
       "gender",
@@ -119,13 +139,18 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     for (const key of allowed) {
       if (key in body) patch[key] = body[key];
     }
-    // Never allow ownership/assignment-target fields to be overwritten via PATCH.
-    // Coaches set their assignment target once at creation; changing it isn't
-    // exposed here (unlike the admin route), so re-publish just re-syncs the
-    // same original target.
-    delete (patch as Record<string, unknown>).created_by;
-    delete (patch as Record<string, unknown>).assigned_focus_moai_id;
-    delete (patch as Record<string, unknown>).assigned_user_id;
+    // Never allow ownership fields via generic PATCH keys
+    delete patch.created_by;
+
+    // Merge assignment fields (these bypass the allowed list on purpose)
+    Object.assign(patch, assignmentPatch);
+
+    if (Object.keys(patch).length === 0) {
+      return NextResponse.json(
+        { success: false, error: "No valid fields to update" },
+        { status: 400 },
+      );
+    }
 
     if ("status" in patch) {
       const s = patch.status;
@@ -135,13 +160,6 @@ export async function PATCH(request: NextRequest, context: Ctx) {
           { status: 400 },
         );
       }
-    }
-
-    if (Object.keys(patch).length === 0) {
-      return NextResponse.json(
-        { success: false, error: "No valid fields to update" },
-        { status: 400 },
-      );
     }
 
     patch.updated_at = new Date().toISOString();
@@ -164,7 +182,8 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     const wasPublished = before.status === "published";
     const isNowPublished = data.status === "published";
 
-    if (isNowPublished && !wasPublished) {
+    // Apply assignment on publish OR when assignment was just set
+    if ((isNowPublished && !wasPublished) || (assign_type && assign_to_id)) {
       await applyProgramAssignment(admin, {
         id: data.id,
         assigned_focus_moai_id: data.assigned_focus_moai_id,
