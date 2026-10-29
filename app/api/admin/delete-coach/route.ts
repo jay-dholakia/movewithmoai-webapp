@@ -14,7 +14,9 @@ console.log("supabaseUrl set?", !!supabaseUrl);
 const supabaseServiceKey = isDev
   ? process.env.SUPABASE_SERVICE_ROLE_KEY_STAGING!
   : process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+const stripeSecretKey = isDev
+  ? process.env.STRIPE_SECRET_KEY_STAGING!
+  : process.env.STRIPE_SECRET_KEY!;
 
 console.log("supabaseServiceKey set?", !!supabaseServiceKey);
 
