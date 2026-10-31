@@ -2143,7 +2143,7 @@ export class CoachService {
     if (opts.muscle) sp.set("muscle", opts.muscle);
 
     try {
-      const res = await fetch(`/api/admin/exercises-catalog?${sp}`, {
+      const res = await fetch(`/api/coach/exercises-catalog?${sp}`, {
         headers: h,
       });
       if (!res.ok) return { success: false, error: "Search failed" };

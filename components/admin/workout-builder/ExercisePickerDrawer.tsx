@@ -10,6 +10,7 @@ import {
   adminInputClass,
   adminSelectClass,
 } from "./formStyles";
+import { CoachService } from "@/lib/services/coachService";
 
 export type PickerMode = "individual" | "superset" | "circuit";
 
@@ -18,6 +19,7 @@ type Props = {
   mode: PickerMode;
   onClose: () => void;
   onConfirm: (exercises: AdminCatalogExercise[]) => Promise<void> | void;
+  isCoach?: boolean;
 };
 
 const PAGE_SIZE = 15;
@@ -51,6 +53,7 @@ export function ExercisePickerDrawer({
   mode,
   onClose,
   onConfirm,
+  isCoach,
 }: Props) {
   const isMulti = mode !== "individual";
 
@@ -91,12 +94,19 @@ export function ExercisePickerDrawer({
       page: number;
     }) => {
       setSearching(true);
-      const res = await AdminService.searchExercisesCatalog(opts.q, {
-        page: opts.page,
-        pageSize: PAGE_SIZE,
-        equipment: opts.equipment,
-        muscle: opts.muscle,
-      });
+      const res = isCoach
+        ? await CoachService.searchExercisesCatalog(opts.q, {
+            page: opts.page,
+            pageSize: PAGE_SIZE,
+            equipment: opts.equipment,
+            muscle: opts.muscle,
+          })
+        : await AdminService.searchExercisesCatalog(opts.q, {
+            page: opts.page,
+            pageSize: PAGE_SIZE,
+            equipment: opts.equipment,
+            muscle: opts.muscle,
+          });
       setSearching(false);
       if (res.success && Array.isArray(res.exercises)) {
         setHits(res.exercises as AdminCatalogExercise[]);
@@ -106,7 +116,7 @@ export function ExercisePickerDrawer({
         setTotal(0);
       }
     },
-    [],
+    [isCoach],
   );
 
   useEffect(() => {
@@ -216,6 +226,7 @@ export function ExercisePickerDrawer({
           <CreateExerciseForm
             onCancel={() => setCreateOpen(false)}
             onCreated={handleCreated}
+            isCoach={isCoach}
           />
         ) : (
           <>
@@ -458,9 +469,11 @@ function ExerciseResultRow({
 function CreateExerciseForm({
   onCancel,
   onCreated,
+  isCoach,
 }: {
   onCancel: () => void;
   onCreated: (ex: AdminCatalogExercise) => void;
+  isCoach: boolean | undefined;
 }) {
   const [form, setForm] = useState({
     name: "",
@@ -479,20 +492,35 @@ function CreateExerciseForm({
       return;
     }
     setSaving(true);
-    const res = await AdminService.createExercise({
-      name: form.name.trim(),
-      category: form.category.trim() || null,
-      muscle_group: form.muscle_group.trim() || null,
-      log_type: form.log_type || null,
-      equipment: form.equipment
-        ? form.equipment
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : null,
-      instructions: form.instructions.trim() || null,
-      progressive_overload: false,
-    });
+    const res = isCoach
+      ? await CoachService.createExercise({
+          name: form.name.trim(),
+          category: form.category.trim() || null,
+          muscle_group: form.muscle_group.trim() || null,
+          log_type: form.log_type || null,
+          equipment: form.equipment
+            ? form.equipment
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : null,
+          instructions: form.instructions.trim() || null,
+          progressive_overload: false,
+        })
+      : await AdminService.createExercise({
+          name: form.name.trim(),
+          category: form.category.trim() || null,
+          muscle_group: form.muscle_group.trim() || null,
+          log_type: form.log_type || null,
+          equipment: form.equipment
+            ? form.equipment
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : null,
+          instructions: form.instructions.trim() || null,
+          progressive_overload: false,
+        });
     setSaving(false);
     if (res.success && res.exercise) {
       onCreated(res.exercise as AdminCatalogExercise);

@@ -878,6 +878,7 @@ export default function CoachWorkoutTemplateEditorPage() {
             setPickerConversionSeed(null);
           }}
           onConfirm={handlePickerConfirm}
+          isCoach
         />
       )}
     </div>
