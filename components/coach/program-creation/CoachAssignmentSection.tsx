@@ -61,13 +61,11 @@ export function CoachAssignmentSection({
     value?.type ?? "focus_moai",
   );
 
-  // Focus moai state
   const [moais, setMoais] = useState<FocusMoai[]>([]);
   const [moaiTotal, setMoaiTotal] = useState(0);
   const [moaiPage, setMoaiPage] = useState(1);
   const [moaiLoading, setMoaiLoading] = useState(false);
 
-  // User state
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [userTotal, setUserTotal] = useState(0);
   const [userPage, setUserPage] = useState(1);
