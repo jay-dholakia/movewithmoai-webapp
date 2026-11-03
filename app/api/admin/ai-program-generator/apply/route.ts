@@ -178,6 +178,7 @@ export async function POST(request: NextRequest) {
             .insert({
               title: w.title.trim(),
               type: w.type,
+              is_bodyweight: Boolean(w.is_bodyweight),
               plan_id: planId,
               order_index: orderIndex,
               description: w.description ?? null,
@@ -272,6 +273,7 @@ export async function POST(request: NextRequest) {
       .insert({
         title: workoutDraft.workout.title.trim(),
         type: workoutDraft.workout.type,
+        is_bodyweight: Boolean(workoutDraft.workout.is_bodyweight),
         plan_id: planIdToUse,
         order_index:
           workoutDraft.workout.order_index === undefined ||

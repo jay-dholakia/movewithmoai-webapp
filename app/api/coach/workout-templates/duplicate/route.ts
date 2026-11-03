@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { verifyCoachRequest } from "@/lib/server/coach-auth";
 import { getCoachScope, coachCanSeeProgram } from "@/lib/server/coach-scope";
+import { copyWarmupOverrides } from "@/lib/server/workout-warmup";
 
 export async function POST(request: NextRequest) {
   try {
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
       difficulty_level,
       estimated_duration_minutes,
       tags,
+      is_bodyweight,
     } = source;
 
     const { data: newWorkout, error: insertError } = await admin
@@ -130,6 +132,7 @@ export async function POST(request: NextRequest) {
         type,
         description,
         is_circuit: Boolean(is_circuit),
+        is_bodyweight: Boolean(is_bodyweight),
         difficulty_level: difficulty_level ?? null,
         estimated_duration_minutes: estimated_duration_minutes ?? null,
         tags: Array.isArray(tags) ? tags : null,
@@ -187,6 +190,8 @@ export async function POST(request: NextRequest) {
         );
       }
     }
+
+    await copyWarmupOverrides(admin, source.id, newWorkout.id, auth.userId);
 
     return NextResponse.json({ success: true, workout: newWorkout });
   } catch (e: unknown) {

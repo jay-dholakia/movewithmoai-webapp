@@ -3,8 +3,8 @@ import {
   getSupabaseAdmin,
   verifyAdminRequest,
 } from "@/lib/server/supabase-admin";
-
-const VALID_TYPES = new Set(["upper", "lower", "full", "bodyweight"]);
+import { clearWarmupOverridesOnFocusChange } from "@/lib/server/workout-warmup";
+import { INVALID_FOCUS_ERROR, isWorkoutFocus } from "@/lib/workout-focus";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -49,17 +49,15 @@ export async function PATCH(request: NextRequest, context: Ctx) {
     if ("title" in body && body.title != null)
       patch.title = String(body.title).trim();
     if ("type" in body && body.type != null) {
-      if (!VALID_TYPES.has(String(body.type))) {
+      if (!isWorkoutFocus(body.type)) {
         return NextResponse.json(
-          {
-            success: false,
-            error: "type must be upper, lower, full, or bodyweight",
-          },
+          { success: false, error: INVALID_FOCUS_ERROR },
           { status: 400 },
         );
       }
       patch.type = body.type;
     }
+    if ("is_bodyweight" in body) patch.is_bodyweight = Boolean(body.is_bodyweight);
     if ("description" in body) patch.description = body.description;
     if ("is_circuit" in body) patch.is_circuit = Boolean(body.is_circuit);
     if ("difficulty_level" in body) patch.difficulty_level = body.difficulty_level;
@@ -102,6 +100,12 @@ export async function PATCH(request: NextRequest, context: Ctx) {
       );
     }
 
+    const { data: previous } = await admin
+      .from("workoutss")
+      .select("type")
+      .eq("id", id)
+      .maybeSingle();
+
     const { data, error } = await admin
       .from("workoutss")
       .update(patch)
@@ -116,7 +120,14 @@ export async function PATCH(request: NextRequest, context: Ctx) {
       );
     }
 
-    return NextResponse.json({ success: true, workout: data });
+    const warmup_overrides_cleared = await clearWarmupOverridesOnFocusChange(
+      admin,
+      id,
+      previous?.type,
+      patch.type as string | undefined,
+    );
+
+    return NextResponse.json({ success: true, workout: data, warmup_overrides_cleared });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error";
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

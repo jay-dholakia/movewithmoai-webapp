@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { WORKOUT_FOCUS_VALUES } from "@/lib/workout-focus";
 
 const GROUP_TYPES = new Set(["circuit", "superset"]);
 
@@ -59,7 +60,8 @@ export type DraftExercise = z.infer<typeof draftExerciseSchema>;
 
 const draftWorkoutSchema = z.object({
   title: z.string().min(1),
-  type: z.enum(["upper", "lower", "full", "bodyweight"]),
+  type: z.enum(WORKOUT_FOCUS_VALUES),
+  is_bodyweight: optionalBool,
   order_index: z.number().int().min(1).optional(),
   description: z.string().nullable().optional(),
   is_circuit: z.boolean().optional(),
@@ -83,7 +85,8 @@ export const programDraftSchema = z.object({
 export const workoutDraftSchema = z.object({
   workout: z.object({
     title: z.string().min(1),
-    type: z.enum(["upper", "lower", "full", "bodyweight"]),
+    type: z.enum(WORKOUT_FOCUS_VALUES),
+    is_bodyweight: optionalBool,
     description: z.string().nullable().optional(),
     is_circuit: z.boolean().optional(),
     plan_id: z.string().nullable().optional(),
@@ -95,7 +98,8 @@ export const workoutDraftSchema = z.object({
 const applyWorkoutDraftSchema = z.object({
   workout: z.object({
     title: z.string().min(1),
-    type: z.enum(["upper", "lower", "full", "bodyweight"]),
+    type: z.enum(WORKOUT_FOCUS_VALUES),
+    is_bodyweight: optionalBool,
     description: z.string().nullable().optional(),
     is_circuit: optionalBool,
     plan_id: z.preprocess(
@@ -122,7 +126,8 @@ const applyProgramDraftSchema = z.object({
     .array(
       z.object({
         title: z.string().min(1),
-        type: z.enum(["upper", "lower", "full", "bodyweight"]),
+        type: z.enum(WORKOUT_FOCUS_VALUES),
+        is_bodyweight: optionalBool,
         order_index: z.coerce.number().int().min(1).optional(),
         description: z.string().nullable().optional(),
         is_circuit: optionalBool,

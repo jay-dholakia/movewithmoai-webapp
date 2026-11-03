@@ -27,6 +27,7 @@ import {
 } from "@/components/admin/AdminLoadingSkeleton";
 import { AdminProgramsTabs } from "@/components/admin/AdminSectionTabs";
 import { AddWorkoutDrawer } from "@/components/admin/workout-builder/AdminWorkoutDrawer";
+import { getWorkoutFocusLabel } from "@/lib/workout-focus";
 
 type Slot = { day: number; workout: WorkoutTemplateRow | null };
 
@@ -545,7 +546,7 @@ function WorkoutSlot({ slot, onAdd }: { slot: Slot; onAdd: () => void }) {
                 {slot.workout.title}
               </p>
               <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span>{slot.workout.type}</span>
+                <span>{getWorkoutFocusLabel(slot.workout.type)}</span>
                 {slot.workout.estimated_duration_minutes && (
                   <span className="inline-flex items-center gap-1">
                     <Clock className="h-3 w-3" />~

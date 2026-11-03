@@ -41,7 +41,8 @@ Return a single JSON object with this exact shape:
   "workouts": [
     {
       "title": "string",
-      "type": "upper" | "lower" | "full" | "bodyweight",
+      "type": "upper_body" | "squat_lunge" | "hip_hinge_glutes" | "lower_body_mixed" | "full_body",
+      "is_bodyweight": false,
       "order_index": 1,
       "description": "string or null",
       "is_circuit": false,
@@ -55,7 +56,8 @@ Return a single JSON object with this exact shape:
 {
   "workout": {
     "title": "string",
-    "type": "upper" | "lower" | "full" | "bodyweight",
+    "type": "upper_body" | "squat_lunge" | "hip_hinge_glutes" | "lower_body_mixed" | "full_body",
+    "is_bodyweight": false,
     "description": "string or null",
     "is_circuit": false,
     "plan_id": "string to attach to an existing program, or null for unassigned library workout",
@@ -78,6 +80,14 @@ Each exercise object must be:
   "group_type": null | "circuit" | "superset",
   "group_id": null | <positive integer>
 }
+
+Workout "type" is the workout focus and picks the warmup the app shows:
+- "upper_body": upper-body sessions.
+- "squat_lunge": lower-body sessions dominated by squats, lunges, step-ups, leg press.
+- "hip_hinge_glutes": lower-body sessions dominated by deadlifts/RDLs, hip thrusts, bridges, hamstring work.
+- "lower_body_mixed": lower-body sessions mixing both patterns.
+- "full_body": full-body sessions.
+Set "is_bodyweight": true only when every exercise needs no equipment.
 
 Circuit / superset rules (must match how the app stores rows):
 - For standalone moves: "group_type": null and "group_id": null.

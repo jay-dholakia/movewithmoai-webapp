@@ -57,6 +57,12 @@ import {
   moveInsideGroup,
 } from "@/lib/utils/reorderBlocks";
 import { toInsertBody } from "@/lib/utils/blockOps";
+import {
+  DEFAULT_WORKOUT_FOCUS,
+  WORKOUT_FOCUS_OPTIONS,
+} from "@/lib/workout-focus";
+import { WarmupEditor } from "@/components/admin/workout-builder/WarmupEditor";
+import { adminWarmupApi } from "@/lib/warmup-editor-api";
 
 type BlockKind = "individual" | "superset" | "circuit";
 
@@ -88,9 +94,12 @@ export default function WorkoutTemplateEditorPage() {
     targetType: ExerciseGroupType;
   } | null>(null);
 
+  const [warmupOverrideCount, setWarmupOverrideCount] = useState(0);
+
   const [meta, setMeta] = useState({
     title: "",
-    type: "full" as WorkoutTemplateRow["type"],
+    type: DEFAULT_WORKOUT_FOCUS as WorkoutTemplateRow["type"],
+    is_bodyweight: false,
     plan_id: "",
     order_index: "",
     description: "",
@@ -131,7 +140,8 @@ export default function WorkoutTemplateEditorPage() {
       }
       setMeta({
         title: wo.title || "",
-        type: (wo.type as WorkoutTemplateRow["type"]) || "full",
+        type: (wo.type as WorkoutTemplateRow["type"]) || DEFAULT_WORKOUT_FOCUS,
+        is_bodyweight: Boolean(wo.is_bodyweight),
         plan_id: assignedPlanId,
         order_index: wo.order_index != null ? String(wo.order_index) : "",
         description: wo.description || "",
@@ -160,18 +170,33 @@ export default function WorkoutTemplateEditorPage() {
   }, [load]);
 
   const saveMeta = async () => {
+    if (
+      workout &&
+      meta.type !== workout.type &&
+      warmupOverrideCount > 0 &&
+      !confirm(
+        `Changing the focus switches this workout to a different warmup and resets ${warmupOverrideCount} replaced stretch${warmupOverrideCount === 1 ? "" : "es"}. Continue?`,
+      )
+    ) {
+      return;
+    }
     setSavingMeta(true);
     const body: Record<string, unknown> = {
       title: meta.title.trim(),
       type: meta.type,
+      is_bodyweight: meta.is_bodyweight,
       description: meta.description.trim() || null,
       plan_id: meta.plan_id === "" ? null : meta.plan_id,
       order_index: meta.order_index === "" ? null : Number(meta.order_index),
     };
     const res = await AdminService.updateWorkoutTemplate(id, body);
     setSavingMeta(false);
-    if (res.success && res.workout) setWorkout(res.workout);
-    else alert(res.error || "Save failed");
+    if (res.success && res.workout) {
+      setWorkout(res.workout);
+      if (res.warmup_overrides_cleared) {
+        alert("Focus changed: the warmup now uses the new routine and replaced stretches were reset.");
+      }
+    } else alert(res.error || "Save failed");
   };
 
   const patchRow = async (rowId: string, patch: Record<string, unknown>) => {
@@ -619,7 +644,7 @@ export default function WorkoutTemplateEditorPage() {
                 />
               </label>
               <label>
-                <span className="text-gray-600">Type</span>
+                <span className="text-gray-600">Focus</span>
                 <select
                   className={`cursor-pointer ${adminSelectClass}`}
                   value={meta.type}
@@ -630,11 +655,22 @@ export default function WorkoutTemplateEditorPage() {
                     })
                   }
                 >
-                  <option value="upper">upper</option>
-                  <option value="lower">lower</option>
-                  <option value="full">full</option>
-                  <option value="bodyweight">bodyweight</option>
+                  {WORKOUT_FOCUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
+              </label>
+              <label className="flex items-center gap-2 self-end pb-2">
+                <input
+                  type="checkbox"
+                  checked={meta.is_bodyweight}
+                  onChange={(e) =>
+                    setMeta({ ...meta, is_bodyweight: e.target.checked })
+                  }
+                />
+                <span className="text-gray-600">Bodyweight only</span>
               </label>
               <label>
                 <span className="text-gray-600">Program</span>
@@ -691,6 +727,14 @@ export default function WorkoutTemplateEditorPage() {
               )}
             </button>
           </section>
+
+          <WarmupEditor
+            workoutId={id}
+            focus={workout.type}
+            canEdit={true}
+            api={adminWarmupApi}
+            onOverrideCountChange={setWarmupOverrideCount}
+          />
 
           {/* Blocks */}
           <section className="space-y-3">

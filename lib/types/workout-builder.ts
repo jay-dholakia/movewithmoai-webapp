@@ -1,4 +1,7 @@
-export type WorkoutTemplateType = "upper" | "lower" | "full" | "bodyweight";
+import type { WorkoutFocus } from "@/lib/workout-focus";
+
+/** `workoutss.type` — the workout focus (drives the warmup routine). */
+export type WorkoutTemplateType = WorkoutFocus;
 
 export type ExerciseGroupType = "circuit" | "superset";
 
@@ -60,6 +63,8 @@ export interface WorkoutTemplateRow {
   id: string;
   title: string;
   type: WorkoutTemplateType;
+  /** Bodyweight-only workout (replaces the legacy "bodyweight" type). */
+  is_bodyweight?: boolean | null;
   plan_id: string | null;
   description: string | null;
   order_index: number | null;
