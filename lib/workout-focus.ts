@@ -40,3 +40,17 @@ export function getWorkoutFocusLabel(value: string | null | undefined): string {
 }
 
 export const INVALID_FOCUS_ERROR = `type must be one of: ${WORKOUT_FOCUS_VALUES.join(", ")}`;
+
+/**
+ * Warning shown when an editor changes a saved workout's focus. The warmup is
+ * derived from the focus, so it switches routine, and any replaced stretches
+ * are reset because they belong to the old routine's slots.
+ */
+export function focusChangeWarmupMessage(
+  nextFocus: string,
+  replacedStretchCount: number,
+): string {
+  const base = `Changing the focus will also change this workout's warmup to the ${getWorkoutFocusLabel(nextFocus)} warmup.`;
+  if (replacedStretchCount === 0) return base;
+  return `${base} The ${replacedStretchCount} replaced stretch${replacedStretchCount === 1 ? "" : "es"} in the current warmup will be reset.`;
+}

@@ -61,6 +61,7 @@ import { toInsertBody } from "@/lib/utils/blockOps";
 import {
   DEFAULT_WORKOUT_FOCUS,
   WORKOUT_FOCUS_OPTIONS,
+  focusChangeWarmupMessage,
 } from "@/lib/workout-focus";
 import { WarmupEditor } from "@/components/admin/workout-builder/WarmupEditor";
 import { coachWarmupApi } from "@/lib/warmup-editor-api";
@@ -192,9 +193,8 @@ export default function CoachWorkoutTemplateEditorPage() {
     if (
       workout &&
       meta.type !== workout.type &&
-      warmupOverrideCount > 0 &&
       !confirm(
-        `Changing the focus switches this workout to a different warmup and resets ${warmupOverrideCount} replaced stretch${warmupOverrideCount === 1 ? "" : "es"}. Continue?`,
+        `${focusChangeWarmupMessage(meta.type, warmupOverrideCount)} Continue?`,
       )
     ) {
       return;
@@ -212,9 +212,6 @@ export default function CoachWorkoutTemplateEditorPage() {
     setSavingMeta(false);
     if (res.success && res.workout) {
       setWorkout(res.workout);
-      if (res.warmup_overrides_cleared) {
-        alert("Focus changed: the warmup now uses the new routine and replaced stretches were reset.");
-      }
     } else alert(res.error || "Save failed");
   };
 
@@ -720,6 +717,11 @@ export default function CoachWorkoutTemplateEditorPage() {
                     </option>
                   ))}
                 </select>
+                {meta.type !== workout.type && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    {focusChangeWarmupMessage(meta.type, warmupOverrideCount)}
+                  </p>
+                )}
               </label>
               <label className="flex items-center gap-2 self-end pb-2">
                 <input
