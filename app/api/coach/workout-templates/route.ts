@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { verifyCoachRequest } from "@/lib/server/coach-auth";
 import { getCoachScope, coachCanSeeProgram } from "@/lib/server/coach-scope";
+import { INVALID_FOCUS_ERROR, isWorkoutFocus } from "@/lib/workout-focus";
 
 export async function GET(request: NextRequest) {
   try {
@@ -152,6 +153,7 @@ export async function POST(request: NextRequest) {
       difficulty_level = null,
       estimated_duration_minutes = null,
       tags = null,
+      is_bodyweight = false,
     } = body as {
       title?: string;
       type?: string;
@@ -162,6 +164,7 @@ export async function POST(request: NextRequest) {
       difficulty_level?: string | null;
       estimated_duration_minutes?: number | null;
       tags?: string[] | null;
+      is_bodyweight?: boolean;
     };
 
     if (!title?.trim() || !type?.trim()) {
@@ -170,9 +173,9 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    if (!["upper", "lower", "full", "bodyweight"].includes(type)) {
+    if (!isWorkoutFocus(type)) {
       return NextResponse.json(
-        { success: false, error: "invalid type" },
+        { success: false, error: INVALID_FOCUS_ERROR },
         { status: 400 },
       );
     }
@@ -216,6 +219,7 @@ export async function POST(request: NextRequest) {
         difficulty_level,
         estimated_duration_minutes,
         tags,
+        is_bodyweight: Boolean(is_bodyweight),
         is_public: false,
         created_by: auth.userId,
       })

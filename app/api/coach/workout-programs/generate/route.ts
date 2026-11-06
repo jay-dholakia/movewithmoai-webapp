@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { verifyCoachRequest } from "@/lib/server/coach-auth";
 import { getCoachScope } from "@/lib/server/coach-scope";
 import OpenAI from "openai";
+import { DEFAULT_WORKOUT_FOCUS, isWorkoutFocus } from "@/lib/workout-focus";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -132,7 +133,7 @@ Return a JSON object with this exact structure:
   "workouts": [
     {
       "title": "string - e.g. Day 1 - Push",
-      "type": "strength",
+      "type": "upper_body" | "squat_lunge" | "hip_hinge_glutes" | "lower_body_mixed" | "full_body",
       "order_index": 1,
       "estimated_duration_minutes": 45,
       "exercises": [
@@ -254,7 +255,7 @@ Return ONLY valid JSON. No markdown, no explanation.`;
         .from("workoutss")
         .insert({
           title: w.title,
-          type: w.type || "strength",
+          type: isWorkoutFocus(w.type) ? w.type : DEFAULT_WORKOUT_FOCUS,
           plan_id: planId,
           order_index: w.order_index,
           estimated_duration_minutes: w.estimated_duration_minutes || null,

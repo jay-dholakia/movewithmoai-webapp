@@ -19,6 +19,7 @@ import {
 } from "@/components/admin/ai-program-generator/draftEditorMappers";
 import { LocalDraftExerciseTable } from "@/components/admin/ai-program-generator/LocalDraftExerciseTable";
 import { AdminProgramsTabs } from "@/components/admin/AdminSectionTabs";
+import { WORKOUT_FOCUS_OPTIONS } from "@/lib/workout-focus";
 
 type ProgramRow = { plan_id: string; plan_name: string };
 
@@ -628,11 +629,29 @@ export default function AiProgramGeneratorPage() {
                       });
                     }}
                   >
-                    <option value="upper">upper</option>
-                    <option value="lower">lower</option>
-                    <option value="full">full</option>
-                    <option value="bodyweight">bodyweight</option>
+                    {WORKOUT_FOCUS_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
                   </select>
+                </label>
+                <label className="text-xs text-gray-600 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={w.is_bodyweight}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setProgramEditor((s) => {
+                        if (!s) return s;
+                        const workouts = s.workouts.map((x) =>
+                          x.clientId === w.clientId ? { ...x, is_bodyweight: checked } : x,
+                        );
+                        return { ...s, workouts };
+                      });
+                    }}
+                  />
+                  Bodyweight only
                 </label>
                 <label className="text-xs text-gray-600 block">
                   order_index
@@ -754,11 +773,25 @@ export default function AiProgramGeneratorPage() {
                     )
                   }
                 >
-                  <option value="upper">upper</option>
-                  <option value="lower">lower</option>
-                  <option value="full">full</option>
-                  <option value="bodyweight">bodyweight</option>
+                  {WORKOUT_FOCUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
+              </label>
+              <label className="text-xs text-gray-600 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={workoutEditor.workout.is_bodyweight}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setWorkoutEditor((s) =>
+                      s ? { ...s, workout: { ...s.workout, is_bodyweight: checked } } : s,
+                    );
+                  }}
+                />
+                Bodyweight only
               </label>
               <label className="text-xs text-gray-600 block">
                 plan_id (empty = unassigned)

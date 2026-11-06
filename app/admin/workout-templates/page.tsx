@@ -4,13 +4,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AdminService } from "@/lib/services/adminService";
 import type { WorkoutTemplateRow } from "@/lib/types/workout-builder";
-import { ChevronLeft, ChevronRight, Loader2, Plus, Search } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Plus,
+  Search,
+} from "lucide-react";
 import {
   adminInputClass,
   adminSelectClass,
 } from "@/components/admin/workout-builder/formStyles";
 import { AdminListSkeleton } from "@/components/admin/AdminLoadingSkeleton";
 import { AdminProgramsTabs } from "@/components/admin/AdminSectionTabs";
+import {
+  DEFAULT_WORKOUT_FOCUS,
+  WORKOUT_FOCUS_OPTIONS,
+  getWorkoutFocusLabel,
+} from "@/lib/workout-focus";
 
 const PAGE_SIZE = 10;
 
@@ -29,7 +41,7 @@ export default function WorkoutTemplatesLibraryPage() {
 
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<WorkoutTemplateRow["type"]>("full");
+  const [type, setType] = useState<WorkoutTemplateRow["type"]>(DEFAULT_WORKOUT_FOCUS);
   const [filterQ, setFilterQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
 
@@ -135,20 +147,24 @@ export default function WorkoutTemplatesLibraryPage() {
             onChange={(e) => setTitle(e.target.value)}
           />
         </label>
-        <label>
-          <span className="text-xs text-gray-600">Type</span>
-          <select
-            className={adminSelectClass}
-            value={type}
-            onChange={(e) =>
-              setType(e.target.value as WorkoutTemplateRow["type"])
-            }
-          >
-            <option value="upper">upper</option>
-            <option value="lower">lower</option>
-            <option value="full">full</option>
-            <option value="bodyweight">bodyweight</option>
-          </select>
+        <label className="min-w-48">
+          <span className="text-xs text-gray-600">Focus</span>
+          <div className="relative">
+            <select
+              className={`${adminSelectClass} cursor-pointer appearance-none pr-9`}
+              value={type}
+              onChange={(e) =>
+                setType(e.target.value as WorkoutTemplateRow["type"])
+              }
+            >
+              {WORKOUT_FOCUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 mt-0.5 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          </div>
         </label>
         <button
           type="submit"
@@ -221,7 +237,7 @@ export default function WorkoutTemplatesLibraryPage() {
               >
                 <div>
                   <p className="font-medium text-gray-900">{w.title}</p>
-                  <p className="text-xs text-gray-500">{w.type}</p>
+                  <p className="text-xs text-gray-500">{getWorkoutFocusLabel(w.type)}</p>
                 </div>
                 <Link
                   href={`/admin/workout-templates/${w.id}`}

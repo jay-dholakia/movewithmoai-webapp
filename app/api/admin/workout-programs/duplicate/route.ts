@@ -3,6 +3,7 @@ import {
   getSupabaseAdmin,
   verifyAdminRequest,
 } from "@/lib/server/supabase-admin";
+import { copyWarmupOverrides } from "@/lib/server/workout-warmup";
 
 export async function POST(request: NextRequest) {
   try {
@@ -134,6 +135,8 @@ export async function POST(request: NextRequest) {
         console.warn("[duplicate] workout insert:", nwError);
         continue;
       }
+
+      await copyWarmupOverrides(admin, swId, newWorkout.id, auth.userId);
 
       // Copy workout exercises
       const { data: sourceExercises, error: exError } = await admin

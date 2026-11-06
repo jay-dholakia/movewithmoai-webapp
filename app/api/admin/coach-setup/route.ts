@@ -3,20 +3,26 @@ import { createClient } from "@supabase/supabase-js";
 
 const isDev = process.env.NEXT_PUBLIC_APP_ENV === "development";
 
-const adminSupabase = createClient(
-  isDev
-    ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!
-    : process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  isDev
-    ? process.env.SUPABASE_SERVICE_ROLE_KEY_STAGING!
-    : process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+let adminSupabase: ReturnType<typeof createClient> | null = null;
+
+function getAdminSupabase() {
+  if (adminSupabase) return adminSupabase;
+  adminSupabase = createClient(
+    isDev
+      ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING!
+      : process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    isDev
+      ? process.env.SUPABASE_SERVICE_ROLE_KEY_STAGING!
+      : process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  return adminSupabase;
+}
 
 export async function POST(req: NextRequest) {
+  const adminSupabase = getAdminSupabase();
   const { inviteToken, email, password, username } = await req.json();
 
-  const { data: invite } = await adminSupabase
-    .from("coach_invites")
+  const { data: invite } = await (adminSupabase.from("coach_invites") as any)
     .select("email, expires_at, used_at")
     .eq("token", inviteToken)
     .single();
@@ -46,8 +52,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: pwError.message });
   }
 
-  const { error: usernameError } = await adminSupabase
-    .from("users")
+  const { error: usernameError } = await (adminSupabase.from("users") as any)
     .update({ username })
     .eq("id", user.id);
 

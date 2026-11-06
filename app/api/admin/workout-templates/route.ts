@@ -6,15 +6,14 @@ import {
   verifyAdminRequest,
 } from "@/lib/server/supabase-admin";
 import { isEquipmentAdaptedWorkoutTitle } from "@/lib/workout-admin-filters";
-
-const VALID_TYPES = new Set(["upper", "lower", "full", "bodyweight"]);
+import { INVALID_FOCUS_ERROR, isWorkoutFocus } from "@/lib/workout-focus";
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 const MAX_SCAN = 2000;
 
 const SELECT_COLS =
-  "id, title, type, plan_id, order_index, description, is_circuit, estimated_duration_minutes, created_at";
+  "id, title, type, is_bodyweight, plan_id, order_index, description, is_circuit, estimated_duration_minutes, created_at";
 
 function toInt(value: string | null, fallback: number) {
   const n = Number(value);
@@ -156,6 +155,7 @@ export async function POST(request: NextRequest) {
       difficulty_level = null,
       estimated_duration_minutes = null,
       tags = null,
+      is_bodyweight = false,
     } = body;
 
     if (!title || typeof title !== "string" || !title.trim()) {
@@ -164,12 +164,9 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
-    if (!type || typeof type !== "string" || !VALID_TYPES.has(type)) {
+    if (!isWorkoutFocus(type)) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "type must be upper, lower, full, or bodyweight",
-        },
+        { success: false, error: INVALID_FOCUS_ERROR },
         { status: 400 },
       );
     }
@@ -194,6 +191,7 @@ export async function POST(request: NextRequest) {
       type,
       description,
       is_circuit: Boolean(is_circuit),
+      is_bodyweight: Boolean(is_bodyweight),
       is_public: true,
     };
 

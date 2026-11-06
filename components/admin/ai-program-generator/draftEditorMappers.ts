@@ -1,4 +1,5 @@
 import type { DraftExercise } from "@/lib/ai-program-draft-zod";
+import type { WorkoutFocus } from "@/lib/workout-focus";
 import {
   parseProgramDraftForApply,
   parseWorkoutDraftForApply,
@@ -11,7 +12,8 @@ export type EditorExerciseLine = DraftExercise & { clientId: string };
 export type EditorWorkoutBlock = {
   clientId: string;
   title: string;
-  type: "upper" | "lower" | "full" | "bodyweight";
+  type: WorkoutFocus;
+  is_bodyweight: boolean;
   order_index: number;
   description: string;
   is_circuit: boolean;
@@ -35,7 +37,8 @@ export type EditorProgramState = {
 export type EditorWorkoutState = {
   workout: {
     title: string;
-    type: "upper" | "lower" | "full" | "bodyweight";
+    type: WorkoutFocus;
+  is_bodyweight: boolean;
     description: string;
     is_circuit: boolean;
     plan_id: string;
@@ -67,6 +70,7 @@ export function programDraftToEditor(d: ProgramDraft): EditorProgramState {
       clientId: newClientId(),
       title: w.title,
       type: w.type,
+      is_bodyweight: w.is_bodyweight ?? false,
       order_index: w.order_index ?? wi + 1,
       description: w.description ?? "",
       is_circuit: w.is_circuit ?? false,
@@ -83,6 +87,7 @@ export function workoutDraftToEditor(d: WorkoutDraft): EditorWorkoutState {
     workout: {
       title: d.workout.title,
       type: d.workout.type,
+      is_bodyweight: d.workout.is_bodyweight ?? false,
       description: d.workout.description ?? "",
       is_circuit: d.workout.is_circuit ?? false,
       plan_id: d.workout.plan_id ?? "",
@@ -113,6 +118,7 @@ export function editorToProgramDraft(s: EditorProgramState): ProgramDraft {
     workouts: s.workouts.map((w, wi) => ({
       title: w.title.trim(),
       type: w.type,
+      is_bodyweight: w.is_bodyweight,
       order_index: w.order_index ?? wi + 1,
       description: w.description.trim() || null,
       is_circuit: w.is_circuit,
@@ -126,6 +132,7 @@ export function editorToWorkoutDraft(s: EditorWorkoutState): WorkoutDraft {
     workout: {
       title: s.workout.title.trim(),
       type: s.workout.type,
+      is_bodyweight: s.workout.is_bodyweight,
       description: s.workout.description.trim() || null,
       is_circuit: s.workout.is_circuit,
       plan_id: s.workout.plan_id.trim() || null,

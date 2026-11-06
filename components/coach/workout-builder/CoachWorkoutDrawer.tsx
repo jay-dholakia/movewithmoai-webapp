@@ -14,6 +14,13 @@ import {
 import { cn } from "@/lib/utils";
 import { CoachService } from "@/lib/services/coachService";
 import type { WorkoutTemplateRow } from "@/lib/types/workout-builder";
+import {
+  DEFAULT_WORKOUT_FOCUS,
+  WORKOUT_FOCUS_OPTIONS,
+  type WorkoutFocus,
+} from "@/lib/workout-focus";
+import { WarmupPreview } from "@/components/admin/workout-builder/WarmupEditor";
+import { coachWarmupApi } from "@/lib/warmup-editor-api";
 
 const PAGE_SIZE = 10;
 
@@ -40,7 +47,8 @@ export function AddWorkoutDrawer({
   const [error, setError] = useState<string | null>(null);
 
   const [newTitle, setNewTitle] = useState("");
-  const [newType, setNewType] = useState("full");
+  const [newType, setNewType] = useState<WorkoutFocus>(DEFAULT_WORKOUT_FOCUS);
+  const [newIsBodyweight, setNewIsBodyweight] = useState(false);
 
   const [searchQ, setSearchQ] = useState("");
   const [hits, setHits] = useState<CoachWorkoutTemplateRow[]>([]);
@@ -57,6 +65,8 @@ export function AddWorkoutDrawer({
       setMethod(null);
       setError(null);
       setNewTitle("");
+      setNewType(DEFAULT_WORKOUT_FOCUS);
+      setNewIsBodyweight(false);
       setSearchQ("");
       setHits([]);
       setSelectedId(null);
@@ -101,6 +111,7 @@ export function AddWorkoutDrawer({
         ? await CoachService.createWorkoutTemplate({
             title: newTitle.trim(),
             type: newType,
+            is_bodyweight: newIsBodyweight,
             plan_id: planId,
             order_index: day,
           })
@@ -179,22 +190,29 @@ export function AddWorkoutDrawer({
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Type
+                  Focus
                 </label>
                 <select
                   className="mt-1 block w-full cursor-pointer rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
+                  onChange={(e) => setNewType(e.target.value as WorkoutFocus)}
                 >
-                  <option value="full">Full body</option>
-                  <option value="upper">Upper</option>
-                  <option value="lower">Lower</option>
-                  <option value="push">Push</option>
-                  <option value="pull">Pull</option>
-                  <option value="legs">Legs</option>
-                  <option value="bodyweight">Bodyweight</option>
+                  {WORKOUT_FOCUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
               </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={newIsBodyweight}
+                  onChange={(e) => setNewIsBodyweight(e.target.checked)}
+                />
+                Bodyweight only
+              </label>
+              <WarmupPreview focus={newType} api={coachWarmupApi} />
               <p className="text-xs text-gray-500">
                 Created as Day {day}. Add exercises using the workout editor
                 after creation.

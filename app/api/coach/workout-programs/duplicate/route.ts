@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { verifyCoachRequest } from "@/lib/server/coach-auth";
 import { coachCanSeeProgram, getCoachScope } from "@/lib/server/coach-scope";
+import { copyWarmupOverrides } from "@/lib/server/workout-warmup";
 
 export async function POST(request: NextRequest) {
   try {
@@ -169,11 +170,14 @@ export async function POST(request: NextRequest) {
           is_public: false,
           order_index: w.order_index,
           is_circuit: w.is_circuit,
+          is_bodyweight: Boolean(w.is_bodyweight),
           created_by: auth.userId,
         })
         .select()
         .single();
       if (wErr || !newW) continue;
+
+      await copyWarmupOverrides(admin, w.id, newW.id, auth.userId);
 
       const { data: srcRows } = await admin
         .from("workout_exercises")

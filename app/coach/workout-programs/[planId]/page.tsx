@@ -722,6 +722,7 @@ import {
 import { CoachProgramsTabs } from "@/components/coach/CoachSectionTabs/CoachSectionTabs";
 import { AddWorkoutDrawer } from "@/components/coach/workout-builder/CoachWorkoutDrawer";
 import { ConfirmationModal } from "@/components/global/ConfirmationModal";
+import { getWorkoutFocusLabel } from "@/lib/workout-focus";
 import {
   CoachAssignment,
   CoachAssignmentSection,
@@ -1614,7 +1615,7 @@ function WorkoutSlot({
                 {slot.workout.title}
               </p>
               <div className="flex items-center gap-3 text-xs text-gray-500">
-                <span>{slot.workout.type}</span>
+                <span>{getWorkoutFocusLabel(slot.workout.type)}</span>
                 {slot.workout.estimated_duration_minutes && (
                   <span className="inline-flex items-center gap-1">
                     <Clock className="h-3 w-3" />~

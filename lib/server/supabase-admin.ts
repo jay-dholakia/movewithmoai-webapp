@@ -1,3 +1,108 @@
+// import { type NextRequest, NextResponse } from "next/server";
+// import { createClient } from "@supabase/supabase-js";
+
+// const isDev = process.env.NEXT_PUBLIC_APP_ENV === "development";
+
+// const supabaseUrl = isDev
+//   ? process.env.NEXT_PUBLIC_SUPABASE_URL_STAGING?.trim()
+//   : process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+
+// const supabaseServiceKey = isDev
+//   ? process.env.SUPABASE_SERVICE_ROLE_KEY_STAGING?.trim() ||
+//     process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY_STAGING?.trim()
+//   : process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+//     process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+// export function getSupabaseAdmin() {
+//   if (!supabaseUrl || !supabaseServiceKey) {
+//     throw new Error(
+//       "Missing Supabase configuration: set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY for local only).",
+//     );
+//   }
+//   return createClient(supabaseUrl, supabaseServiceKey, {
+//     auth: { autoRefreshToken: false, persistSession: false },
+//   });
+// }
+
+// export async function verifyAdminRequest(
+//   request: NextRequest,
+// ): Promise<{ userId: string } | { error: NextResponse }> {
+//   const authHeader = request.headers.get("authorization");
+//   if (!authHeader) {
+//     return {
+//       error: NextResponse.json(
+//         { success: false, error: "Unauthorized" },
+//         { status: 401 },
+//       ),
+//     };
+//   }
+//   const token = authHeader.replace("Bearer ", "");
+//   if (!token || token.length < 20) {
+//     return {
+//       error: NextResponse.json(
+//         { success: false, error: "Unauthorized" },
+//         { status: 401 },
+//       ),
+//     };
+//   }
+//   let userId: string | null = null;
+//   try {
+//     const tokenParts = token.split(".");
+//     if (tokenParts.length !== 3) {
+//       return {
+//         error: NextResponse.json(
+//           { success: false, error: "Unauthorized" },
+//           { status: 401 },
+//         ),
+//       };
+//     }
+//     const base64Payload = tokenParts[1].replace(/-/g, "+").replace(/_/g, "/");
+//     const padded =
+//       base64Payload + "=".repeat((4 - (base64Payload.length % 4)) % 4);
+//     const decoded = Buffer.from(padded, "base64").toString("utf-8");
+//     const payload = JSON.parse(decoded);
+//     userId = payload.sub || payload.user_id;
+//     if (payload.exp && payload.exp < Date.now() / 1000) {
+//       return {
+//         error: NextResponse.json(
+//           { success: false, error: "Token expired" },
+//           { status: 401 },
+//         ),
+//       };
+//     }
+//   } catch {
+//     return {
+//       error: NextResponse.json(
+//         { success: false, error: "Unauthorized" },
+//         { status: 401 },
+//       ),
+//     };
+//   }
+//   if (!userId) {
+//     return {
+//       error: NextResponse.json(
+//         { success: false, error: "Unauthorized" },
+//         { status: 401 },
+//       ),
+//     };
+//   }
+//   const admin = getSupabaseAdmin();
+//   const { data: user } = await admin
+//     .from("users")
+//     .select("role")
+//     .eq("id", userId)
+//     .single();
+//   if (!user || user.role !== "admin") {
+//     return {
+//       error: NextResponse.json(
+//         { success: false, error: "Forbidden" },
+//         { status: 403 },
+//       ),
+//     };
+//   }
+//   return { userId };
+// }
+
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -28,6 +133,8 @@ export async function verifyAdminRequest(
   request: NextRequest,
 ): Promise<{ userId: string } | { error: NextResponse }> {
   const authHeader = request.headers.get("authorization");
+  console.log("[verifyAdmin] hasAuthHeader:", !!authHeader);
+
   if (!authHeader) {
     return {
       error: NextResponse.json(
@@ -38,6 +145,7 @@ export async function verifyAdminRequest(
   }
   const token = authHeader.replace("Bearer ", "");
   if (!token || token.length < 20) {
+    console.log("[verifyAdmin] token too short or missing");
     return {
       error: NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -49,6 +157,7 @@ export async function verifyAdminRequest(
   try {
     const tokenParts = token.split(".");
     if (tokenParts.length !== 3) {
+      console.log("[verifyAdmin] token not 3 parts");
       return {
         error: NextResponse.json(
           { success: false, error: "Unauthorized" },
@@ -62,7 +171,15 @@ export async function verifyAdminRequest(
     const decoded = Buffer.from(padded, "base64").toString("utf-8");
     const payload = JSON.parse(decoded);
     userId = payload.sub || payload.user_id;
+    console.log("[verifyAdmin] userId:", userId);
+    console.log(
+      "[verifyAdmin] token exp:",
+      payload.exp,
+      "now:",
+      Math.floor(Date.now() / 1000),
+    );
     if (payload.exp && payload.exp < Date.now() / 1000) {
+      console.log("[verifyAdmin] token expired");
       return {
         error: NextResponse.json(
           { success: false, error: "Token expired" },
@@ -71,6 +188,7 @@ export async function verifyAdminRequest(
       };
     }
   } catch {
+    console.log("[verifyAdmin] token parse error");
     return {
       error: NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -79,6 +197,7 @@ export async function verifyAdminRequest(
     };
   }
   if (!userId) {
+    console.log("[verifyAdmin] no userId in token");
     return {
       error: NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -87,12 +206,19 @@ export async function verifyAdminRequest(
     };
   }
   const admin = getSupabaseAdmin();
-  const { data: user } = await admin
+  const { data: user, error: userErr } = await admin
     .from("users")
     .select("role")
     .eq("id", userId)
     .single();
+  console.log(
+    "[verifyAdmin] user:",
+    JSON.stringify(user),
+    "error:",
+    userErr?.message,
+  );
   if (!user || user.role !== "admin") {
+    console.log("[verifyAdmin] rejected - not admin");
     return {
       error: NextResponse.json(
         { success: false, error: "Forbidden" },
@@ -100,5 +226,6 @@ export async function verifyAdminRequest(
       ),
     };
   }
+  console.log("[verifyAdmin] approved");
   return { userId };
 }

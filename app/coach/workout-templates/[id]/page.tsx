@@ -58,6 +58,13 @@ import {
   moveInsideGroup,
 } from "@/lib/utils/reorderBlocks";
 import { toInsertBody } from "@/lib/utils/blockOps";
+import {
+  DEFAULT_WORKOUT_FOCUS,
+  WORKOUT_FOCUS_OPTIONS,
+  focusChangeWarmupMessage,
+} from "@/lib/workout-focus";
+import { WarmupEditor } from "@/components/admin/workout-builder/WarmupEditor";
+import { coachWarmupApi } from "@/lib/warmup-editor-api";
 
 type BlockKind = "individual" | "superset" | "circuit";
 
@@ -100,9 +107,12 @@ export default function CoachWorkoutTemplateEditorPage() {
     targetType: ExerciseGroupType;
   } | null>(null);
 
+  const [warmupOverrideCount, setWarmupOverrideCount] = useState(0);
+
   const [meta, setMeta] = useState({
     title: "",
-    type: "full" as WorkoutTemplateRow["type"],
+    type: DEFAULT_WORKOUT_FOCUS as WorkoutTemplateRow["type"],
+    is_bodyweight: false,
     plan_id: "",
     order_index: "",
     description: "",
@@ -149,7 +159,8 @@ export default function CoachWorkoutTemplateEditorPage() {
       }
       setMeta({
         title: wo.title || "",
-        type: (wo.type as WorkoutTemplateRow["type"]) || "full",
+        type: (wo.type as WorkoutTemplateRow["type"]) || DEFAULT_WORKOUT_FOCUS,
+        is_bodyweight: Boolean(wo.is_bodyweight),
         plan_id: assignedPlanId,
         order_index: wo.order_index != null ? String(wo.order_index) : "",
         description: wo.description || "",
@@ -179,18 +190,29 @@ export default function CoachWorkoutTemplateEditorPage() {
 
   const saveMeta = async () => {
     if (readOnly) return;
+    if (
+      workout &&
+      meta.type !== workout.type &&
+      !confirm(
+        `${focusChangeWarmupMessage(meta.type, warmupOverrideCount)} Continue?`,
+      )
+    ) {
+      return;
+    }
     setSavingMeta(true);
     const body: Record<string, unknown> = {
       title: meta.title.trim(),
       type: meta.type,
+      is_bodyweight: meta.is_bodyweight,
       description: meta.description.trim() || null,
       plan_id: meta.plan_id === "" ? null : meta.plan_id,
       order_index: meta.order_index === "" ? null : Number(meta.order_index),
     };
     const res = await CoachService.updateWorkoutTemplate(id, body);
     setSavingMeta(false);
-    if (res.success && res.workout) setWorkout(res.workout);
-    else alert(res.error || "Save failed");
+    if (res.success && res.workout) {
+      setWorkout(res.workout);
+    } else alert(res.error || "Save failed");
   };
 
   const patchRow = async (rowId: string, patch: Record<string, unknown>) => {
@@ -677,7 +699,7 @@ export default function CoachWorkoutTemplateEditorPage() {
                 />
               </label>
               <label>
-                <span className="text-gray-600">Type</span>
+                <span className="text-gray-600">Focus</span>
                 <select
                   className={`cursor-pointer ${adminSelectClass}`}
                   value={meta.type}
@@ -689,11 +711,28 @@ export default function CoachWorkoutTemplateEditorPage() {
                     })
                   }
                 >
-                  <option value="upper">upper</option>
-                  <option value="lower">lower</option>
-                  <option value="full">full</option>
-                  <option value="bodyweight">bodyweight</option>
+                  {WORKOUT_FOCUS_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
+                {meta.type !== workout.type && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    {focusChangeWarmupMessage(meta.type, warmupOverrideCount)}
+                  </p>
+                )}
+              </label>
+              <label className="flex items-center gap-2 self-end pb-2">
+                <input
+                  type="checkbox"
+                  checked={meta.is_bodyweight}
+                  disabled={readOnly}
+                  onChange={(e) =>
+                    setMeta({ ...meta, is_bodyweight: e.target.checked })
+                  }
+                />
+                <span className="text-gray-600">Bodyweight only</span>
               </label>
               <label>
                 <span className="text-gray-600">Program</span>
@@ -765,6 +804,14 @@ export default function CoachWorkoutTemplateEditorPage() {
               </button>
             )}
           </section>
+
+          <WarmupEditor
+            workoutId={id}
+            focus={workout.type}
+            canEdit={!readOnly}
+            api={coachWarmupApi}
+            onOverrideCountChange={setWarmupOverrideCount}
+          />
 
           {/* Blocks */}
           <section className="space-y-3">

@@ -1,53 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
 import { verifyCoachRequest } from "@/lib/server/coach-auth";
-import { getCoachScope, coachCanSeeProgram } from "@/lib/server/coach-scope";
+import { getCoachScope } from "@/lib/server/coach-scope";
+import { loadVisibleWorkout } from "@/lib/server/coach-workout-access";
+import { clearWarmupOverridesOnFocusChange } from "@/lib/server/workout-warmup";
+import { INVALID_FOCUS_ERROR, isWorkoutFocus } from "@/lib/workout-focus";
 
 type Ctx = { params: Promise<{ id: string }> };
-
-/**
- * Returns the workout if it exists AND the coach may see it.
- * Visibility: coach owns it, OR it's in a program the coach can see, OR it's unassigned.
- */
-async function loadVisibleWorkout(
-  workoutId: string,
-  scope: Awaited<ReturnType<typeof getCoachScope>>,
-) {
-  const admin = getSupabaseAdmin();
-  const { data: workout } = await admin
-    .from("workoutss")
-    .select("*")
-    .eq("id", workoutId)
-    .single();
-  if (!workout) return { workout: null as null, allowed: false };
-
-  const cb = (workout as { created_by?: string | null }).created_by ?? null;
-  if (cb === scope.userId) return { workout, allowed: true };
-
-  const planId = (workout as { plan_id?: string | null }).plan_id ?? null;
-  if (!planId) {
-    // Unassigned library workout — coach can see and duplicate but not edit
-    return { workout, allowed: true };
-  }
-
-  const { data: program } = await admin
-    .from("workout_programs")
-    .select("created_by, assigned_focus_moai_id, assigned_user_id")
-    .eq("plan_id", planId)
-    .single();
-  if (!program) return { workout, allowed: true }; // orphaned workout — visible
-
-  const canSee = coachCanSeeProgram(scope, {
-    created_by: (program as { created_by?: string | null }).created_by ?? null,
-    assigned_focus_moai_id:
-      (program as { assigned_focus_moai_id?: string | null })
-        .assigned_focus_moai_id ?? null,
-    assigned_user_id:
-      (program as { assigned_user_id?: string | null }).assigned_user_id ??
-      null,
-  });
-  return { workout, allowed: canSee };
-}
 
 export async function GET(request: NextRequest, context: Ctx) {
   try {
@@ -94,7 +53,7 @@ export async function PATCH(request: NextRequest, context: Ctx) {
 
     const { data: workout } = await admin
       .from("workoutss")
-      .select("id, created_by, plan_id")
+      .select("id, created_by, plan_id, type")
       .eq("id", id)
       .single();
     if (!workout) {
@@ -127,11 +86,20 @@ export async function PATCH(request: NextRequest, context: Ctx) {
       "estimated_duration_minutes",
       "duration_minutes",
       "tags",
+      "is_bodyweight",
     ] as const;
 
     const patch: Record<string, unknown> = {};
     for (const k of allowed) if (k in body) patch[k] = body[k];
     delete (patch as Record<string, unknown>).created_by;
+
+    if ("type" in patch && !isWorkoutFocus(patch.type)) {
+      return NextResponse.json(
+        { success: false, error: INVALID_FOCUS_ERROR },
+        { status: 400 },
+      );
+    }
+    if ("is_bodyweight" in patch) patch.is_bodyweight = Boolean(patch.is_bodyweight);
 
     // If reassigning to a different program, must own that program too
     if ("plan_id" in patch && patch.plan_id) {
@@ -173,7 +141,13 @@ export async function PATCH(request: NextRequest, context: Ctx) {
         { status: 400 },
       );
     }
-    return NextResponse.json({ success: true, workout: data });
+    const warmup_overrides_cleared = await clearWarmupOverridesOnFocusChange(
+      admin,
+      id,
+      (workout as { type?: string | null }).type,
+      patch.type as string | undefined,
+    );
+    return NextResponse.json({ success: true, workout: data, warmup_overrides_cleared });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Server error";
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

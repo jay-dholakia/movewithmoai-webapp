@@ -2542,6 +2542,56 @@ export class AdminService {
     return res.json();
   }
 
+  static async getWarmupCatalog() {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/admin/warmups/catalog`, { headers: h });
+    return res.json();
+  }
+
+  static async getWorkoutWarmup(workoutId: string) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/admin/workout-templates/${workoutId}/warmup`, {
+      headers: h,
+    });
+    return res.json();
+  }
+
+  static async replaceWorkoutWarmupSlot(
+    workoutId: string,
+    sequence: number,
+    body: Record<string, unknown>,
+  ) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/admin/workout-templates/${workoutId}/warmup/${sequence}`,
+      { method: "PUT", headers: h, body: JSON.stringify(body) },
+    );
+    return res.json();
+  }
+
+  static async resetWorkoutWarmupSlot(workoutId: string, sequence: number) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(
+      `/api/admin/workout-templates/${workoutId}/warmup/${sequence}`,
+      { method: "DELETE", headers: h },
+    );
+    return res.json();
+  }
+
+  static async resetWorkoutWarmup(workoutId: string) {
+    const h = await this.workoutBuilderHeaders();
+    if (!h) return { success: false as const, error: "Not authenticated" };
+    const res = await fetch(`/api/admin/workout-templates/${workoutId}/warmup`, {
+      method: "DELETE",
+      headers: h,
+    });
+    return res.json();
+  }
+
   static async listTemplateExercises(workoutId: string) {
     const h = await this.workoutBuilderHeaders();
     if (!h) return { success: false as const, error: "Not authenticated" };
